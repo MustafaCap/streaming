@@ -28,6 +28,15 @@ Bu klasördeki .bat dosyalarına çift tıkla. Sırayla:
   4b_mikrofon_ve_sistem_sesi.bat
       Discord'da mikrofon olarak "CABLE Output" seç; hem sesin hem
       bilgisayar sesi karşıya gitmeli.
+  4c_vbcable_test_tonu.bat
+      CABLE'a temiz bir "biiip" sesi gönderir. Gürültü sorunu varsa önce bunu dene.
+  4d_sadece_mikrofon.bat
+      Sadece mikrofonunu CABLE'a gönderir.
+      4b/4c/4d kapatılınca klasörde gonderilen_ses.wav oluşur: bizim CABLE'a
+      gönderdiğimiz ses. Bu dosya temizse sorun VB-Cable ayarındadır.
+      DİKKAT: "CABLE Output" için Windows'ta "Bu cihazı dinle"yi açma;
+      geri besleme yapar ve çok yüksek gürültü çıkar. Dinlemek için
+      Ses Kaydedici'de mikrofonu CABLE Output seçip kayıt al.
   5a_sadece_edge_sesi.bat / 5b_edge_haric_her_ses.bat
       Edge'de YouTube, aynı anda Spotify'da müzik çal. 10 saniye kaydeder.
       Oluşan .wav dosyasını dinle: 5a'da sadece video, 5b'de sadece müzik olmalı.
