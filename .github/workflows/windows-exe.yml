@@ -1,0 +1,73 @@
+name: Windows .exe derle
+
+on:
+  push:
+    paths:
+      - "denemeler/**"
+      - ".github/workflows/windows-exe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  derle:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: denemeler
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıkları kur
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: .exe dosyalarını derle
+        run: |
+          $ortak = @("--noconfirm", "--onefile", "--console")
+          pyinstaller @ortak --collect-all pyvirtualcam --collect-all dxcam 01_ekran_sanal_kamera.py
+          pyinstaller @ortak 02_yakalamadan_gizle.py
+          pyinstaller @ortak 03_kisayol.py
+          pyinstaller @ortak --collect-all pyaudiowpatch 04_sistem_sesi_vbcable.py
+          pyinstaller @ortak --collect-submodules comtypes 05_uygulama_sesi.py
+
+      - name: Hızlı kontrol (exe'ler açılıyor mu?)
+        run: |
+          foreach ($exe in "01_ekran_sanal_kamera", "04_sistem_sesi_vbcable", "05_uygulama_sesi") {
+            & "dist\$exe.exe" --help | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "$exe açılmadı (çıkış kodu $LASTEXITCODE)" }
+            Write-Host "$exe tamam"
+          }
+
+      - name: Zip paketi hazırla
+        run: |
+          New-Item -ItemType Directory -Force paket | Out-Null
+          Copy-Item dist\*.exe paket\
+          Copy-Item calistir\*.bat paket\
+          Copy-Item BENIOKU.txt, SONUCLAR.md paket\
+          Compress-Archive -Path paket\* -DestinationPath Asama0-Denemeler.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Asama0-Denemeler
+          path: denemeler/Asama0-Denemeler.zip
+
+      - name: İndirme sayfasına koy (Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: asama-0
+          name: Aşama 0 denemeleri
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          body: |
+            Python kurmana gerek yok. Asama0-Denemeler.zip dosyasını indir,
+            bir klasöre çıkar ve BENIOKU.txt'deki adımları izle.
+            (Derlenen commit: ${{ github.sha }})
+          files: denemeler/Asama0-Denemeler.zip

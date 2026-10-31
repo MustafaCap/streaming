@@ -1,0 +1,42 @@
+AŞAMA 0 DENEMELERİ - HIZLI BAŞLANGIÇ
+=====================================
+
+Python kurmana gerek yok. Sadece şu iki programın kurulu olması gerekiyor:
+
+  1) OBS Studio  -> https://obsproject.com/
+     Kurduktan sonra OBS'yi bir kere aç, "Sanal Kamerayı Başlat"a bas, kapat.
+  2) VB-Cable    -> https://vb-audio.com/Cable/
+     Zip'i aç, VBCABLE_Setup_x64.exe'ye sağ tık > Yönetici olarak çalıştır,
+     sonra bilgisayarı yeniden başlat. (Sadece 4. deneme için gerekli.)
+
+NASIL ÇALIŞTIRILIR
+------------------
+Bu klasördeki .bat dosyalarına çift tıkla. Sırayla:
+
+  1_ekran_sanal_kamera.bat
+      Zoom'da veya Windows Kamera uygulamasında kamera olarak
+      "OBS Virtual Camera"yı seç. Ekranını görmelisin.
+      Durdurmak için pencerede Ctrl+C, sonra "E" veya "Y".
+  1b_ekran_sanal_kamera_mss.bat   -> aynı deneme, yedek yöntemle
+  2_pencere_gizleme.bat
+      Kendi kendini test eder, BAŞARILI / BAŞARISIZ yazar.
+  3_kisayollar.bat
+      Bir oyun aç, F6 / F8'e bas: bip sesi gelmeli.
+      F7 kalem modunu açar; açıkken "1" tuşu oyuna gitmemeli.
+      Çıkış: Ctrl+Shift+Q
+  4a_ses_cihazlari_listesi.bat    -> ses cihazlarını listeler
+  4b_mikrofon_ve_sistem_sesi.bat
+      Discord'da mikrofon olarak "CABLE Output" seç; hem sesin hem
+      bilgisayar sesi karşıya gitmeli.
+  5a_sadece_chrome_sesi.bat / 5b_chrome_haric_her_ses.bat
+      Chrome'da YouTube, aynı anda Spotify'da müzik çal. 10 saniye kaydeder.
+      Oluşan .wav dosyasını dinle: 5a'da sadece video, 5b'de sadece müzik olmalı.
+
+UYARILAR
+--------
+- "Windows bilgisayarınızı korudu" çıkarsa: "Ek bilgi" > "Yine de çalıştır".
+  Dosyalar imzasız olduğu için bu normal.
+- Antivirüs 3_kisayollar'ı şüpheli bulabilir (klavye dinlediği için). Yanlış alarm.
+- Bir pencere hata verip kapanırsa ekranın fotoğrafını çek ya da yazıyı kopyala ve bana gönder.
+
+Sonuçları SONUCLAR.md dosyasına (Not Defteri ile açılır) yaz ve gönder.
