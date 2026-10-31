@@ -7,14 +7,14 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 1. **OBS Studio** kur (https://obsproject.com/), aç, *Sanal Kamerayı Başlat*'a bir kez bas ve kapat. Uygulama OBS'nin sanal kamera sürücüsünü kullanır; OBS'nin açık olması gerekmez.
 2. **VB-Cable** kur (https://vb-audio.com/Cable/ → zip'i çıkar → `VBCABLE_Setup_x64.exe`'ye sağ tık → *Yönetici olarak çalıştır* → *Install Driver*), sonra bilgisayarı yeniden başlat.
 3. Windows ses ayarlarında **varsayılan giriş = gerçek mikrofonun**, **varsayılan çıkış = gerçek hoparlör/kulaklık** olsun. CABLE'ı Windows'ta varsayılan yapma; sadece Zoom/Discord içinde seçilir. CABLE Output için *Bu cihazı dinle*'yi açma (geri besleme gürültüsü yapar).
-4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından **`YayinUygulamasi-Kurulum.exe`**'yi indir ve çalıştır. Kurulum yerini sorar, Başlat menüsüne ekler (Windows aramasına "Yayın" yazınca çıkar) ve istersen masaüstüne kısayol koyar. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır* (kurulum programı imzalı değil). Kaldırmak için: *Ayarlar → Uygulamalar → Yayın Uygulaması → Kaldır* (ayarların ve kayıtların silinmez).
+4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından (ya da [Releases](https://github.com/MustafaCap/streaming/releases)'teki sürüm numaralı `v…` sayfalarından) **`YayinUygulamasi-Kurulum.exe`**'yi indir ve çalıştır. Yeni sürümü kurmak için aynısını yap, eskisinin üstüne kurulur. Kurulum yerini sorar, Başlat menüsüne ekler (Windows aramasına "Yayın" yazınca çıkar) ve istersen masaüstüne kısayol koyar. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır* (kurulum programı imzalı değil). Kaldırmak için: *Ayarlar → Uygulamalar → Yayın Uygulaması → Kaldır* (ayarların ve kayıtların silinmez).
    - Kurmadan denemek istersen aynı sayfadaki `YayinUygulamasi.zip`'i bir klasöre çıkarıp `YayinUygulamasi\YayinUygulamasi.exe`'yi çalıştırabilirsin (`D:\streaming\guncelle.bat` bunu indirir).
 
 ## Kullanım
 
 1. **Yayın** düğmesine bas (görüntü ve ses birlikte başlar).
 2. Zoom / Meet / Discord'da: kamera **OBS Virtual Camera**, mikrofon **CABLE Output (VB-Audio Virtual Cable)**.
-3. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan yenisi başlamaz, çalışan pencere öne gelir. Pencere gizliyken (yayın ve kayıt da yoksa) kamera kapalı tutulur. Tamamen kapatmak için tepsi simgesine sağ tık → *Çıkış*.
+3. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan yenisi başlamaz, çalışan pencere öne gelir. Pencere gizliyken (yayın ve kayıt da yoksa) kamera kapalı tutulur. Yayın ya da kayıt sürerken pencereyi kapatırsan mini çubuk açılır; yayının sürdüğünü görür, oradan durdurursun. Tamamen kapatmak için sağ üstteki **⏻ Çıkış** düğmesi ya da tepsi simgesine sağ tık → *Çıkış* (yayın/kayıt açıksa önce sorar).
 
 ### Kısayollar (hepsi Ayarlar > Kısayollar'dan değiştirilebilir)
 
@@ -42,7 +42,7 @@ Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · 
 - **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil. Düğmelerin adı ve kısayolu fareyle üstüne gelince görünür.
 - **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
 - **İmleç vurgulama**: halka + tıklama dalgası (Ayarlar > Genel).
-- **Yerel kayıt**: `Videolar\YayinUygulamasi\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar.
+- **Yerel kayıt**: `Videolar\YayinUygulamasi\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar. Kayıt sırasında uygulama çökerse ya da elektrik giderse kayıt kaybolmaz: bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
 - Uygulamanın kendi pencereleri (önizleme, kalem çubuğu, kare seçme, bildirimler, mini mod) **ekran yakalamaya girmez**; karşı taraf görmez.
 - Bir kaynak koparsa (kamera çıkarılır, mikrofon değişir) uygulama çökmez; o kaynak kırmızı görünür ve birkaç saniyede bir yeniden denenir.
 
@@ -61,8 +61,11 @@ Windows'ta başka bir uygulamanın bildirimini ekran yakalamadan çıkarmanın r
 | Yankı var | Hoparlörden çıkan sesi mikrofon da duyuyor olabilir: kulaklık kullan. Meet gibi tarayıcıdan katılıyorsan tarayıcıyı (`msedge.exe`) Ayarlar > Ses'te hariç listesine ekle. |
 | Kısayol çalışmıyor | Başka bir program kullanıyor olabilir; Ayarlar > Kısayollar'dan değiştir. Tek başına F12 kullanılamaz (Windows'a ayrılmış). Oyun yönetici olarak çalışıyorsa uygulamayı da yönetici olarak aç. |
 | Zoom "kamera başka uygulamada" diyor | Birkaç saniye bekle ya da Zoom'da kamerayı kapatıp aç. |
+| "OBS sanal kamerası başka bir programda açık" | OBS Studio açık ve kendi sanal kamerası çalışıyor; OBS'de *Sanal Kamerayı Durdur*'a bas ya da OBS'yi kapat. |
+| Kamera "yok" görünüyor | Windows *Ayarlar → Gizlilik ve güvenlik → Kamera*'da masaüstü uygulamalarının kameraya erişimi açık olmalı. Ayarlar > Kamera'dan kamera numarasını da dene. |
+| Uygulama açılmıyor | Bir hata penceresi çıkar ve log klasörünü açmayı önerir; `uygulama.log` ve `cokme.log` dosyalarını gönder. |
 
-Ayarlar `%APPDATA%\YayinUygulamasi\settings.json`, loglar `%APPDATA%\YayinUygulamasi\logs\uygulama.log`. Bir sorun olursa bu log dosyasını gönder.
+Ayarlar `%APPDATA%\YayinUygulamasi\settings.json` (elle bozulan bir değer varsayılana döner), loglar `%APPDATA%\YayinUygulamasi\logs\` klasöründe (`uygulama.log`, yerel çökmeler için `cokme.log`). Bir sorun olursa bu dosyaları ve sürüm numarasını (*Hakkında*) gönder.
 
 ## Geliştirici kurulumu
 
@@ -74,7 +77,7 @@ python main.py          # uygulamayı çalıştır
 python -m pytest -q     # testler
 ```
 
-Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `YayinUygulamasi-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır.
+Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır (paketlenmiş sürümde kullanılmaz). Bağımlılık sürümleri `requirements*.txt`'te sabittir; güncellerken CI'da testlerin geçtiğini gör. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. `core/surum.py`'deki sürüm numarası ilk kez görüldüğünde ayrıca kalıcı bir `v<sürüm>` sürümü açılır; notu [CHANGELOG.md](CHANGELOG.md)'den gelir (yeni sürüm numarası verirken oraya not ekle, yoksa test kırılır). Her Release'te `SHA256SUMS.txt` dosya özetleri bulunur; paketteki `ffmpeg\KAYNAK.txt` kullanılan FFmpeg'in adını ve özetini yazar. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `YayinUygulamasi-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır.
 
 ## Klasör yapısı
 
