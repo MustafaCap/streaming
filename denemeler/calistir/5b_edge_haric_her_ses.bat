@@ -10,6 +10,6 @@ if not exist "05_uygulama_sesi.exe" (
   pause
   exit /b 1
 )
-05_uygulama_sesi.exe --surec chrome.exe --haric
+05_uygulama_sesi.exe --surec msedge.exe --haric
 echo.
 pause

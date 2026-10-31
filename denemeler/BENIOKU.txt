@@ -28,8 +28,8 @@ Bu klasördeki .bat dosyalarına çift tıkla. Sırayla:
   4b_mikrofon_ve_sistem_sesi.bat
       Discord'da mikrofon olarak "CABLE Output" seç; hem sesin hem
       bilgisayar sesi karşıya gitmeli.
-  5a_sadece_chrome_sesi.bat / 5b_chrome_haric_her_ses.bat
-      Chrome'da YouTube, aynı anda Spotify'da müzik çal. 10 saniye kaydeder.
+  5a_sadece_edge_sesi.bat / 5b_edge_haric_her_ses.bat
+      Edge'de YouTube, aynı anda Spotify'da müzik çal. 10 saniye kaydeder.
       Oluşan .wav dosyasını dinle: 5a'da sadece video, 5b'de sadece müzik olmalı.
 
 UYARILAR
