@@ -179,6 +179,7 @@ def kurulum_metni(cikti: Path = KOK / "build" / "kurulum_lisans.txt") -> Path:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows konsolu cp1252: Türkçe harfler çökertmesin
     if len(sys.argv) != 2:
         sys.exit("kullanım: python kurulum/lisanslar.py dist/YayinUygulamasi")
     liste = topla(Path(sys.argv[1]))
