@@ -1,7 +1,6 @@
 # Microsoft Store ve SignPath için hazır metinler
 
-Uygulamanın kalıcı adı henüz seçilmedi. Aşağıda **`{AD}`** gördüğün her yere seçtiğin adı yaz. Ad seçilince
-uygulama penceresindeki, kurulum programındaki ve paketteki ad da değişecek.
+Uygulamanın adı: **RizeOn**. Henüz kendi alan adı yok; web sitesi olarak GitHub sayfası kullanılıyor.
 
 ## 1. Microsoft Store (Partner Center) sayfası
 
@@ -9,19 +8,19 @@ Partner Center'da *Uygulamalar ve oyunlar → Yeni ürün → MSIX veya PWA uygu
 
 | Alan | Değer |
 | --- | --- |
-| Ürün adı (ayırt) | `{AD}` |
+| Ürün adı (ayırt) | `RizeOn` |
 | Kategori | Fotoğraf ve video (*Photo & video*) |
 | Fiyat | Ücretsiz |
 | Gizlilik politikası adresi | https://github.com/MustafaCap/streaming/blob/main/docs/gizlilik.md |
 | Destek / web sitesi | https://github.com/MustafaCap/streaming |
 | Telif | Copyright (C) 2026 Mustafa. GNU GPL sürüm 3. |
-| Paket | Releases'teki `YayinUygulamasi-Store.msix` (kimlik değişkenleri girildikten sonra derlenmiş olanı) |
+| Paket | Releases'teki `RizeOn-Store.msix` (kimlik değişkenleri girildikten sonra derlenmiş olanı) |
 
 **Kısa açıklama (TR):** Meet, Zoom ve Discord'da sanal kamera ve sanal mikrofon olarak görünen, internete bağlanmayan ekran, kamera ve ses paylaşım uygulaması.
 
 **Açıklama (TR):**
 
-> {AD}, ekranını, kameranı ve sesini tek bir görüntüde birleştirip görüntülü görüşme programlarına sanal kamera ve sanal mikrofon olarak verir.
+> RizeOn, ekranını, kameranı ve sesini tek bir görüntüde birleştirip görüntülü görüşme programlarına sanal kamera ve sanal mikrofon olarak verir.
 >
 > - Tek tuşla (F6) ekranın bir bölgesini seç ve sadece onu göster
 > - Ekranın üstüne anında çizim yap (F7)
@@ -36,7 +35,7 @@ Partner Center'da *Uygulamalar ve oyunlar → Yeni ürün → MSIX veya PWA uygu
 
 **Description (EN):**
 
-> {AD} combines your screen, camera and audio into one picture and hands it to video-call apps as a virtual camera and virtual microphone.
+> RizeOn combines your screen, camera and audio into one picture and hands it to video-call apps as a virtual camera and virtual microphone.
 >
 > - Pick a region of your screen with one key (F6) and show only that
 > - Draw on top of your screen instantly (F7)
@@ -67,12 +66,12 @@ Başvuru adresi: https://signpath.org/apply. Form şunları sorarsa:
 
 | Soru | Cevap |
 | --- | --- |
-| Project name | `{AD}` |
+| Project name | `RizeOn` |
 | Repository | https://github.com/MustafaCap/streaming |
 | License | GPL-3.0 (all components open source; FFmpeg LGPL build, PySide6 LGPL) |
 | Description | Offline Windows app that provides a virtual camera and virtual microphone for video calls (screen region sharing, on-screen drawing, camera overlay, audio mixer). No network access. |
 | Build | GitHub Actions on `windows-latest` (`.github/workflows/uygulama.yml`): tests, PyInstaller (bootloader built from source), Inno Setup installer |
-| Artifacts to sign | `YayinUygulamasi.exe` (app) and `YayinUygulamasi-Kurulum.exe` (Inno Setup installer) |
+| Artifacts to sign | `RizeOn.exe` (app) and `RizeOn-Kurulum.exe` (Inno Setup installer) |
 | Releases | https://github.com/MustafaCap/streaming/releases |
 | Team | Mustafa (author, reviewer, approver) |
 | Why signing | Edge/SmartScreen blocks the unsigned installer for users |

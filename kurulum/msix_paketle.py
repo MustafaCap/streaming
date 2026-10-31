@@ -9,8 +9,8 @@ uygulama adı ayrılınca verilir; CI bunları depo değişkenlerinden okur:
 Değişkenler yoksa deneme değerleri kullanılır (paket derlenir ama Store kabul etmez).
 
 Kullanım (CI):
-  python kurulum/msix_paketle.py dist/YayinUygulamasi build/msix
-  makeappx pack /o /d build\\msix /p YayinUygulamasi-Store.msix
+  python kurulum/msix_paketle.py dist/RizeOn build/msix
+  makeappx pack /o /d build\\msix /p RizeOn-Store.msix
 """
 
 import os
@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import surum_bilgisi  # noqa: E402
 
-DENEME_ADI = "MustafaCap.YayinUygulamasi"
+DENEME_ADI = "MustafaCap.RizeOn"
 DENEME_YAYINCI = "CN=MustafaCap"
 DENEME_YAYINCI_ADI = "Mustafa"
 
@@ -76,7 +76,7 @@ def manifest(surum_metni: str, ad: str, yayinci: str, yayinci_adi: str) -> str:
     <Resource Language="tr-TR" />
   </Resources>
   <Applications>
-    <Application Id="YayinUygulamasi" Executable="YayinUygulamasi.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="RizeOn" Executable="RizeOn.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements DisplayName="{urun}" Description="{aciklama}" BackgroundColor="transparent"
         Square150x150Logo="Assets\\Square150x150Logo.png" Square44x44Logo="Assets\\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\\Wide310x150Logo.png" />
@@ -108,8 +108,8 @@ def logolari_yaz(hedef: Path) -> None:
 
 
 def hazirla(uygulama: Path, hedef: Path, surum_metni: str | None = None) -> Path:
-    if not (uygulama / "YayinUygulamasi.exe").exists():
-        raise FileNotFoundError(f"{uygulama} içinde YayinUygulamasi.exe yok (önce PyInstaller)")
+    if not (uygulama / "RizeOn.exe").exists():
+        raise FileNotFoundError(f"{uygulama} içinde RizeOn.exe yok (önce PyInstaller)")
     if hedef.exists():
         shutil.rmtree(hedef)
     shutil.copytree(uygulama, hedef)

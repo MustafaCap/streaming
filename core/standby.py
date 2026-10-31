@@ -26,7 +26,7 @@ def video_mu(yol: str) -> bool:
 
 
 def uygulamaya_kopyala(kaynak: str) -> str:
-    """Seçilen dosyayı %APPDATA%\\YayinUygulamasi\\bekleme\\ içine kopyalar.
+    """Seçilen dosyayı %APPDATA%\\RizeOn\\bekleme\\ içine kopyalar.
 
     Neden: OpenCV'nin video açıcısı Windows'ta Türkçe karakterli yolları (ör. "Masaüstü")
     açamıyor; ayrıca kullanıcı dosyayı silse/taşısa da bekleme ekranı bozulmaz.

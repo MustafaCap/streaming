@@ -67,7 +67,7 @@ class AnaPencere(QMainWindow):
         self.mini_moda_gec = None        # UygulamaKabugu ayarlar
         self.ayarlari_ac = None
         from core.surum import SURUM
-        self.setWindowTitle(f"Yayın Uygulaması {SURUM}")
+        self.setWindowTitle(f"RizeOn {SURUM}")
         self.setStyleSheet(QSS)
         self.resize(1320, 800)
         self.setMinimumSize(1000, 640)
@@ -89,7 +89,7 @@ class AnaPencere(QMainWindow):
         cikis.setToolTip("Uygulamayı tamamen kapat (tepside çalışmaya devam etmez, kamera ve kısayollar kapanır)")
         cikis.clicked.connect(lambda: self.uygulamadan_cik and self.uygulamadan_cik())
         ust = QHBoxLayout()
-        ust.addWidget(QLabel("Yayın Uygulaması", objectName="baslik"))
+        ust.addWidget(QLabel("RizeOn", objectName="baslik"))
         ust.addSpacing(12)
         for r in (self.rozet_kamera, self.rozet_mikrofon, self.rozet_kayit):
             ust.addWidget(r)

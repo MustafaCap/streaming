@@ -1,4 +1,4 @@
-"""Yayın Uygulaması - başlangıç noktası.
+"""RizeOn - başlangıç noktası.
 
 Çalıştırma:  python main.py
 """
@@ -178,7 +178,7 @@ def main() -> int:
     from ui.shell import UygulamaKabugu
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Yayın Uygulaması")
+    app.setApplicationName("RizeOn")
     app.setWindowIcon(uygulama_ikonu())
     app.setQuitOnLastWindowClosed(False)  # pencere kapanınca tepside çalışmaya devam
 
@@ -284,7 +284,7 @@ def acilis_hatasi_goster(hata: BaseException) -> None:
         klasor = paths.log_klasoru()
     except Exception:
         klasor = None
-    metin = (f"Yayın Uygulaması açılamadı.\n\n{type(hata).__name__}: {hata}\n\n"
+    metin = (f"RizeOn açılamadı.\n\n{type(hata).__name__}: {hata}\n\n"
              "Ayrıntılar log dosyasında yazıyor"
              + (f":\n{klasor}\n\nLog klasörü açılsın mı?" if klasor else "."))
     if sys.platform != "win32":
@@ -292,7 +292,7 @@ def acilis_hatasi_goster(hata: BaseException) -> None:
         return
     import ctypes
     MB_YESNO, MB_OK, MB_ICONERROR, IDYES = 0x4, 0x0, 0x10, 6
-    cevap = ctypes.windll.user32.MessageBoxW(None, metin, "Yayın Uygulaması", (MB_YESNO if klasor else MB_OK) | MB_ICONERROR)
+    cevap = ctypes.windll.user32.MessageBoxW(None, metin, "RizeOn", (MB_YESNO if klasor else MB_OK) | MB_ICONERROR)
     if klasor and cevap == IDYES:
         os.startfile(klasor)
 
@@ -309,7 +309,7 @@ DUMAN_MODULLERI = (
 
 
 def duman_testi(sonuc_yolu: str) -> int:
-    """`YayinUygulamasi.exe --duman-testi sonuc.txt`: pencere açmadan exe'nin çalıştığını denetler (CI).
+    """`RizeOn.exe --duman-testi sonuc.txt`: pencere açmadan exe'nin çalıştığını denetler (CI).
 
     Paketlenmiş exe'de eksik DLL / modül varsa burada çıkar. Sonucu dosyaya yazar, çünkü
     pencereli exe'nin konsolu yok. Hata penceresi göstermez (CI'da kimse kapatamaz)."""

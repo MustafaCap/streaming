@@ -100,7 +100,7 @@ def kodlayici_sec(ffmpeg: str, tercih: str = "auto") -> str:
 
 
 def varsayilan_klasor() -> Path:
-    return Path.home() / "Videos" / "YayinUygulamasi"
+    return Path.home() / "Videos" / "RizeOn"
 
 
 def _birlestir(ffmpeg: str, video: Path, ses: Path | None, hedef: Path) -> tuple[bool, str]:

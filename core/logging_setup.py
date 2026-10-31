@@ -1,4 +1,4 @@
-"""Log ayarları: hem konsola hem %APPDATA%\\YayinUygulamasi\\logs\\uygulama.log dosyasına yazar.
+"""Log ayarları: hem konsola hem %APPDATA%\\RizeOn\\logs\\uygulama.log dosyasına yazar.
 
 Pencereli exe'de konsol yok; bu yüzden hiçbir hata kaybolmasın diye:
   - ana iş parçacığındaki yakalanmamış hatalar (sys.excepthook),

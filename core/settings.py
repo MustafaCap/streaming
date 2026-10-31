@@ -1,7 +1,7 @@
 """settings.json okuma/yazma.
 
 - Varsayılan ayarlar config/settings.default.json'dadır.
-- Kullanıcının dosyası %APPDATA%\\YayinUygulamasi\\settings.json'dadır.
+- Kullanıcının dosyası %APPDATA%\\RizeOn\\settings.json'dadır.
 - Kullanıcı dosyasında eksik olan alanlar varsayılandan tamamlanır, böylece
   yeni bir sürümde eklenen ayarlar eski dosyaları bozmaz.
 - Dosya bozuksa uygulama çökmez: yedeği alınır ve varsayılanlarla devam edilir.

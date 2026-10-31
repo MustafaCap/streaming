@@ -80,7 +80,7 @@ jobs:
       - name: .exe derle
         run: |
           python kurulum/surum_bilgisi.py build/surum_bilgisi.txt
-          pyinstaller --noconfirm --windowed --noupx --name YayinUygulamasi `
+          pyinstaller --noconfirm --windowed --noupx --name RizeOn `
             --version-file build/surum_bilgisi.txt `
             --add-data "config/settings.default.json;config" `
             --add-data "models/selfie_segmentation_landscape.tflite;models" `
@@ -91,23 +91,23 @@ jobs:
 
       - name: Zip paketi hazırla (lisanslar dahil)
         run: |
-          Copy-Item README.md dist\YayinUygulamasi\BENIOKU.md
-          Copy-Item -Recurse ffmpeg dist\YayinUygulamasi\ffmpeg
-          python kurulum/lisanslar.py dist\YayinUygulamasi
+          Copy-Item README.md dist\RizeOn\BENIOKU.md
+          Copy-Item -Recurse ffmpeg dist\RizeOn\ffmpeg
+          python kurulum/lisanslar.py dist\RizeOn
           if ($LASTEXITCODE -ne 0) { throw "Lisanslar toplanamadı" }
-          Get-Content dist\YayinUygulamasi\lisanslar\UCUNCU_PARTI_LISANSLAR.txt
-          Compress-Archive -Path dist\YayinUygulamasi -DestinationPath YayinUygulamasi.zip -Force
+          Get-Content dist\RizeOn\lisanslar\UCUNCU_PARTI_LISANSLAR.txt
+          Compress-Archive -Path dist\RizeOn -DestinationPath RizeOn.zip -Force
 
       # Paketlenmiş exe gerçekten açılıyor mu (eksik DLL/modül, bozuk önyükleyici): pencere açmadan denetler
       - name: Paketlenmiş exe açılış testi
         run: |
           $sonuc = Join-Path $env:RUNNER_TEMP "duman.txt"
-          $p = Start-Process -FilePath dist\YayinUygulamasi\YayinUygulamasi.exe -ArgumentList "--duman-testi", "`"$sonuc`"" -PassThru
+          $p = Start-Process -FilePath dist\RizeOn\RizeOn.exe -ArgumentList "--duman-testi", "`"$sonuc`"" -PassThru
           $null = $p.Handle
           if (-not $p.WaitForExit(180000)) { $p.Kill(); throw "Exe 3 dakikada kapanmadı" }
           if (Test-Path $sonuc) { Get-Content $sonuc -Encoding utf8 }
           if ($p.ExitCode -ne 0) { throw "Paketlenmiş exe açılış testi başarısız (çıkış kodu $($p.ExitCode))" }
-          $bilgi = (Get-Item dist\YayinUygulamasi\YayinUygulamasi.exe).VersionInfo
+          $bilgi = (Get-Item dist\RizeOn\RizeOn.exe).VersionInfo
           Write-Host "Exe bilgisi: $($bilgi.ProductName) $($bilgi.ProductVersion) · $($bilgi.CompanyName)"
           if (-not $bilgi.ProductVersion) { throw "Exe'de sürüm bilgisi yok" }
 
@@ -123,8 +123,8 @@ jobs:
           Write-Host "Sürüm: $surum"
           & $iscc /Q "/DSurum=$surum" kurulum\kurulum.iss
           if ($LASTEXITCODE -ne 0) { throw "Kurulum programı derlenemedi" }
-          Move-Item Output\YayinUygulamasi-Kurulum.exe YayinUygulamasi-Kurulum.exe
-          Get-Item YayinUygulamasi-Kurulum.exe | Select-Object Name, Length
+          Move-Item Output\RizeOn-Kurulum.exe RizeOn-Kurulum.exe
+          Get-Item RizeOn-Kurulum.exe | Select-Object Name, Length
 
       # Microsoft Store paketi: Store'a yüklenince Microsoft imzalar (SmartScreen uyarısı olmaz).
       # Kimlik bilgileri Partner Center'dan gelir; depo değişkenleri yoksa deneme kimliğiyle derlenir.
@@ -134,18 +134,18 @@ jobs:
           MSIX_YAYINCI: ${{ vars.MSIX_YAYINCI }}
           MSIX_YAYINCI_ADI: ${{ vars.MSIX_YAYINCI_ADI }}
         run: |
-          python kurulum/msix_paketle.py dist\YayinUygulamasi build\msix
+          python kurulum/msix_paketle.py dist\RizeOn build\msix
           if ($LASTEXITCODE -ne 0) { throw "MSIX klasörü hazırlanamadı" }
           $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
             Sort-Object FullName | Select-Object -Last 1
           if (-not $makeappx) { throw "makeappx.exe (Windows SDK) bulunamadı" }
-          & $makeappx.FullName pack /o /d build\msix /p YayinUygulamasi-Store.msix
+          & $makeappx.FullName pack /o /d build\msix /p RizeOn-Store.msix
           if ($LASTEXITCODE -ne 0) { throw "MSIX paketlenemedi" }
-          Get-Item YayinUygulamasi-Store.msix | Select-Object Name, Length
+          Get-Item RizeOn-Store.msix | Select-Object Name, Length
 
       - name: Dosya özetleri (SHA-256)
         run: |
-          Get-FileHash -Algorithm SHA256 YayinUygulamasi.zip, YayinUygulamasi-Kurulum.exe, YayinUygulamasi-Store.msix |
+          Get-FileHash -Algorithm SHA256 RizeOn.zip, RizeOn-Kurulum.exe, RizeOn-Store.msix |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
             Out-File -Encoding ascii SHA256SUMS.txt
           Get-Content SHA256SUMS.txt
@@ -156,11 +156,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: YayinUygulamasi
+          name: RizeOn
           path: |
-            YayinUygulamasi.zip
-            YayinUygulamasi-Kurulum.exe
-            YayinUygulamasi-Store.msix
+            RizeOn.zip
+            RizeOn-Kurulum.exe
+            RizeOn-Store.msix
             SHA256SUMS.txt
 
       # Sadece main'e birleşen kod indirme sayfasına gider; dallar sadece test edilir.
@@ -169,25 +169,25 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: uygulama
-          name: Yayın Uygulaması - son sürüm
+          name: RizeOn - son sürüm
           prerelease: true
           target_commitish: ${{ github.sha }}
           body: |
             Sürüm ${{ env.SURUM }}. Her sürümün kalıcı kopyası Releases'te v<sürüm> adıyla durur.
-            Kurmak için: YayinUygulamasi-Kurulum.exe'yi indir ve çalıştır (kurulum yerini sorar,
+            Kurmak için: RizeOn-Kurulum.exe'yi indir ve çalıştır (kurulum yerini sorar,
             Başlat menüsüne ve istersen masaüstüne kısayol ekler; Ayarlar > Uygulamalar'dan kaldırılır).
-            Kurmadan denemek için: YayinUygulamasi.zip'i bir klasöre çıkar, YayinUygulamasi.exe'yi çalıştır.
+            Kurmadan denemek için: RizeOn.zip'i bir klasöre çıkar, RizeOn.exe'yi çalıştır.
             Edge indirmeyi durdurursa: İndirilenler'de dosya → ⋯ → Sakla → Daha fazla göster → Yine de sakla.
             Windows "bilgisayarınızı korudu" derse: Ek bilgi → Yine de çalıştır. (Kurulum programı henüz
             imzalı değil; ayrıntı README'de "İndirirken ya da açarken Windows uyarı verirse" bölümünde.)
-            YayinUygulamasi-Store.msix sadece Microsoft Store'a yüklemek içindir; çift tıklayarak kurulmaz.
+            RizeOn-Store.msix sadece Microsoft Store'a yüklemek içindir; çift tıklayarak kurulmaz.
             Lisans: GNU GPL sürüm 3 (özgür ve açık kaynak). Kaynak kod bu depoda; kullanılan
             kütüphanelerin lisansları paketteki "lisanslar" klasöründe.
             (Derlenen commit: ${{ github.sha }})
           files: |
-            YayinUygulamasi.zip
-            YayinUygulamasi-Kurulum.exe
-            YayinUygulamasi-Store.msix
+            RizeOn.zip
+            RizeOn-Kurulum.exe
+            RizeOn-Store.msix
             SHA256SUMS.txt
 
       # Her sürüm numarası için bir kez kalıcı sürüm (v1.5.0 gibi): sonradan üstüne yazılmaz,
@@ -201,5 +201,5 @@ jobs:
           $etiket = "v$env:SURUM"
           gh release view $etiket *> $null
           if ($LASTEXITCODE -eq 0) { Write-Host "$etiket zaten var, dokunulmadı"; exit 0 }
-          gh release create $etiket YayinUygulamasi-Kurulum.exe YayinUygulamasi-Store.msix SHA256SUMS.txt `
-            --title "Yayın Uygulaması $env:SURUM" --notes-file surum_notu.md --target $env:GITHUB_SHA --latest
+          gh release create $etiket RizeOn-Kurulum.exe RizeOn-Store.msix SHA256SUMS.txt `
+            --title "RizeOn $env:SURUM" --notes-file surum_notu.md --target $env:GITHUB_SHA --latest

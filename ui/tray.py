@@ -10,7 +10,7 @@ class Tepsi(QSystemTrayIcon):
     def __init__(self, komutlar, hat, depo, pencereyi_goster, cikis):
         super().__init__(uygulama_ikonu(False))
         self.komutlar, self.hat = komutlar, hat
-        self.setToolTip("Yayın Uygulaması")
+        self.setToolTip("RizeOn")
         menu = QMenu()
         self.a_yayin = menu.addAction("Yayını başlat", lambda: komutlar.calistir("cikis.ac_kapat"))
         menu.addSeparator()
@@ -55,4 +55,4 @@ class Tepsi(QSystemTrayIcon):
         if self._canli != d.cikis_acik:
             self._canli = d.cikis_acik
             self.setIcon(uygulama_ikonu(d.cikis_acik))
-            self.setToolTip("Yayın Uygulaması · " + ("Yayında" if d.cikis_acik else "Beklemede"))
+            self.setToolTip("RizeOn · " + ("Yayında" if d.cikis_acik else "Beklemede"))

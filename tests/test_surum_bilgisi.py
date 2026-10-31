@@ -47,9 +47,9 @@ def test_metin_alanlari():
     tablo = dize_bilgisi.args[0][0]
     assert tablo.args[0] == "041F04B0"
     alanlar = {s.args[0]: s.args[1] for s in tablo.args[1]}
-    assert alanlar["ProductName"] == "Yayın Uygulaması"
+    assert alanlar["ProductName"] == "RizeOn"
     assert alanlar["FileVersion"] == alanlar["ProductVersion"] == "1.5.1"
-    assert alanlar["OriginalFilename"] == "YayinUygulamasi.exe"
+    assert alanlar["OriginalFilename"] == "RizeOn.exe"
     assert "GPL" in alanlar["LegalCopyright"]
     assert dil_bilgisi.args[0][0].args == ("Translation", [0x041F, 1200])
 
@@ -71,7 +71,7 @@ def test_pyinstaller_okuyabiliyor(tmp_path):
     hedef.write_text(surum_bilgisi.metin(), encoding="utf-8")
     bilgi = versioninfo.load_version_info_from_text_file(str(hedef))
     assert isinstance(bilgi, versioninfo.VSVersionInfo)
-    assert "Yayın Uygulaması" in str(bilgi)
+    assert "RizeOn" in str(bilgi)
 
 
 def test_duman_testi_hata_dosyaya_yazilir(tmp_path, monkeypatch):

@@ -2,6 +2,13 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 1.6.0 — 2026-10-31
+
+- Uygulamanın adı artık **RizeOn**. Pencere, tepsi, Hakkında, exe (`RizeOn.exe`), kurulum programı (`RizeOn-Kurulum.exe`), zip ve Store paketi yeni adla geliyor.
+- Eski sürümün üstüne kurulur. Kurulum programı eski `YayinUygulamasi.exe`'yi ve "Yayın Uygulaması" kısayollarını siler. Uygulama eski adla açıksa önce kapatılmasını ister.
+- Ayarlar, loglar ve bekleme görüntüleri ilk açılışta `%APPDATA%\YayinUygulamasi`'ndan `%APPDATA%\RizeOn`'a taşınır. Ayarlardaki eski klasör yolları da düzeltilir.
+- Yeni kayıtlar `Videolar\RizeOn` klasörüne yazılır. Eski kayıtlar `Videolar\YayinUygulamasi`'nda kalır.
+
 ## 1.5.1 — 2026-10-31
 
 - Antivirüslerin yanlış alarm verme ihtimali azaltıldı:

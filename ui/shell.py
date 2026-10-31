@@ -223,7 +223,7 @@ class UygulamaKabugu(QObject):
             return
         if self._ilk_kuculme and self.tepsi is not None:
             self._ilk_kuculme = False
-            self.tepsi.showMessage("Yayın Uygulaması", "Arka planda çalışıyor. Kısayollar açık; "
+            self.tepsi.showMessage("RizeOn", "Arka planda çalışıyor. Kısayollar açık; "
                                    "kapatmak için simgeye sağ tıklayıp Çıkış'ı seç.",
                                    QSystemTrayIcon.Information, 3000)
 
