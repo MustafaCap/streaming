@@ -31,7 +31,7 @@ def test_manifest_alanlari_ve_kacis():
     assert kimlik.get("Version") == "1.5.1.0"
     assert kok.find("m:Properties/m:PublisherDisplayName", NS).text == "Mustafa & Co"
     uyg = kok.find("m:Applications/m:Application", NS)
-    assert uyg.get("Executable") == "YayinUygulamasi.exe"
+    assert uyg.get("Executable") == "RizeOn.exe"
     assert uyg.get("EntryPoint") == "Windows.FullTrustApplication"
     yetkiler = {e.get("Name") for e in kok.find("m:Capabilities", NS)}
     assert yetkiler == {"runFullTrust", "webcam", "microphone"}
@@ -49,10 +49,10 @@ def test_kimlik_degiskenlerden(monkeypatch):
 def test_hazirla_klasor_ve_logolar(tmp_path):
     uyg = tmp_path / "dist"
     uyg.mkdir()
-    (uyg / "YayinUygulamasi.exe").write_bytes(b"MZ")
+    (uyg / "RizeOn.exe").write_bytes(b"MZ")
     (uyg / "_internal").mkdir()
     hedef = msix_paketle.hazirla(uyg, tmp_path / "msix", "1.5.1")
-    assert (hedef / "YayinUygulamasi.exe").exists() and (hedef / "_internal").is_dir()
+    assert (hedef / "RizeOn.exe").exists() and (hedef / "_internal").is_dir()
     ET.fromstring((hedef / "AppxManifest.xml").read_text(encoding="utf-8").split("\n", 1)[1])
     for ad, g, y in msix_paketle.LOGOLAR:
         with Image.open(hedef / "Assets" / ad) as im:

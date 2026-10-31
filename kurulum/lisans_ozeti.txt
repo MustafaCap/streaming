@@ -1,4 +1,4 @@
-Yayın Uygulaması — Lisans
+RizeOn — Lisans
 Telif hakkı (C) 2026 Mustafa
 
 Bu program özgür ve açık kaynak bir yazılımdır. GNU Genel Kamu Lisansı

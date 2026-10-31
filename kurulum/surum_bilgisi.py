@@ -1,4 +1,4 @@
-"""YayinUygulamasi.exe'nin Windows "Özellikler > Ayrıntılar" bilgisini (sürüm kaynağı) üretir.
+"""RizeOn.exe'nin Windows "Özellikler > Ayrıntılar" bilgisini (sürüm kaynağı) üretir.
 
 Exe'de üretici, ürün adı, sürüm ve telif bilgisi yazar. İmzalama servisleri (SignPath) bu
 bilgilerin her sürümde tutarlı olmasını ister; antivirüsler de bilgisi boş exe'lere daha
@@ -14,11 +14,11 @@ from pathlib import Path
 
 KOK = Path(__file__).resolve().parent.parent
 
-URUN = "Yayın Uygulaması"
+URUN = "RizeOn"
 URETICI = "Mustafa"
-EXE = "YayinUygulamasi.exe"
+EXE = "RizeOn.exe"
 TELIF = "Copyright (C) 2026 Mustafa. GNU GPL sürüm 3 ile lisanslıdır."
-ACIKLAMA = "Yayın Uygulaması - ekran, kamera ve ses paylaşımı"
+ACIKLAMA = "RizeOn - ekran, kamera ve ses paylaşımı"
 KAYNAK = "https://github.com/MustafaCap/streaming"
 # Türkçe (0x041F), Unicode kod sayfası (1200 = 0x04B0)
 DIL, KOD_SAYFASI = 0x041F, 1200
@@ -44,7 +44,7 @@ def metin(surum_metni: str | None = None) -> str:
         ("CompanyName", URETICI),
         ("FileDescription", ACIKLAMA),
         ("FileVersion", s),
-        ("InternalName", "YayinUygulamasi"),
+        ("InternalName", "RizeOn"),
         ("LegalCopyright", TELIF),
         ("OriginalFilename", EXE),
         ("ProductName", URUN),

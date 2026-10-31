@@ -2,7 +2,7 @@
 
 CI'da PyInstaller'dan ve FFmpeg kopyalandıktan sonra çalışır:
 
-    python kurulum/lisanslar.py dist/YayinUygulamasi
+    python kurulum/lisanslar.py dist/RizeOn
 
 Ne üretir:
   <paket>/LICENSE.txt                              uygulamanın kendi lisansı (GPLv3)
@@ -156,7 +156,7 @@ def _python_ve_pyinstaller(klasor: Path) -> None:
 
 def _liste_yaz(dosya: Path, satirlar: list[tuple[str, str]]) -> None:
     metin = [
-        "Yayın Uygulaması — kullanılan açık kaynak parçalar",
+        "RizeOn — kullanılan açık kaynak parçalar",
         "",
         "Uygulamanın kendisi GNU GPL sürüm 3 ile dağıtılır (../LICENSE.txt).",
         f"Kaynak kod: {KAYNAK}",
@@ -180,7 +180,7 @@ def kurulum_metni(cikti: Path = KOK / "build" / "kurulum_lisans.txt") -> Path:
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")  # Windows konsolu cp1252: Türkçe harfler çökertmesin
     if len(sys.argv) != 2:
-        sys.exit("kullanım: python kurulum/lisanslar.py dist/YayinUygulamasi")
+        sys.exit("kullanım: python kurulum/lisanslar.py dist/RizeOn")
     liste = topla(Path(sys.argv[1]))
     print(f"{len(liste)} parçanın lisansı toplandı")
     print("Kurulum lisans sayfası:", kurulum_metni())

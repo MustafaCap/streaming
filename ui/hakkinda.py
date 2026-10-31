@@ -26,7 +26,7 @@ def lisans_yolu() -> Path:
 
 def metin() -> str:
     return (
-        f"<h3>Yayın Uygulaması {SURUM}</h3>"
+        f"<h3>RizeOn {SURUM}</h3>"
         "<p>Telif hakkı © 2026 Mustafa</p>"
         "<p>Bu program özgür yazılımdır. <b>GNU Genel Kamu Lisansı sürüm 3 (GPLv3)</b> koşullarıyla "
         "kullanabilir, değiştirebilir ve dağıtabilirsiniz. Program <b>hiçbir garanti olmadan</b>, "

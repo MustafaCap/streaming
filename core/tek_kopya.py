@@ -14,8 +14,8 @@ import threading
 
 log = logging.getLogger(__name__)
 
-MUTEX_ADI = "Local\\YayinUygulamasi_TekKopya"
-OLAY_ADI = "Local\\YayinUygulamasi_PencereyiGoster"
+MUTEX_ADI = "Local\\RizeOn_TekKopya"
+OLAY_ADI = "Local\\RizeOn_PencereyiGoster"
 ERROR_ALREADY_EXISTS = 183
 EVENT_MODIFY_STATE = 0x0002
 WAIT_OBJECT_0 = 0

@@ -108,5 +108,5 @@ def test_paketlenmis_surumde_path_teki_ffmpeg_kullanilmaz(monkeypatch, tmp_path)
 
     import core.recorder as r
     monkeypatch.setattr(_sys, "frozen", True, raising=False)
-    monkeypatch.setattr(_sys, "executable", str(tmp_path / "YayinUygulamasi.exe"))
+    monkeypatch.setattr(_sys, "executable", str(tmp_path / "RizeOn.exe"))
     assert r.ffmpeg_bul() is None

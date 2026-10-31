@@ -1,4 +1,6 @@
-# Yayın Uygulaması
+# RizeOn
+
+*(1.6.0'dan önceki adı: Yayın Uygulaması. Eski sürümün üstüne kurulur; ayarların ve bekleme görüntülerin yeni klasöre kendiliğinden taşınır.)*
 
 Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sanal kamera** ve **sanal mikrofon** olarak görünen ekran, kamera ve ses paylaşım uygulaması. Öne çıkanlar: tek tuşla ekranın bir bölgesini seçip göstermek (F6) ve ekrana anında çizim yapmak (F7).
 
@@ -7,8 +9,8 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 1. **OBS Studio** kur (https://obsproject.com/), aç, *Sanal Kamerayı Başlat*'a bir kez bas ve kapat. Uygulama OBS'nin sanal kamera sürücüsünü kullanır; OBS'nin açık olması gerekmez.
 2. **VB-Cable** kur (https://vb-audio.com/Cable/ → zip'i çıkar → `VBCABLE_Setup_x64.exe`'ye sağ tık → *Yönetici olarak çalıştır* → *Install Driver*), sonra bilgisayarı yeniden başlat.
 3. Windows ses ayarlarında **varsayılan giriş = gerçek mikrofonun**, **varsayılan çıkış = gerçek hoparlör/kulaklık** olsun. CABLE'ı Windows'ta varsayılan yapma; sadece Zoom/Discord içinde seçilir. CABLE Output için *Bu cihazı dinle*'yi açma (geri besleme gürültüsü yapar).
-4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından (ya da [Releases](https://github.com/MustafaCap/streaming/releases)'teki sürüm numaralı `v…` sayfalarından) **`YayinUygulamasi-Kurulum.exe`**'yi indir ve çalıştır. Yeni sürümü kurmak için aynısını yap, eskisinin üstüne kurulur. Kurulum yerini sorar, Başlat menüsüne ekler (Windows aramasına "Yayın" yazınca çıkar) ve istersen masaüstüne kısayol koyar. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır* (kurulum programı imzalı değil). Kaldırmak için: *Ayarlar → Uygulamalar → Yayın Uygulaması → Kaldır* (ayarların ve kayıtların silinmez).
-   - Kurmadan denemek istersen aynı sayfadaki `YayinUygulamasi.zip`'i bir klasöre çıkarıp `YayinUygulamasi\YayinUygulamasi.exe`'yi çalıştırabilirsin (`D:\streaming\guncelle.bat` bunu indirir).
+4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından (ya da [Releases](https://github.com/MustafaCap/streaming/releases)'teki sürüm numaralı `v…` sayfalarından) **`RizeOn-Kurulum.exe`**'yi indir ve çalıştır. Yeni sürümü kurmak için aynısını yap, eskisinin üstüne kurulur. Kurulum yerini sorar, Başlat menüsüne ekler (Windows aramasına "RizeOn" yazınca çıkar) ve istersen masaüstüne kısayol koyar. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır* (kurulum programı imzalı değil). Kaldırmak için: *Ayarlar → Uygulamalar → RizeOn → Kaldır* (ayarların ve kayıtların silinmez).
+   - Kurmadan denemek istersen aynı sayfadaki `RizeOn.zip`'i bir klasöre çıkarıp `RizeOn\RizeOn.exe`'yi çalıştırabilirsin (`D:\streaming\guncelle.bat` bunu indirir).
 
 ### İndirirken ya da açarken Windows uyarı verirse
 
@@ -16,7 +18,7 @@ Kurulum programı henüz **kod imzalı değil** ve az indirildiği için Microso
 
 1. **Edge indirmeyi durdurursa** ("… yaygın olarak indirilmiyor"): İndirilenler listesinde dosyanın üstüne gel, **⋯** → **Sakla** (*Keep*) → **Daha fazla göster** (*Show more*) → **Yine de sakla** (*Keep anyway*).
 2. **Açınca "Windows bilgisayarınızı korudu" çıkarsa:** **Ek bilgi** → **Yine de çalıştır**.
-3. **Dosyanın gerçekten bu depodan geldiğini denetlemek için:** PowerShell'de `Get-FileHash .\YayinUygulamasi-Kurulum.exe` yaz. Çıkan özet, aynı Releases sayfasındaki `SHA256SUMS.txt` dosyasındaki satırla aynı olmalı.
+3. **Dosyanın gerçekten bu depodan geldiğini denetlemek için:** PowerShell'de `Get-FileHash .\RizeOn-Kurulum.exe` yaz. Çıkan özet, aynı Releases sayfasındaki `SHA256SUMS.txt` dosyasındaki satırla aynı olmalı.
 
 Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa geçme; bize bildir. Bu, Windows Defender'ın yanlış alarmı olabilir. Dosyayı Microsoft'a inceleme için göndermemiz gerekir.
 
@@ -52,7 +54,7 @@ Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · 
 - **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil. Düğmelerin adı ve kısayolu fareyle üstüne gelince görünür.
 - **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
 - **İmleç vurgulama**: halka + tıklama dalgası (Ayarlar > Genel).
-- **Yerel kayıt**: `Videolar\YayinUygulamasi\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar. Kayıt sırasında uygulama çökerse ya da elektrik giderse kayıt kaybolmaz: bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
+- **Yerel kayıt**: `Videolar\RizeOn\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar. Kayıt sırasında uygulama çökerse ya da elektrik giderse kayıt kaybolmaz: bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
 - Uygulamanın kendi pencereleri (önizleme, kalem çubuğu, kare seçme, bildirimler, mini mod) **ekran yakalamaya girmez**; karşı taraf görmez.
 - Bir kaynak koparsa (kamera çıkarılır, mikrofon değişir) uygulama çökmez; o kaynak kırmızı görünür ve birkaç saniyede bir yeniden denenir.
 
@@ -75,7 +77,7 @@ Windows'ta başka bir uygulamanın bildirimini ekran yakalamadan çıkarmanın r
 | Kamera "yok" görünüyor | Windows *Ayarlar → Gizlilik ve güvenlik → Kamera*'da masaüstü uygulamalarının kameraya erişimi açık olmalı. Ayarlar > Kamera'dan kamera numarasını da dene. |
 | Uygulama açılmıyor | Bir hata penceresi çıkar ve log klasörünü açmayı önerir; `uygulama.log` ve `cokme.log` dosyalarını gönder. |
 
-Ayarlar `%APPDATA%\YayinUygulamasi\settings.json` (elle bozulan bir değer varsayılana döner), loglar `%APPDATA%\YayinUygulamasi\logs\` klasöründe (`uygulama.log`, yerel çökmeler için `cokme.log`). Bir sorun olursa bu dosyaları ve sürüm numarasını (*Hakkında*) gönder.
+Ayarlar `%APPDATA%\RizeOn\settings.json` (elle bozulan bir değer varsayılana döner), loglar `%APPDATA%\RizeOn\logs\` klasöründe (`uygulama.log`, yerel çökmeler için `cokme.log`). Bir sorun olursa bu dosyaları ve sürüm numarasını (*Hakkında*) gönder.
 
 ## Geliştirici kurulumu
 
@@ -87,7 +89,7 @@ python main.py          # uygulamayı çalıştır
 python -m pytest -q     # testler
 ```
 
-Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır (paketlenmiş sürümde kullanılmaz). Bağımlılık sürümleri `requirements*.txt`'te sabittir; güncellerken CI'da testlerin geçtiğini gör. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. `core/surum.py`'deki sürüm numarası ilk kez görüldüğünde ayrıca kalıcı bir `v<sürüm>` sürümü açılır; notu [CHANGELOG.md](CHANGELOG.md)'den gelir (yeni sürüm numarası verirken oraya not ekle, yoksa test kırılır). Her Release'te `SHA256SUMS.txt` dosya özetleri bulunur; paketteki `ffmpeg\KAYNAK.txt` kullanılan FFmpeg'in adını ve özetini yazar. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `YayinUygulamasi-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır. Aynı nedenle CI, PyInstaller önyükleyicisini kaynaktan derler (hazır önyükleyiciye antivirüsler daha çok takılıyor). Exe'ye `kurulum/surum_bilgisi.py` ile sürüm bilgisi yazar ve paketlenmiş exe'yi `YayinUygulamasi.exe --duman-testi sonuc.txt` ile pencere açmadan bir kez çalıştırır.
+Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır (paketlenmiş sürümde kullanılmaz). Bağımlılık sürümleri `requirements*.txt`'te sabittir; güncellerken CI'da testlerin geçtiğini gör. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. `core/surum.py`'deki sürüm numarası ilk kez görüldüğünde ayrıca kalıcı bir `v<sürüm>` sürümü açılır; notu [CHANGELOG.md](CHANGELOG.md)'den gelir (yeni sürüm numarası verirken oraya not ekle, yoksa test kırılır). Her Release'te `SHA256SUMS.txt` dosya özetleri bulunur; paketteki `ffmpeg\KAYNAK.txt` kullanılan FFmpeg'in adını ve özetini yazar. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `RizeOn-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır. Aynı nedenle CI, PyInstaller önyükleyicisini kaynaktan derler (hazır önyükleyiciye antivirüsler daha çok takılıyor). Exe'ye `kurulum/surum_bilgisi.py` ile sürüm bilgisi yazar ve paketlenmiş exe'yi `RizeOn.exe --duman-testi sonuc.txt` ile pencere açmadan bir kez çalıştırır.
 
 ## Klasör yapısı
 
@@ -112,7 +114,7 @@ denemeler/           Aşama 0 risk denemeleri
 
 ## Lisans
 
-Yayın Uygulaması **özgür ve açık kaynak** bir yazılımdır: **GNU GPL sürüm 3** ile dağıtılır (tam metin: [LICENSE](LICENSE)). Telif hakkı © 2026 Mustafa.
+RizeOn **özgür ve açık kaynak** bir yazılımdır: **GNU GPL sürüm 3** ile dağıtılır (tam metin: [LICENSE](LICENSE)). Telif hakkı © 2026 Mustafa.
 
 Kısaca: ücretsiz kullanabilir, kopyalayabilir, paylaşabilirsin. Değiştirip dağıtan kişi, değiştirdiği hali de GPLv3 ile ve kaynak koduyla birlikte dağıtmak zorundadır. Program hiçbir garanti olmadan sunulur. Kurulum programı lisansı ilk sayfada gösterir; uygulamada *Ayarlar → Hakkında* ya da tepsi menüsü → *Hakkında*'dan da görülür.
 

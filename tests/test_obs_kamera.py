@@ -103,7 +103,7 @@ def test_windows_disinda_acilmaz_ama_cokmez():
 def test_windows_bellek_ac_yaz_kapat(monkeypatch):
     """Gerçek paylaşılan bellek: sürücü kontrolünü atlayıp aç, yaz, başka okuyucu görsün, kapat."""
     monkeypatch.setattr(obs_kamera, "surucu_kurulu", lambda: True)
-    monkeypatch.setattr(obs_kamera, "BELLEK_ADI", "YayinUygulamasiTest_OBSVirtualCamVideo")
+    monkeypatch.setattr(obs_kamera, "BELLEK_ADI", "RizeOnTest_OBSVirtualCamVideo")
     kamera = obs_kamera.ObsSanalKamera(64, 36, 30)
     try:
         with pytest.raises(obs_kamera.KameraAcilamadi):
