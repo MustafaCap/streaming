@@ -119,7 +119,8 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
 
 def main() -> int:
     logging_setup.kur()
-    log.info("Uygulama başlıyor")
+    from core.surum import SURUM
+    log.info("Uygulama başlıyor (sürüm %s)", SURUM)
     ayarlar = Ayarlar()
 
     from PySide6.QtWidgets import QApplication
