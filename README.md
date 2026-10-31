@@ -120,6 +120,6 @@ Paketin içindeki `lisanslar` klasöründe her parçanın kendi lisans metni ve 
 | MediaPipe Selfie Segmentation modeli (`models\`) | Apache 2.0 |
 | Python çalışma zamanı | PSF |
 
-Not: pyvirtualcam'in paketinde "GPLv2 veya sonraki sürüm" ifadesi yok, sadece GPLv2 yazıyor. GPLv2 tek başına GPLv3 ile tam uyumlu sayılmadığı için bu küçük bir gri alan. Ücretsiz ve açık kaynak dağıtımda pratik risk düşük. Tamamen temiz olsun istenirse sanal kamera çıkışı (`outputs/virtualcam.py`, tek dosya) pyvirtualcam yerine OBS'nin sanal kamera sürücüsüne doğrudan yazan kendi kodumuzla değiştirilebilir.
+Not: pyvirtualcam'in lisansı sadece GPLv2, "veya sonraki sürüm" demiyor. FSF'ye göre sadece-GPLv2 kod GPLv3 kodla aynı pakette dağıtılamaz. Uygulamayı "GPLv2 veya sonrası" yapmak da çözmez, çünkü OpenCV'nin Apache 2.0 lisansı GPLv2 ile uyumsuz. Temiz çözüm, sanal kamera çıkışını (`outputs/virtualcam.py`, tek dosya) pyvirtualcam yerine OBS'nin sanal kamera sürücüsüne doğrudan yazan kendi kodumuzla değiştirmek.
 
 OBS Virtual Camera ve VB-Cable pakete konmaz, kullanıcı ayrıca kurar. QFluentWidgets bilerek kullanılmadı.
