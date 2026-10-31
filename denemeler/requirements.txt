@@ -1,0 +1,10 @@
+# Aşama 0 denemeleri için (Windows 11, Python 3.11+)
+numpy
+opencv-python
+dxcam
+mss
+pyvirtualcam
+PySide6
+PyAudioWPatch
+comtypes
+psutil
