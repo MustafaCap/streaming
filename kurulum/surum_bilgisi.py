@@ -80,6 +80,7 @@ VSVersionInfo(
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows konsolu (cp1252) Türkçe harfte çökmesin
     hedef = Path(sys.argv[1] if len(sys.argv) > 1 else KOK / "build" / "surum_bilgisi.txt")
     hedef.parent.mkdir(parents=True, exist_ok=True)
     hedef.write_text(metin(), encoding="utf-8")
