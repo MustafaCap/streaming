@@ -22,12 +22,13 @@ Partner Center'da *Uygulamalar ve oyunlar → Yeni ürün → MSIX veya PWA uygu
 
 > RizeOn, ekranını, kameranı ve sesini tek bir görüntüde birleştirip görüntülü görüşme programlarına sanal kamera ve sanal mikrofon olarak verir.
 >
+> - Tüm ekranı ya da sadece seçtiğin pencereyi göster
 > - Tek tuşla (F6) ekranın bir bölgesini seç ve sadece onu göster
 > - Ekranın üstüne anında çizim yap (F7)
 > - Kamerayı köşeye koy, taşı, arka planı bulanıklaştır
 > - Mikrofon, bilgisayar sesi ve tek tek uygulamaların sesi için mikser
 > - Bas-konuş, panik tuşu, bekleme görüntüsü
-> - Bilgisayarına MP4 kayıt
+> - Bilgisayarına MP4 kayıt, duraklat / devam et
 >
 > İnternete hiç bağlanmaz, hesap istemez, veri toplamaz. Özgür ve açık kaynaktır (GPLv3).
 >
@@ -37,12 +38,13 @@ Partner Center'da *Uygulamalar ve oyunlar → Yeni ürün → MSIX veya PWA uygu
 
 > RizeOn combines your screen, camera and audio into one picture and hands it to video-call apps as a virtual camera and virtual microphone.
 >
+> - Show your whole screen or just one window
 > - Pick a region of your screen with one key (F6) and show only that
 > - Draw on top of your screen instantly (F7)
 > - Camera overlay you can move, with background blur
 > - Mixer for microphone, system audio and individual apps
 > - Push-to-talk, panic key, standby image
-> - Local MP4 recording
+> - Local MP4 recording with pause / resume
 >
 > It never connects to the internet, needs no account and collects no data. Free and open source (GPLv3).
 >

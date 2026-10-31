@@ -120,3 +120,32 @@ def test_panik_aninda_bekleme_ekrani_ve_imlec_vurgusu_cokmez():
         assert _bekle(lambda: hat.son_kare()[5, 5].tolist() == [100, 100, 100])
     finally:
         hat.durdur()
+
+
+def test_kaynak_degisince_yeni_kaynak_kullanilir_eskisi_kapanir():
+    class Izli(SahteKaynak):
+        def __init__(self, deger, yontem):
+            super().__init__()
+            self.deger, self.yontem, self.kapandi, self.cagri = deger, yontem, False, 0
+
+        def grab(self):
+            self.cagri += 1
+            return np.full((300, 400, 3), self.deger, np.uint8)
+
+        def kapat(self):
+            self.kapandi = True
+
+    depo = DurumDeposu()
+    ekran, pencere, kullanilmayan = Izli(10, "dxcam"), Izli(200, "pencere"), Izli(50, "pencere")
+    hat = VideoHatti(depo, ekran, SahteCikis(), fps=60)
+    hat.baslat()
+    try:
+        assert _bekle(lambda: depo.durum.yakalama_yontemi == "dxcam")
+        hat.kaynagi_degistir(kullanilmayan)
+        hat.kaynagi_degistir(pencere)            # üst üste iki seçim: ilki hiç kullanılmadan kapanır
+        assert kullanilmayan.kapandi
+        assert _bekle(lambda: depo.durum.yakalama_yontemi == "pencere" and ekran.kapandi)
+        assert hat.kaynak is pencere and pencere.cagri > 0 and not pencere.kapandi
+    finally:
+        hat.durdur()
+    assert pencere.kapandi

@@ -1,7 +1,7 @@
 """Mini mod: ekran kenarında sürüklenebilir, her zaman üstte duran küçük çubuk.
 
-Durum (CANLI/KAPALI/PANİK, kayıt süresi), Yayın, Kayıt, Mikrofon, Ses, Kamera, Kare,
-Kalem, Panik ve ana pencereye dönüş.
+Durum (CANLI/KAPALI/PANİK, kayıt süresi), Yayın, Kayıt (kayıtta Duraklat), Göster (tüm
+ekran / pencere), Mikrofon, Ses, Kamera, Kare, Kalem, Panik ve ana pencereye dönüş.
 Küçük kalsın diye düğmelerde sadece simge var; adı ve kısayolu fareyle üstüne
 gelince görünür. Ekran yakalamaya girmez.
 """
@@ -21,6 +21,8 @@ class MiniCubuk(QWidget):
     DUGMELER = [  # komut, simge, ad
         ("cikis.ac_kapat", "📡", "Yayın"),
         ("kayit.ac_kapat", "⏺", "Kayıt"),
+        ("kayit.duraklat", "⏸", "Duraklat / devam et"),
+        ("kaynak.sec", "🗔", "Ne gösterilsin (tüm ekran / pencere)"),
         ("ses.mikrofon", "🎙", "Mik"),
         ("ses.sistem", "🔊", "Ses"),
         ("kamera.ac_kapat", "📷", "Kamera"),
@@ -70,6 +72,7 @@ class MiniCubuk(QWidget):
             d.clicked.connect(lambda _=False, k=komut: komutlar.calistir(k))
             satir.addWidget(d)
             self.dugmeler[komut] = d
+        self.dugmeler["kayit.duraklat"].setVisible(False)
 
         satir.addSpacing(3)
         don = QPushButton("⤢")
@@ -143,7 +146,8 @@ class MiniCubuk(QWidget):
         metin = f'<span style="color:{renk}">{yazi}</span>'
         if kayitta:
             sn = int(getattr(d, "kayit_suresi", 0) or 0)
-            metin += f'<br><span style="color:{RENK["kapali"]}">REC {sn // 60:02d}:{sn % 60:02d}</span>'
+            ek = "II" if d.kayit_duraklatildi else "REC"
+            metin += f'<br><span style="color:{RENK["kapali"]}">{ek} {sn // 60:02d}:{sn % 60:02d}</span>'
         self.nokta.setStyleSheet(f"color: {renk}; font-size: 11px;")
         self.durum_yazisi.setText(metin)
         self._cerceve_rengi(RENK["kapali"] if kayitta and not d.panik else renk)
@@ -156,10 +160,23 @@ class MiniCubuk(QWidget):
             "bolge.sec": bool(d.bolge),
             "kalem.ac_kapat": d.kalem_acik,
             "panik": d.panik,
+            "kayit.duraklat": kayitta and d.kayit_duraklatildi,
+            "kaynak.sec": d.kaynak_turu == "pencere",
         }
+        duraklat = self.dugmeler.get("kayit.duraklat")
+        if duraklat is not None and duraklat.isHidden() == kayitta:
+            duraklat.setVisible(kayitta)        # sadece kayıt sürerken
+            self.adjustSize()
         for komut, d_ in self.dugmeler.items():
             a = acik[komut]
             d_.setEnabled(self.komutlar.var_mi(komut))
+            if komut == "kayit.duraklat":
+                d_.setText("▶" if a else "⏸")
+                d_.setToolTip("Kayda devam et" if a else d_.property("ad"))
+                d_.setStyleSheet(f"color: {RENK['panik']}; border-color: {RENK['panik'] if a else 'transparent'};")
+                continue
+            if komut == "kaynak.sec":
+                d_.setToolTip(f"Gösterilen: {d.kaynak_adi or 'pencere'}" if a else "Gösterilen: tüm ekran · tıkla, pencere seç")
             if komut in ("ses.mikrofon", "ses.sistem", "kamera.ac_kapat"):
                 # renk tek başına anlatmasın: kapalıyken simgenin yanında ✕
                 simge = next(s for k, s, _ in self.DUGMELER if k == komut)

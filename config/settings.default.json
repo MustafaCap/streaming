@@ -13,7 +13,8 @@
     "preview_fps": 15,
     "toasts": true,
     "minimize_to_tray": true,
-    "dnd_reminder": true
+    "dnd_reminder": true,
+    "advanced": false
   },
   "camera": {
     "enabled": true,
@@ -86,6 +87,8 @@
     "sahne.sec:3": "Ctrl+3",
     "sahne.sec:4": "Ctrl+4",
     "kayit.ac_kapat": "Ctrl+Shift+R",
+    "kayit.duraklat": "Ctrl+Alt+D",
+    "kaynak.sec": "",
     "bas_konus": ""
   },
   "pen_hotkeys": {

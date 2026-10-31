@@ -110,3 +110,98 @@ def test_paketlenmis_surumde_path_teki_ffmpeg_kullanilmaz(monkeypatch, tmp_path)
     monkeypatch.setattr(_sys, "frozen", True, raising=False)
     monkeypatch.setattr(_sys, "executable", str(tmp_path / "RizeOn.exe"))
     assert r.ffmpeg_bul() is None
+
+
+def _sure_sn(dosya):
+    import subprocess
+    return float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                 str(dosya)], capture_output=True, text=True).stdout.strip())
+
+
+def _bitir(k):
+    bitti = threading.Event()
+    sonuc = {}
+    k.durdur(lambda dosya, hata: (sonuc.update(dosya=dosya, hata=hata), bitti.set()))
+    assert bitti.wait(60)
+    return sonuc
+
+
+def test_duraklatilan_sure_videoya_girmez(tmp_path):
+    k = Kayitci(320, 240, 30, klasor=tmp_path, kodlayici="mpeg4")
+    assert k.baslat()
+    _kayit_et(k, 1.0)
+    assert k.duraklat() and k.duraklatildi
+    assert not k.duraklat()                     # ikinci kez duraklatmak bir şey yapmaz
+    sure_once = k.sure
+    _kayit_et(k, 1.5)                           # duraklatılmışken gelen kareler ve ses yazılmaz
+    assert k.sure == sure_once
+    assert k.devam_et() and not k.duraklatildi
+    assert not k.devam_et()
+    _kayit_et(k, 1.0)
+    sonuc = _bitir(k)
+    assert sonuc["hata"] == "" and sonuc["dosya"].exists()
+    assert [p.name for p in tmp_path.iterdir()] == [sonuc["dosya"].name]   # tüm parçalar silindi
+    if shutil.which("ffprobe"):
+        assert _akislar(sonuc["dosya"]) == ["audio", "video"]
+        assert 1.5 < _sure_sn(sonuc["dosya"]) < 2.9      # ~2 sn kayıt; duraklatılan 1.5 sn yok
+
+
+def test_duraklatilmisken_durdurulursa_kaydedilir(tmp_path):
+    k = Kayitci(320, 240, 30, klasor=tmp_path, kodlayici="mpeg4")
+    assert k.baslat()
+    _kayit_et(k, 1.0)
+    assert k.duraklat()
+    sonuc = _bitir(k)
+    assert sonuc["hata"] == "" and sonuc["dosya"].exists()
+    assert not k.duraklatildi and k.sure == 0
+
+
+def test_hemen_duraklatilan_bos_parca_atlanir(tmp_path):
+    k = Kayitci(320, 240, 30, klasor=tmp_path, kodlayici="mpeg4")
+    assert k.baslat()
+    _kayit_et(k, 1.0)
+    assert k.duraklat() and k.devam_et() and k.duraklat()   # ikinci parçaya hiç kare gelmedi
+    assert k.devam_et()
+    _kayit_et(k, 1.0)
+    sonuc = _bitir(k)
+    assert sonuc["hata"] == "" and sonuc["dosya"].exists()
+    assert [p.name for p in tmp_path.iterdir()] == [sonuc["dosya"].name]
+
+
+def test_parcali_yarim_kayit_kurtarilir(tmp_path):
+    from core.recorder import yarim_kayitlari_kurtar
+    k = Kayitci(320, 240, 30, klasor=tmp_path, kodlayici="mpeg4")
+    assert k.baslat()
+    _kayit_et(k, 1.0)
+    assert k.duraklat() and k.devam_et()
+    _kayit_et(k, 1.0)
+    time.sleep(0.5)
+    k._surec.kill()                              # çökme
+    k._surec.wait()
+    k._ses_dosyasi.flush()
+    k._ses_dosyasi.close()
+    k._kayitta = False
+    for t in k._kapananlar:
+        t.join(10)
+    adlar = sorted(p.name for p in tmp_path.iterdir())
+    assert any(n.endswith(".video.2.mkv") for n in adlar)
+    import os
+    eski_zaman = time.time() - 60
+    for f in tmp_path.iterdir():
+        os.utime(f, (eski_zaman, eski_zaman))
+    kurtarilan = yarim_kayitlari_kurtar(tmp_path, ffmpeg_bul())
+    assert len(kurtarilan) == 1
+    assert [p.name for p in tmp_path.iterdir()] == [kurtarilan[0].name]
+    if shutil.which("ffprobe"):
+        assert _sure_sn(kurtarilan[0]) > 1.5      # iki parça da var
+
+
+def test_klasor_adinda_tirnak_ve_turkce_harf_olsa_da_parcalar_birlesir(tmp_path):
+    klasor = tmp_path / "Mustafa'nın Videoları"
+    k = Kayitci(320, 240, 30, klasor=klasor, kodlayici="mpeg4")
+    assert k.baslat()
+    _kayit_et(k, 0.7)
+    assert k.duraklat() and k.devam_et()
+    _kayit_et(k, 0.7)
+    sonuc = _bitir(k)
+    assert sonuc["hata"] == "" and sonuc["dosya"].exists()

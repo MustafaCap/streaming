@@ -83,3 +83,43 @@ def test_kapanis_takilirsa_surec_zorla_kapanir():
     zamanlayici = main.kapanis_bekcisi(0.05, cik=lambda kod: cagrildi.set())
     assert cagrildi.wait(2), "kapanış bekçisi süre dolunca süreci kapatmalı"
     zamanlayici.cancel()
+
+
+def test_kayit_duraklat_devam_et_komutu():
+    from main import komutlari_kaydet
+
+    class Hat:
+        cikis_istegi, kamera_istegi, kamera = True, False, None
+
+    class Kayitci:
+        kayitta, duraklatildi, klasor, son_hata = False, False, "Videolar", ""
+
+        def baslat(self):
+            self.kayitta = True
+            return True
+
+        def durdur(self, bitti):
+            self.kayitta = self.duraklatildi = False
+
+        def duraklat(self):
+            self.duraklatildi = True
+            return True
+
+        def devam_et(self):
+            self.duraklatildi = False
+            return True
+
+    k, depo, kayitci = KomutYoneticisi(), DurumDeposu(), Kayitci()
+    komutlari_kaydet(k, depo, Hat(), kayitci=kayitci)
+    mesajlar = []
+    k.dinle(lambda ad, mesaj: mesajlar.append(mesaj))
+    k.calistir("kayit.duraklat")
+    assert "açık değil" in mesajlar[-1] and not depo.durum.kayit_duraklatildi
+    k.calistir("kayit.ac_kapat")
+    k.calistir("kayit.duraklat")
+    assert kayitci.duraklatildi and depo.durum.kayit_duraklatildi and "duraklatıldı" in mesajlar[-1]
+    k.calistir("kayit.duraklat")
+    assert not kayitci.duraklatildi and not depo.durum.kayit_duraklatildi
+    k.calistir("kayit.duraklat")
+    k.calistir("kayit.ac_kapat")                  # duraklatılmışken durdur
+    assert not kayitci.kayitta and not depo.durum.kayit_duraklatildi
