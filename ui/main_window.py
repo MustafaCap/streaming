@@ -65,7 +65,8 @@ class AnaPencere(QMainWindow):
         self.tepsiye_kuculdu = None      # ilk küçülmede bilgi vermek için geri çağrı
         self.mini_moda_gec = None        # UygulamaKabugu ayarlar
         self.ayarlari_ac = None
-        self.setWindowTitle("Yayın Uygulaması")
+        from core.surum import SURUM
+        self.setWindowTitle(f"Yayın Uygulaması {SURUM}")
         self.setStyleSheet(QSS)
         self.resize(1320, 800)
         self.setMinimumSize(1000, 640)
