@@ -88,7 +88,8 @@ class SesMotoru:
         self._surec_kontrol = 0.0
         self._mik_denendi = False       # mikrofon yoksa sürekli yeniden başlatıp sesi kesmeyelim
         self._yeniden_baslat = threading.Event()
-        self._istek = False
+        self._yayin_istek = False
+        self._kayit_istek = False
         self._calis = threading.Event()
         self._is: threading.Thread | None = None
         self._cihaz_listesi: list[str] = []
@@ -104,7 +105,7 @@ class SesMotoru:
         self._is.start()
 
     def durdur(self) -> None:
-        self._istek = False
+        self._yayin_istek = self._kayit_istek = False
         self._calis.clear()
         if self._is is not None:
             self._is.join(timeout=5)
@@ -114,7 +115,15 @@ class SesMotoru:
 
     def ac(self, acik: bool) -> None:
         """Sesi VB-Cable'a göndermeye başla/durdur (Yayını başlat düğmesiyle birlikte)."""
-        self._istek = acik
+        self._yayin_istek = acik
+
+    def kayit_icin_ac(self, acik: bool) -> None:
+        """Yerel kayıt sürerken ses cihazları yayın kapalı olsa da açık kalır."""
+        self._kayit_istek = acik
+
+    @property
+    def _istek(self) -> bool:
+        return self._yayin_istek or self._kayit_istek
 
     @property
     def istek(self) -> bool:

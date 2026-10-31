@@ -39,6 +39,7 @@ class VideoHatti:
         self.imlec_vurgusu = imlec_vurgusu   # imlecin etrafında halka + tıklama dalgası
         self.bekleme_gorseli = bekleme_gorseli
         self.panik = False                   # F12: anında bekleme ekranı
+        self.kayitci = None                  # core.recorder.Kayitci (yerel MP4 kayıt)
         from overlay.cursor import ImlecVurgusu
         self._vurgu = ImlecVurgusu()
         self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
@@ -200,6 +201,8 @@ class VideoHatti:
                 kare = self._kare_uret()
                 if self.cikis.acik:
                     self.cikis.gonder(kare)
+                if self.kayitci is not None and self.kayitci.kayitta:
+                    self.kayitci.kare_yaz(kare)
                 with self._kilit:
                     self._son_kare = kare
             except Exception:
@@ -211,7 +214,8 @@ class VideoHatti:
             simdi = time.perf_counter()
             if simdi - rapor_zamani >= 1.0:
                 self.depo.guncelle(fps=round(sayac / (simdi - rapor_zamani), 1),
-                                   kare_suresi_ms=round(1000 * is_suresi / sayac, 1))
+                                   kare_suresi_ms=round(1000 * is_suresi / sayac, 1),
+                                   kayit_suresi=self.kayitci.sure if self.kayitci is not None else 0)
                 sayac, is_suresi, rapor_zamani = 0, 0.0, simdi
 
             sonraki += aralik

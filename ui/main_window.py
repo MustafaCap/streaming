@@ -257,7 +257,9 @@ class AnaPencere(QMainWindow):
         self.rozet_mikrofon.setText(f"Sanal mikrofon: {d.sanal_mikrofon.capitalize()}")
         self.rozet_mikrofon.setStyleSheet(rozet_stili(d.sanal_mikrofon))
         kayit = getattr(d, "kayit", "kapalı")
-        self.rozet_kayit.setText("● Kayıt" if kayit == "açık" else "Kayıt: Kapalı")
+        sure = f"{d.kayit_suresi // 60:02d}:{d.kayit_suresi % 60:02d}"
+        self.rozet_kayit.setText(f"● Kayıt {sure}" if kayit == "açık" else
+                                 ("Kayıt: Hata" if kayit == "hata" else "Kayıt: Kapalı"))
         self.rozet_kayit.setStyleSheet(rozet_stili("hata" if kayit == "açık" else "kapalı"))
 
         secili = self.hat.sahneler.indeks

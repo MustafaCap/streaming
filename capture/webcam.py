@@ -21,9 +21,11 @@ class WebcamKaynagi:
     ESKI_KARE_SN = 1.0  # bu kadar süredir yeni kare yoksa kamera kopmuş sayılır
 
     def __init__(self, cihaz: int = 0, genislik: int = 1280, yukseklik: int = 720, fps: int = 30,
-                 ayna: bool = False):
+                 ayna: bool = False, bulaniklastir: bool = False):
         self.cihaz, self.genislik, self.yukseklik, self.fps = cihaz, genislik, yukseklik, fps
         self.ayna = ayna
+        self.bulaniklastir = bulaniklastir  # arka plan bulanıklaştırma (Ayarlar > Kamera)
+        self._bulanik = None
         self._kare = None
         self._kare_zamani = 0.0
         self._kilit = threading.Lock()
@@ -99,6 +101,11 @@ class WebcamKaynagi:
             kare = cv2.cvtColor(kare, cv2.COLOR_BGR2RGB)
             if self.ayna:
                 kare = cv2.flip(kare, 1)
+            if self.bulaniklastir:
+                if self._bulanik is None:
+                    from capture.background_blur import ArkaPlanBulaniklastirici
+                    self._bulanik = ArkaPlanBulaniklastirici()
+                kare = self._bulanik.isle(kare)
             with self._kilit:
                 self._kare = kare
                 self._kare_zamani = time.monotonic()

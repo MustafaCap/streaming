@@ -118,6 +118,7 @@ class SesKaristirici:
         self._kisma = 1.0
         self._sessizlik_sn = 99.0
         self.konusuyor = False
+        self.kayit_dinleyici = None   # fn(blok): yerel kayıt sesi (VB-Cable'a gidenin aynısı)
 
     def kanal_ekle(self, anahtar: str, ad: str, kazanc: float = 1.0, sessiz: bool = False) -> Kanal:
         k = Kanal(ad, kazanc, sessiz)
@@ -157,11 +158,18 @@ class SesKaristirici:
                 self._kisma_guncelle(n)
         if self.ana_sessiz:
             self.cikis_seviyesi = 0.0
-            return np.zeros((n, KANAL), np.float32)
-        tepe = float(np.abs(toplam).max()) if n else 0.0
-        if tepe > 1.0:
-            np.clip(toplam, -1.0, 1.0, out=toplam)  # basit sınırlayıcı: patlama yerine kırpma
-        self.cikis_seviyesi = min(tepe, 1.0)
+            toplam = np.zeros((n, KANAL), np.float32)
+        else:
+            tepe = float(np.abs(toplam).max()) if n else 0.0
+            if tepe > 1.0:
+                np.clip(toplam, -1.0, 1.0, out=toplam)  # basit sınırlayıcı: patlama yerine kırpma
+            self.cikis_seviyesi = min(tepe, 1.0)
+        dinleyici = self.kayit_dinleyici
+        if dinleyici is not None:
+            try:
+                dinleyici(toplam)
+            except Exception:
+                pass
         return toplam
 
     def seviyeler(self) -> dict[str, float]:

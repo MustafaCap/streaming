@@ -112,6 +112,21 @@ class AyarlarPenceresi(QDialog):
         f.addRow("Bekleme ekranı yazısı", self.bekleme)
         f.addRow("Bekleme ekranı görseli", gorsel_satiri)
         f.addRow("Sahne geçiş süresi", self.gecis)
+        from core.recorder import KODLAYICILAR, varsayilan_klasor
+        self.kayit_klasoru = QLineEdit(self._al("record.folder", "") or "")
+        self.kayit_klasoru.setPlaceholderText(str(varsayilan_klasor()))
+        klasor_sec = QPushButton("Seç…", objectName="sahne")
+        klasor_sec.clicked.connect(self._klasor_sec)
+        klasor_satiri = QHBoxLayout()
+        klasor_satiri.addWidget(self.kayit_klasoru, 1)
+        klasor_satiri.addWidget(klasor_sec)
+        self.kodlayici = QComboBox()
+        self.kodlayici.addItem("Otomatik (ekran kartına göre)", "auto")
+        for k in KODLAYICILAR:
+            self.kodlayici.addItem(k, k)
+        self.kodlayici.setCurrentIndex(max(0, self.kodlayici.findData(self._al("record.encoder", "auto"))))
+        f.addRow("Kayıt klasörü", klasor_satiri)
+        f.addRow("Kayıt kodlayıcısı", self.kodlayici)
         f.addRow("", self.bildirim)
         f.addRow("", self.tepsi)
         f.addRow("", self.dnd)
@@ -122,6 +137,12 @@ class AyarlarPenceresi(QDialog):
         yol, _ = QFileDialog.getOpenFileName(self, "Bekleme ekranı görseli", "", "Resimler (*.png *.jpg *.jpeg *.bmp)")
         if yol:
             self.bekleme_gorseli.setText(yol)
+
+    def _klasor_sec(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+        yol = QFileDialog.getExistingDirectory(self, "Kayıt klasörü", self.kayit_klasoru.text())
+        if yol:
+            self.kayit_klasoru.setText(yol)
 
     def _kamera(self) -> QWidget:
         w = QWidget()
@@ -252,6 +273,8 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("ui.dnd_reminder", self.dnd.isChecked())
         a.ayarla("standby_text", self.bekleme.text().strip() or "Birazdan döneceğim")
         a.ayarla("standby_image", self.bekleme_gorseli.text().strip())
+        a.ayarla("record.folder", self.kayit_klasoru.text().strip())
+        a.ayarla("record.encoder", self.kodlayici.currentData())
         a.ayarla("video.cursor_highlight", self.vurgu.isChecked())
         a.ayarla("audio.ducking_level", self.kisma_seviye.value() / 100)
         a.ayarla("transition_ms", self.gecis.value())
