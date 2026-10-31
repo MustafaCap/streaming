@@ -2,7 +2,8 @@
 
 Durum (CANLI/KAPALI/PANİK, kayıt süresi), Yayın, Kayıt, Mikrofon, Ses, Kamera, Kare,
 Kalem, Panik ve ana pencereye dönüş.
-Her düğmenin altında kısayol tuşu yazar. Ekran yakalamaya girmez.
+Küçük kalsın diye düğmelerde sadece simge var; adı ve kısayolu fareyle üstüne
+gelince görünür. Ekran yakalamaya girmez.
 """
 
 from PySide6.QtCore import QPoint, Qt, Signal
@@ -34,17 +35,16 @@ class MiniCubuk(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setStyleSheet(QSS + f"""
             QWidget#mini {{ background: #20242D; border-radius: 14px; }}
-            QPushButton {{ background: {RENK['zemin']}; border: 1px solid {RENK['kenarlik']}; border-radius: 9px;
-                           padding: 6px 8px; font-size: 20px; min-width: 50px; min-height: 30px; }}
+            QPushButton {{ background: {RENK['zemin']}; border: 1px solid {RENK['kenarlik']}; border-radius: 7px;
+                           padding: 2px 4px; font-size: 14px; min-width: 28px; min-height: 24px; }}
             QPushButton:hover {{ border-color: {RENK['vurgu']}; }}
-            QLabel#tus {{ color: {RENK['yazi']}; font-size: 11px; font-weight: 600; background: transparent; }}
-            QLabel#durum {{ font-size: 13px; font-weight: 700; background: transparent; padding: 0 4px; }}
+            QLabel#durum {{ font-size: 10px; font-weight: 700; background: transparent; padding: 0 2px; }}
         """)
         kap = QWidget(self, objectName="mini")
         self._kap = kap
         satir = QHBoxLayout(kap)
-        satir.setContentsMargins(12, 8, 12, 8)
-        satir.setSpacing(4)
+        satir.setContentsMargins(8, 5, 8, 5)
+        satir.setSpacing(3)
 
         # Durum: yayın açık/kapalı, panik, kayıt — renkli ve yazılı (tek bakışta görünsün)
         durum_kutu = QVBoxLayout()
@@ -57,44 +57,34 @@ class MiniCubuk(QWidget):
         durum_kutu.addWidget(self.nokta)
         durum_kutu.addWidget(self.durum_yazisi)
         satir.addLayout(durum_kutu)
-        satir.addSpacing(8)
+        satir.addSpacing(4)
 
         tuslar = (ayarlar.al("hotkeys", {}) if ayarlar is not None else {}) or {}
         self.dugmeler = {}
+        # Küçük kalsın diye sadece simge; adı ve kısayol tuşu fareyle üstüne gelince görünür.
         for komut, simge, ad in self.DUGMELER:
-            kutu = QVBoxLayout()
-            kutu.setSpacing(0)
             d = QPushButton(simge)
-            d.setToolTip(ad)
+            d.setProperty("ad", f"{ad}" + (f" · {tus_metni(tuslar[komut])}" if tuslar.get(komut) else ""))
+            d.setToolTip(d.property("ad"))
             d.setFocusPolicy(Qt.NoFocus)
             d.clicked.connect(lambda _=False, k=komut: komutlar.calistir(k))
-            tus = QLabel(tus_metni(tuslar[komut]) if tuslar.get(komut) else ad, objectName="tus")
-            tus.setAlignment(Qt.AlignCenter)
-            kutu.addWidget(d)
-            kutu.addWidget(tus)
-            satir.addLayout(kutu)
+            satir.addWidget(d)
             self.dugmeler[komut] = d
 
-        satir.addSpacing(6)
+        satir.addSpacing(3)
         don = QPushButton("⤢")
-        don.setToolTip("Ana pencereye dön")
+        don.setToolTip("Ana pencereye dön (çubuğa çift tıklamak da olur)")
         don.setFocusPolicy(Qt.NoFocus)
         don.clicked.connect(self.ana_pencere_istendi.emit)
-        kutu = QVBoxLayout()
-        kutu.setSpacing(0)
-        kutu.addWidget(don)
-        e = QLabel("Pencere", objectName="tus")
-        e.setAlignment(Qt.AlignCenter)
-        kutu.addWidget(e)
-        satir.addLayout(kutu)
+        satir.addWidget(don)
 
         dis = QHBoxLayout(self)
-        dis.setContentsMargins(10, 10, 10, 10)   # gölge için yer
+        dis.setContentsMargins(6, 6, 6, 6)   # gölge için yer
         dis.addWidget(kap)
         from PySide6.QtGui import QColor
         from PySide6.QtWidgets import QGraphicsDropShadowEffect
         golge = QGraphicsDropShadowEffect(kap)
-        golge.setBlurRadius(18)
+        golge.setBlurRadius(12)
         golge.setOffset(0, 3)
         golge.setColor(QColor(0, 0, 0, 170))
         kap.setGraphicsEffect(golge)
@@ -153,8 +143,8 @@ class MiniCubuk(QWidget):
         metin = f'<span style="color:{renk}">{yazi}</span>'
         if kayitta:
             sn = int(getattr(d, "kayit_suresi", 0) or 0)
-            metin += f'<br><span style="color:{RENK["kapali"]}">● REC {sn // 60:02d}:{sn % 60:02d}</span>'
-        self.nokta.setStyleSheet(f"color: {renk}; font-size: 18px;")
+            metin += f'<br><span style="color:{RENK["kapali"]}">REC {sn // 60:02d}:{sn % 60:02d}</span>'
+        self.nokta.setStyleSheet(f"color: {renk}; font-size: 11px;")
         self.durum_yazisi.setText(metin)
         self._cerceve_rengi(RENK["kapali"] if kayitta and not d.panik else renk)
         acik = {
@@ -174,7 +164,7 @@ class MiniCubuk(QWidget):
                 # renk tek başına anlatmasın: kapalıyken simgenin yanında ✕
                 simge = next(s for k, s, _ in self.DUGMELER if k == komut)
                 d_.setText(simge if a else f"{simge}✕")
-                d_.setToolTip(f"{d_.toolTip().split(':')[0]}: {'Açık' if a else 'Kapalı'}")
+                d_.setToolTip(f"{d_.property('ad')}: {'Açık' if a else 'Kapalı'}")
                 d_.setStyleSheet(f"color: {RENK['acik'] if a else RENK['kapali']};")
             else:
                 renk = {"panik": RENK["panik"], "cikis.ac_kapat": RENK["acik"],

@@ -97,6 +97,40 @@ def test_hat_kamerayi_sadece_gerektiginde_acar():
         hat.durdur()
 
 
+def test_pencere_gizliyken_yayin_ve_kayit_yoksa_kamera_kapanir():
+    """1.1.0: uygulama tepsideyken kamera ışığı yanık kalıyordu."""
+    depo, kamera = DurumDeposu(), SahteKamera()
+    hat = VideoHatti(depo, SahteKaynak(), SahteCikis(), fps=60, kamera=kamera,
+                     sahneler=SahneYoneticisi(sahneleri_oku([]), gecis_ms=0))
+    hat.baslat()
+    try:
+        assert _bekle(lambda: kamera.acik)
+        hat.onizleme_gorunur = False                       # pencere tepsiye küçüldü
+        assert _bekle(lambda: not kamera.acik and depo.durum.webcam == "beklemede")
+        hat.cikisi_ayarla(True)                            # yayın açılınca kamera gelir
+        assert _bekle(lambda: kamera.acik)
+        hat.cikisi_ayarla(False)
+        assert _bekle(lambda: not kamera.acik)
+
+        class Kayit:
+            kayitta, sure = True, 0
+
+            def kare_yaz(self, kare):
+                pass
+        hat.kayitci = Kayit()                              # kayıt sürerken de gelir
+        assert _bekle(lambda: kamera.acik)
+    finally:
+        hat.durdur()
+
+
+def test_tek_kopya_windows_disinda_hep_ilk():
+    from core.tek_kopya import TekKopya
+    t = TekKopya()
+    assert t.ilk
+    t.dinle(lambda: None)
+    t.kapat()
+
+
 def test_kamera_suruklenen_yere_konur_ve_disari_tasmaz():
     from scenes.scene_manager import KameraYerlesimi
     yer = KameraYerlesimi.ayarlardan({"size": 0.25, "position": [0.5, 0.5]})

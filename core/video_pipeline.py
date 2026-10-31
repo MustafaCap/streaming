@@ -42,6 +42,9 @@ class VideoHatti:
         self._bekleme_videosu = BeklemeVideosu()
         self.panik = False                   # Panik tuşu: anında bekleme ekranı
         self.kayitci = None                  # core.recorder.Kayitci (yerel MP4 kayıt)
+        # Ana pencerenin önizlemesi ekranda mı? Değilse ve yayın/kayıt da yoksa webcam'e
+        # dokunulmaz (uygulama arka planda beklerken kamera ışığı yanmasın).
+        self.onizleme_gorunur = True
         from overlay.cursor import ImlecVurgusu
         self._vurgu = ImlecVurgusu()
         self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
@@ -156,7 +159,9 @@ class VideoHatti:
         """Webcam'i sadece gerektiğinde açık tutar; son karesini (ya da None) döndürür."""
         if self.kamera is None:
             return None
-        gerekli = self._kamera_istegi and sahne.kamera is not None
+        kullaniliyor = (self._cikis_istegi or self.onizleme_gorunur
+                        or (self.kayitci is not None and self.kayitci.kayitta))
+        gerekli = self._kamera_istegi and sahne.kamera is not None and kullaniliyor
         if gerekli and not self.kamera.acik:
             self.kamera.baslat()
         elif not gerekli and self.kamera.acik:
@@ -165,7 +170,8 @@ class VideoHatti:
             self.depo.guncelle(webcam="kapalı")
             return None
         if not gerekli:
-            self.depo.guncelle(webcam="açık")  # açık ama bu sahnede kullanılmıyor
+            # açık ama şu an kullanılmıyor (bu sahnede yok ya da uygulama arka planda)
+            self.depo.guncelle(webcam="açık" if kullaniliyor else "beklemede")
             return None
         kare = self.kamera.son_kare()
         if kare is not None:

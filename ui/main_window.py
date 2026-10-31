@@ -350,8 +350,18 @@ class AnaPencere(QMainWindow):
 
     def showEvent(self, olay):
         super().showEvent(olay)
+        self.hat.onizleme_gorunur = True
         # Önizleme kendini yakalamasın (sonsuz ayna) ve karşı tarafa gitmesin.
         yakalamadan_gizle(int(self.winId()))
+
+    def hideEvent(self, olay):
+        super().hideEvent(olay)
+        self.hat.onizleme_gorunur = False   # arka planda kamera boşuna açık kalmasın
+
+    def changeEvent(self, olay):
+        super().changeEvent(olay)
+        if olay.type() == QEvent.WindowStateChange:
+            self.hat.onizleme_gorunur = self.isVisible() and not self.isMinimized()
 
     def resizeEvent(self, olay):
         super().resizeEvent(olay)
@@ -395,7 +405,7 @@ class AnaPencere(QMainWindow):
 
         kaynak("ekran", d.ekran_kaynagi, d.ekran_kaynagi.capitalize()
                + (f" ({d.yakalama_yontemi})" if d.yakalama_yontemi else ""))
-        kaynak("webcam", d.webcam, {"açık": "Açık", "kapalı": "Kapalı", "yok": "Bulunamadı"}.get(d.webcam, d.webcam))
+        kaynak("webcam", d.webcam, {"açık": "Açık", "kapalı": "Kapalı", "yok": "Bulunamadı", "beklemede": "Beklemede (pencere gizli, kamera kapalı)"}.get(d.webcam, d.webcam))
         if d.mikrofon_sessiz:
             kaynak("mikrofon", "kapalı", "Susturuldu")
         else:

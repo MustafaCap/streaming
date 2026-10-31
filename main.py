@@ -75,11 +75,16 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             if bildir is not None:
                 bildir(f"Kayıt kaydedildi: {dosya.name} · 📁 Kayıtlar düğmesiyle aç" if dosya else f"Kayıt kaydedilemedi: {hata}")
 
+        kamera_onceki = [None]   # kayıt için kamerayı kapattıysak eski hâli (kayıt bitince geri gelir)
+
         def kayit_ac_kapat(_):
             if kayitci.kayitta:
                 if mikser is not None:
                     mikser.kayit_dinleyici = None
                 kayitci.durdur(kayit_bitti)
+                if kamera_onceki[0] is not None:
+                    hat.kamerayi_ayarla(kamera_onceki[0])
+                    kamera_onceki[0] = None
                 return "Kayıt durdu, dosya hazırlanıyor"
             if ayarlar is not None:
                 from pathlib import Path
@@ -95,7 +100,13 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             if ses is not None:
                 ses.kayit_icin_ac(True)
             depo.guncelle(kayit="açık")
-            return f"Kayıt başladı · {kayitci.klasor}"
+            kamerasiz = (ayarlar is not None and not ayarlar.al("record.camera", False)
+                         and not hat.cikis_istegi and hat.kamera_istegi)
+            if kamerasiz:
+                # Yayın kapalıyken kayıt kamerasız başlar (F10 ile açılabilir); yayındaysan görüntü değişmez.
+                kamera_onceki[0] = True
+                hat.kamerayi_ayarla(False)
+            return f"Kayıt başladı{' (kamerasız)' if kamerasiz else ''} · {kayitci.klasor}"
 
         komutlar.kaydet("kayit.ac_kapat", "Yerel kaydı başlat/durdur", kayit_ac_kapat)
 
@@ -120,6 +131,13 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
 def main() -> int:
     logging_setup.kur()
     from core.surum import SURUM
+    from core.tek_kopya import TekKopya
+    tek = TekKopya()
+    if not tek.ilk:
+        # Uygulama zaten çalışıyor (belki tepside): yenisini açma, onun penceresini öne getir.
+        log.info("Uygulama zaten açık; çalışan pencere öne getiriliyor")
+        tek.digerini_one_getir()
+        return 0
     log.info("Uygulama başlıyor (sürüm %s)", SURUM)
     ayarlar = Ayarlar()
 
@@ -203,6 +221,7 @@ def main() -> int:
     hat.baslat()
     ses.baslat()
     kabuk.baslat()
+    tek.dinle(lambda: kabuk.komut_gonder("pencere.goster"))
     pencere.show()
     kod = app.exec()
     if kayitci.kayitta:
@@ -213,6 +232,7 @@ def main() -> int:
     kabuk.durdur()
     hat.durdur()
     ses.durdur()
+    tek.kapat()
     log.info("Uygulama kapandı")
     return kod
 

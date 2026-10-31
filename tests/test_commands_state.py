@@ -39,3 +39,37 @@ def test_durum_degisince_dinleyici_cagrilir_degismezse_cagrilmaz():
 def test_bilinmeyen_durum_alani_reddedilir():
     with pytest.raises(KeyError):
         DurumDeposu().guncelle(boyle_bir_alan=1)
+
+
+def test_kayit_yayin_kapaliyken_kamerasiz_baslar_bitince_kamera_geri_gelir():
+    from core.settings import Ayarlar
+    from main import komutlari_kaydet
+
+    class Hat:
+        cikis_istegi, kamera_istegi, kamera = False, True, object()
+
+        def kamerayi_ayarla(self, acik):
+            self.kamera_istegi = acik
+
+    class Kayitci:
+        kayitta, klasor, son_hata = False, "Videolar", ""
+
+        def baslat(self):
+            self.kayitta = True
+            return True
+
+        def durdur(self, bitti):
+            self.kayitta = False
+
+    k, depo, hat = KomutYoneticisi(), DurumDeposu(), Hat()
+    komutlari_kaydet(k, depo, hat, ayarlar=Ayarlar(), kayitci=Kayitci())
+    mesajlar = []
+    k.dinle(lambda ad, mesaj: mesajlar.append(mesaj))
+    assert k.calistir("kayit.ac_kapat") and "kamerasız" in mesajlar[-1]
+    assert depo.durum.kayit == "açık" and hat.kamera_istegi is False
+    k.calistir("kayit.ac_kapat")
+    assert hat.kamera_istegi is True
+
+    hat.cikis_istegi = True                       # yayındayken karşı tarafın görüntüsü değişmez
+    k.calistir("kayit.ac_kapat")
+    assert hat.kamera_istegi is True

@@ -13,7 +13,7 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 
 1. **Yayın** düğmesine bas (görüntü ve ses birlikte başlar).
 2. Zoom / Meet / Discord'da: kamera **OBS Virtual Camera**, mikrofon **CABLE Output (VB-Audio Virtual Cable)**.
-3. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Tamamen kapatmak için tepsi simgesine sağ tık → *Çıkış*.
+3. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan yenisi başlamaz, çalışan pencere öne gelir. Pencere gizliyken (yayın ve kayıt da yoksa) kamera kapalı tutulur. Tamamen kapatmak için tepsi simgesine sağ tık → *Çıkış*.
 
 ### Kısayollar (hepsi Ayarlar > Kısayollar'dan değiştirilebilir)
 
@@ -26,7 +26,7 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 | F8 / F9 / F10 | Mikrofon / bilgisayar sesi / kamera aç-kapat |
 | Ctrl+Alt+P | Panik: anında bekleme ekranı, ses kesilir; tekrar basınca geri döner |
 | Ctrl+1 … Ctrl+4 | Sahne: Ekran + Kamera, Sadece ekran, Sadece kamera, Bekleme |
-| Ctrl+Shift+R | Yerel MP4 kaydı başlat/durdur |
+| Ctrl+Shift+R | Yerel MP4 kaydı başlat/durdur. Yayın kapalıyken kayıt kamerasız başlar (F10 ile açılır; Ayarlar'dan değiştirilebilir). Başka bir uygulamadayken basarsan mini çubuk açılır |
 | (ayarlanabilir) | Bas-konuş: basılıyken mikrofon açık |
 
 Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · F8"). Başka bir program aynı tuşu kullanıyorsa uygulama bunu söyler.
@@ -38,7 +38,7 @@ Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · 
 - **Otomatik ses kısma** (konuşunca oyun sesi kısılır) ve **bas-konuş** (Ayarlar).
 - **Kare seçme**: animasyonlu yakınlaştırma ya da vurgulama (geri kalan kararır).
 - **Kalem**: kalem, fosforlu, ok, kare, yazı (Türkçe), lazer; 4 renk. Çizimler yayına ayrıca eklenir, tam ekran oyunda katman görünmese bile karşı taraf görür.
-- **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil.
+- **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil. Düğmelerin adı ve kısayolu fareyle üstüne gelince görünür.
 - **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
 - **İmleç vurgulama**: halka + tıklama dalgası (Ayarlar > Genel).
 - **Yerel kayıt**: `Videolar\YayinUygulamasi\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar.
