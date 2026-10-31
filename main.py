@@ -129,6 +129,8 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             return f"Kayıt başladı{' (kamerasız)' if kamerasiz else ''} · {kayitci.klasor}"
 
         komutlar.kaydet("kayit.ac_kapat", "Yerel kaydı başlat/durdur", kayit_ac_kapat)
+        komutlar.kaydet("kayit.durdur", "Yerel kaydı durdur",
+                        lambda p: kayit_ac_kapat(p) if kayitci.kayitta else None)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -242,6 +244,23 @@ def main() -> int:
     ses.baslat()
     kabuk.baslat()
     tek.dinle(lambda: kabuk.komut_gonder("pencere.goster"))
+
+    def kayit_hatasi(mesaj):
+        # Disk doldu / FFmpeg kapandı: kaydı durdur, o ana kadarki kısım kaydedilir.
+        bildir(f"Kayıt durduruldu: {mesaj}")
+        kabuk.komut_gonder("kayit.durdur")
+
+    kayitci.hata_olunca = kayit_hatasi
+
+    def yarim_kayitlari_kurtar():
+        from core.recorder import ffmpeg_bul, yarim_kayitlari_kurtar as kurtar
+        try:
+            for dosya in kurtar(kayitci.klasor, kayitci.ffmpeg or ffmpeg_bul()):
+                bildir(f"Yarım kalan kayıt kurtarıldı: {dosya.name}")
+        except Exception:
+            log.exception("Yarım kayıtlar kurtarılamadı")
+
+    threading.Thread(target=yarim_kayitlari_kurtar, name="kayit-kurtar", daemon=True).start()
     pencere.show()
     kod = app.exec()
     if kayitci.kayitta:
