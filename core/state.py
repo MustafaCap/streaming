@@ -34,6 +34,7 @@ class Durum:
     sistem_kaynagi: str = ""          # ör. "Tüm sesler (Zoom.exe hariç)"
     sistem_sessiz: bool = False       # F9 ile susturuldu mu
     ses_hatasi: str = ""
+    bolge: str = ""                   # "" (tam ekran) | yakinlastir | vurgula
 
 
 Dinleyici = Callable[[Durum, Durum], None]  # (eski, yeni)

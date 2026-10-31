@@ -24,6 +24,9 @@ class UygulamaKabugu(QObject):
     def __init__(self, app, pencere, komutlar, depo, hat, ayarlar):
         super().__init__()
         self.app, self.pencere, self.komutlar, self.depo, self.ayarlar = app, pencere, komutlar, depo, ayarlar
+        self.hat = hat
+        self._katman = None
+        komutlar.kaydet("bolge.sec", "Kare seç / tam ekrana dön", self._bolge_sec)
         self._komut_sinyali.connect(self._komutu_calistir)
         self._bildirim_sinyali.connect(self._bildirim_goster)
         self._durum_sinyali.connect(self._durumu_goster)
@@ -85,6 +88,35 @@ class UygulamaKabugu(QObject):
     def _durumu_goster(self, d) -> None:
         if self.tepsi is not None:
             self.tepsi.durumu_goster(d)
+
+    # ---- F6 kare seçme
+
+    def _bolge_sec(self, _):
+        from ui.region_overlay import BolgeKatmani, ekrani_bul
+        if self._katman is not None:
+            self._katman.close()
+            return "Kare seçme iptal edildi"
+        if self.hat.bolge.aktif:
+            self.hat.bolge.temizle()
+            self.depo.guncelle(bolge="")
+            return "Tam ekrana dönüldü"
+        ekran = ekrani_bul(getattr(self.hat.kaynak, "dikdortgen", None))
+        self._katman = BolgeKatmani(ekran, self.hat.bolge.bolge)
+        self._katman.secildi.connect(self._bolge_secildi)
+        self._katman.destroyed.connect(self._katman_kapandi)
+        self._katman.baslat()
+        return None
+
+    @Slot(tuple, str)
+    def _bolge_secildi(self, bolge, mod) -> None:
+        self.hat.bolge.sec(bolge, mod)
+        self.depo.guncelle(bolge=mod)
+        metin = "Kare yayında" if mod == "yakinlastir" else "Vurgulama açık"
+        self._bildirim_goster(f"{metin} · tam ekran için tekrar", self.tus_haritasi.get("bolge.sec", ""))
+
+    @Slot()
+    def _katman_kapandi(self, *_):
+        self._katman = None
 
     # ---- pencere / tepsi
 
