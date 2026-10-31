@@ -214,8 +214,28 @@ def test_cihaz_koparsa_cokmez_yeniden_baglanir(motor_kur):
     assert _bekle(lambda: len(mod.acilanlar) > acilma and depo.durum.mikrofon == "açık", 5)
 
 
-def test_surec_sesi_acilamazsa_hoparlor_loopbacke_gecer(motor_kur):
-    # Windows dışında Process Loopback çalışmaz -> "all" moduna düşmeli
+class _AcilmayanSurecSesi:
+    def __init__(self, pid, haric, yaz):
+        self.hata = "Process Loopback desteklenmiyor"
+        self.calisiyor = False
+
+    def baslat(self):
+        return False
+
+    def durdur(self):
+        pass
+
+
+def _oturum_yok():
+    raise OSError("Element not found")
+
+
+def test_surec_sesi_acilamazsa_hoparlor_loopbacke_gecer(motor_kur, monkeypatch):
+    # Eski Windows: ses oturumları listelenemez ve Process Loopback açılmaz -> "all" moduna düşmeli.
+    # (Gerçek Windows'ta, ör. CI'da, Process Loopback çalışabildiği için sahtesiyle denenir.)
+    from capture import app_audio
+    monkeypatch.setattr(app_audio, "ses_oturumu_pidleri", _oturum_yok)
+    monkeypatch.setattr(app_audio, "SurecSesi", _AcilmayanSurecSesi)
     motor, depo, *_ = motor_kur(CIHAZLAR, "Mikrofon (Realtek(R) Audio)", sistem_modu="auto")
     motor.ac(True)
     motor.baslat()
@@ -310,6 +330,20 @@ def test_auto_mod_her_uygulamayi_ayri_yakalar(motor_kur, monkeypatch):
     oturumlar.discard(10)                                            # Edge sustu/kapandı
     assert _bekle(lambda: not _SahteSurecSesi.olusan[0].calisiyor, 4)
     assert set(mikser.kanallar["sistem"].alt_tamponlar) == {30}
+
+
+def test_oturumlar_listelenemezse_kendimiz_haric_tek_yakalama(motor_kur, monkeypatch):
+    from capture import app_audio
+    _SahteSurecSesi.olusan = []
+    monkeypatch.setattr(app_audio, "ses_oturumu_pidleri", _oturum_yok)
+    monkeypatch.setattr(app_audio, "kendi_pid", lambda: 5)
+    monkeypatch.setattr(app_audio, "SurecSesi", _SahteSurecSesi)
+    motor, depo, *_ = motor_kur(CIHAZLAR, "Mikrofon (Realtek(R) Audio)", sistem_modu="auto")
+    motor.ac(True)
+    motor.baslat()
+    assert _bekle(lambda: depo.durum.sistem_sesi == "açık", 3)
+    assert [(s.pid, s.haric) for s in _SahteSurecSesi.olusan] == [(5, True)]   # yankı olmasın: kendimiz hariç
+    assert depo.durum.sistem_kaynagi == "Tüm bilgisayar sesi"
 
 
 def test_kanal_alt_tamponlari_toplanir():
