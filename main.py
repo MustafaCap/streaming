@@ -80,6 +80,7 @@ def main() -> int:
     from core.audio_mixer import SesKaristirici
     from scenes.scene_manager import KameraYerlesimi, SahneYoneticisi, sahneleri_oku
     from core.video_pipeline import VideoHatti
+    from overlay.drawing import CizimDeposu
     from outputs.virtualcam import SanalKameraCikisi
     from ui.icons import uygulama_ikonu
     from ui.main_window import AnaPencere
@@ -93,7 +94,8 @@ def main() -> int:
     w, h, fps = ayarlar.al("video.width"), ayarlar.al("video.height"), ayarlar.al("video.fps")
     depo = DurumDeposu()
     komutlar = KomutYoneticisi()
-    hat = VideoHatti(depo,
+    cizimler = CizimDeposu()
+    hat = VideoHatti(depo, cizimler=cizimler,
                      kaynak=EkranKaynagi(ayarlar.al("video.monitor", 0), ayarlar.al("video.capture_backend", "dxcam")),
                      cikis=SanalKameraCikisi(w, h, fps),
                      genislik=w, yukseklik=h, fps=fps,
@@ -120,7 +122,7 @@ def main() -> int:
 
     pencere = AnaPencere(depo, komutlar, hat, onizleme_fps=ayarlar.al("ui.preview_fps", 15),
                          ses=ses, mikser=mikser, ayarlar=ayarlar)
-    kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar)
+    kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar, cizimler)
     app.setQuitOnLastWindowClosed(not pencere.tepsiye_kucul)
     hat.baslat()
     ses.baslat()
