@@ -34,6 +34,23 @@ QPushButton#sahne {{ background: {RENK['panel']}; border: 1px solid {RENK['kenar
                     border-radius: 8px; padding: 8px 14px; }}
 QPushButton#sahne:hover {{ border-color: {RENK['vurgu']}; }}
 QPushButton#sahne:checked {{ border-color: {RENK['vurgu']}; color: {RENK['vurgu']}; background: {saydam(RENK['vurgu'], 0.12)}; }}
+QPushButton#kontrol {{ background: {RENK['panel']}; border: 1px solid {RENK['kenarlik']};
+                      border-radius: 10px; padding: 6px 8px; font-size: 13px; font-weight: 600; }}
+QPushButton#kontrol:hover {{ background: {RENK['kenarlik']}; }}
+QPushButton#kontrol:disabled {{ color: #5A6070; }}
+QPushButton#liste {{ background: transparent; border: 1px solid transparent; border-radius: 8px;
+                    padding: 8px 10px; text-align: left; }}
+QPushButton#liste:hover {{ background: {RENK['kenarlik']}; }}
+QPushButton#liste:checked {{ border-color: {RENK['vurgu']}; color: {RENK['vurgu']}; background: {saydam(RENK['vurgu'], 0.12)}; }}
+QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox, QKeySequenceEdit {{ background: {RENK['panel']}; border: 1px solid {RENK['kenarlik']};
+           border-radius: 6px; padding: 4px 8px; }}
+QComboBox:focus, QLineEdit:focus {{ border-color: {RENK['vurgu']}; }}
+QTabWidget::pane {{ border: 1px solid {RENK['kenarlik']}; border-radius: 8px; top: -1px; }}
+QTabBar::tab {{ background: transparent; padding: 8px 14px; color: {RENK['yazi2']}; }}
+QTabBar::tab:selected {{ color: {RENK['yazi']}; border-bottom: 2px solid {RENK['vurgu']}; }}
+QTableWidget {{ background: {RENK['panel']}; gridline-color: {RENK['kenarlik']}; border: none; }}
+QHeaderView::section {{ background: {RENK['zemin']}; color: {RENK['yazi2']}; border: none; padding: 6px; }}
+QCheckBox {{ background: transparent; }}
 QPushButton#buyuk[acik="true"] {{ border-color: {RENK['acik']}; color: {RENK['acik']}; }}
 """
 

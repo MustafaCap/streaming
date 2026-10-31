@@ -27,6 +27,7 @@ class Tepsi(QSystemTrayIcon):
             self.sahne_eylemleri.append(a)
         menu.addSeparator()
         menu.addAction("Pencereyi göster", pencereyi_goster)
+        menu.addAction("Mini mod", lambda: komutlar.calistir("pencere.mini"))
         menu.addAction("Çıkış", cikis)
         self._menu = menu  # çöp toplayıcı silmesin
         self.setContextMenu(menu)
