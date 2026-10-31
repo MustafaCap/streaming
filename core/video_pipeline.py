@@ -15,6 +15,7 @@ import logging
 import threading
 import time
 
+from capture.region import BolgeSecimi, uygula as bolge_uygula
 from core import frames
 from core.state import DurumDeposu
 from outputs.virtualcam import SanalKameraYok
@@ -27,11 +28,12 @@ class VideoHatti:
     def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30,
                  imlec_goster: bool = True, kamera=None, sahneler: SahneYoneticisi | None = None,
                  kamera_yerlesimi: KameraYerlesimi | None = None, bekleme_metni: str = "Birazdan döneceğim",
-                 kamera_acik: bool = True):
+                 kamera_acik: bool = True, bolge: BolgeSecimi | None = None):
         self.depo = depo
         self.kaynak = kaynak
         self.cikis = cikis
         self.kamera = kamera  # WebcamKaynagi ya da None
+        self.bolge = bolge or BolgeSecimi()  # F6 kare seçme / yakınlaştırma / vurgulama
         self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
         self.kamera_yerlesimi = kamera_yerlesimi or KameraYerlesimi()
         self.bekleme_metni = bekleme_metni
@@ -116,14 +118,16 @@ class VideoHatti:
             self.depo.guncelle(ekran_kaynagi="koptu", yakalama_yontemi="")
             return None
         self.depo.guncelle(ekran_kaynagi="çalışıyor", yakalama_yontemi=self.kaynak.yontem)
-        kare = frames.sigdir(ham, self.genislik, self.yukseklik)
+        kare, donusum = bolge_uygula(ham, self.bolge.gorunum(), self.genislik, self.yukseklik,
+                                     self.bolge.karartma_gucu)
         if self.imlec_goster:
             konum = getattr(self.kaynak, "imlec", lambda: None)()
             if konum is not None:
-                if kare is ham:  # aynı boyuttaysa sigdir kopyalamaz; yakalayıcının önbelleğini bozma
-                    kare = kare.copy()
-                olcek, dx, dy = frames.sigdir_donusumu(ham.shape[1], ham.shape[0], self.genislik, self.yukseklik)
-                frames.imlec_ciz(kare, konum[0] * olcek + dx, konum[1] * olcek + dy)
+                x, y = donusum(*konum)
+                if -30 < x < self.genislik and -30 < y < self.yukseklik:
+                    if kare is ham:  # aynı boyuttaysa kopyalanmamıştır; yakalayıcının önbelleğini bozma
+                        kare = kare.copy()
+                    frames.imlec_ciz(kare, x, y)
         return kare
 
     def _kamera_karesi(self, sahne: Sahne):
