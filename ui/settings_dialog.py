@@ -62,6 +62,8 @@ class AyarlarPenceresi(QDialog):
         dugmeler.button(QDialogButtonBox.Cancel).setText("Vazgeç")
         dugmeler.accepted.connect(self._kaydet)
         dugmeler.rejected.connect(self.reject)
+        hakkinda = dugmeler.addButton("Hakkında", QDialogButtonBox.HelpRole)
+        hakkinda.clicked.connect(self._hakkinda)
         kok = QVBoxLayout(self)
         kok.addWidget(sekmeler, 1)
         kok.addWidget(self.uyari)
@@ -71,6 +73,10 @@ class AyarlarPenceresi(QDialog):
         super().showEvent(olay)
         from core.platform_win import yakalamadan_gizle
         yakalamadan_gizle(int(self.winId()))  # ayarlar karşı tarafa görünmesin
+
+    def _hakkinda(self) -> None:
+        from ui.hakkinda import hakkinda_goster
+        hakkinda_goster(self)
 
     def _al(self, yol, varsayilan=None):
         return self.ayarlar.al(yol, varsayilan)

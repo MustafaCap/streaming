@@ -91,11 +91,34 @@ outputs/             sanal kamera çıkışı
 ui/                  ana pencere, mikser, mini mod, ayarlar, kare seçme ve kalem katmanları,
                      bildirimler, sistem tepsisi
 models/              arka plan bulanıklaştırma modeli (Apache 2.0)
-kurulum/             Windows kurulum programı (Inno Setup betiği) ve uygulama simgesi
+kurulum/             Windows kurulum programı (Inno Setup betiği), uygulama simgesi,
+                     lisans toplama betiği ve Türkçe lisans özeti
 tests/               birim testleri (pytest)
 denemeler/           Aşama 0 risk denemeleri
 ```
 
-## Lisanslar
+## Lisans
 
-Kullanılan kütüphaneler ücretli dağıtıma uygun lisanslıdır: PySide6 (LGPL), OpenCV, numpy, Pillow, psutil, mss, dxcam, pyvirtualcam, PyAudioWPatch, comtypes (MIT/BSD/Apache), FFmpeg LGPL derlemesi (`ffmpeg\LICENSE.txt`), MediaPipe Selfie Segmentation modeli (Apache 2.0, `models\`). QFluentWidgets (GPL) bilerek kullanılmadı. OBS Virtual Camera ve VB-Cable kullanıcı tarafından ayrıca kurulur.
+Yayın Uygulaması **özgür ve açık kaynak** bir yazılımdır: **GNU GPL sürüm 3** ile dağıtılır (tam metin: [LICENSE](LICENSE)). Telif hakkı © 2026 Mustafa.
+
+Kısaca: ücretsiz kullanabilir, kopyalayabilir, paylaşabilirsin. Değiştirip dağıtan kişi, değiştirdiği hali de GPLv3 ile ve kaynak koduyla birlikte dağıtmak zorundadır. Program hiçbir garanti olmadan sunulur. Kurulum programı lisansı ilk sayfada gösterir; uygulamada *Ayarlar → Hakkında* ya da tepsi menüsü → *Hakkında*'dan da görülür.
+
+### Kullanılan parçalar
+
+Paketin içindeki `lisanslar` klasöründe her parçanın kendi lisans metni ve `UCUNCU_PARTI_LISANSLAR.txt` listesi var (CI'da `kurulum/lisanslar.py` toplar).
+
+| Parça | Lisans |
+| --- | --- |
+| PySide6 / Qt | LGPLv3 |
+| OpenCV (opencv-python) | Apache 2.0 (içindeki FFmpeg LGPLv2.1) |
+| FFmpeg (BtbN LGPL derlemesi, `ffmpeg\`) | LGPLv2.1+ |
+| numpy | BSD-3 |
+| Pillow | MIT-CMU (HPND) |
+| psutil | BSD-3 |
+| mss, dxcam, comtypes, PyAudioWPatch (PortAudio) | MIT |
+| MediaPipe Selfie Segmentation modeli (`models\`) | Apache 2.0 |
+| Python çalışma zamanı | PSF |
+
+Sanal kamera çıkışı kendi kodumuzdur (`outputs/obs_kamera.py`): görüntüyü OBS'nin sanal kamera sürücüsünün okuduğu paylaşılan belleğe yazar. Önceden kullanılan pyvirtualcam sadece GPLv2 lisanslı olduğu ve GPLv3 ile aynı pakette dağıtılamadığı için çıkarıldı.
+
+OBS Virtual Camera ve VB-Cable pakete konmaz, kullanıcı ayrıca kurar. QFluentWidgets bilerek kullanılmadı.
