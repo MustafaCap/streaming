@@ -4,7 +4,9 @@
 """
 
 import logging
+import os
 import sys
+import threading
 
 from core import network_guard
 
@@ -16,6 +18,24 @@ from core.settings import Ayarlar  # noqa: E402
 from core.state import DurumDeposu  # noqa: E402
 
 log = logging.getLogger("main")
+
+KAPANIS_SURESI_SN = 15
+
+
+def _zorla_cik(kod: int) -> None:
+    logging.shutdown()   # log dosyasına yazılanlar kaybolmasın
+    os._exit(kod)
+
+
+def kapanis_bekcisi(sn: float = KAPANIS_SURESI_SN, cik=_zorla_cik) -> threading.Timer:
+    """Kapanış takılırsa (bir sürücü cevap vermezse) süreç arkada kalmasın: kamera ve mikrofon açık kalırdı."""
+    def zorla():
+        log.error("Kapanış %s saniyede bitmedi; uygulama zorla kapatılıyor", sn)
+        cik(1)
+    zamanlayici = threading.Timer(sn, zorla)
+    zamanlayici.daemon = True
+    zamanlayici.start()
+    return zamanlayici
 
 
 def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None, mikser=None,
@@ -109,6 +129,8 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             return f"Kayıt başladı{' (kamerasız)' if kamerasiz else ''} · {kayitci.klasor}"
 
         komutlar.kaydet("kayit.ac_kapat", "Yerel kaydı başlat/durdur", kayit_ac_kapat)
+        komutlar.kaydet("kayit.durdur", "Yerel kaydı durdur",
+                        lambda p: kayit_ac_kapat(p) if kayitci.kayitta else None)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -222,12 +244,30 @@ def main() -> int:
     ses.baslat()
     kabuk.baslat()
     tek.dinle(lambda: kabuk.komut_gonder("pencere.goster"))
+
+    def kayit_hatasi(mesaj):
+        # Disk doldu / FFmpeg kapandı: kaydı durdur, o ana kadarki kısım kaydedilir.
+        bildir(f"Kayıt durduruldu: {mesaj}")
+        kabuk.komut_gonder("kayit.durdur")
+
+    kayitci.hata_olunca = kayit_hatasi
+
+    def yarim_kayitlari_kurtar():
+        from core.recorder import ffmpeg_bul, yarim_kayitlari_kurtar as kurtar
+        try:
+            for dosya in kurtar(kayitci.klasor, kayitci.ffmpeg or ffmpeg_bul()):
+                bildir(f"Yarım kalan kayıt kurtarıldı: {dosya.name}")
+        except Exception:
+            log.exception("Yarım kayıtlar kurtarılamadı")
+
+    threading.Thread(target=yarim_kayitlari_kurtar, name="kayit-kurtar", daemon=True).start()
     pencere.show()
     kod = app.exec()
     if kayitci.kayitta:
-        bitti = __import__("threading").Event()
+        bitti = threading.Event()
         kayitci.durdur(lambda d, h: bitti.set())
         bitti.wait(60)  # kapanırken kayıt yarım kalmasın
+    kapanis_bekcisi()
     bas_konus.durdur()
     kabuk.durdur()
     hat.durdur()
@@ -237,5 +277,32 @@ def main() -> int:
     return kod
 
 
+def acilis_hatasi_goster(hata: BaseException) -> None:
+    """Açılışta bir şey bozulursa exe sessizce kapanmasın: kullanıcıya söyle, log klasörünü aç."""
+    from core import paths
+    try:
+        klasor = paths.log_klasoru()
+    except Exception:
+        klasor = None
+    metin = (f"Yayın Uygulaması açılamadı.\n\n{type(hata).__name__}: {hata}\n\n"
+             "Ayrıntılar log dosyasında yazıyor"
+             + (f":\n{klasor}\n\nLog klasörü açılsın mı?" if klasor else "."))
+    if sys.platform != "win32":
+        print(metin, file=sys.stderr)
+        return
+    import ctypes
+    MB_YESNO, MB_OK, MB_ICONERROR, IDYES = 0x4, 0x0, 0x10, 6
+    cevap = ctypes.windll.user32.MessageBoxW(None, metin, "Yayın Uygulaması", (MB_YESNO if klasor else MB_OK) | MB_ICONERROR)
+    if klasor and cevap == IDYES:
+        os.startfile(klasor)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except SystemExit:
+        raise
+    except BaseException as e:   # açılışta ya da kapanışta beklenmedik hata
+        log.critical("Uygulama hatayla kapandı", exc_info=True)
+        acilis_hatasi_goster(e)
+        sys.exit(1)

@@ -42,3 +42,27 @@ def test_eski_f12_panik_tusu_tasinir():
     assert a.al("hotkeys.panik") == "Ctrl+Alt+P"
     assert a.al("hotkeys")["ses.mikrofon"] == "F2"
     assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == 2
+
+
+def test_yanlis_turdeki_deger_varsayilana_doner():
+    paths.ayar_dosyasi().write_text(json.dumps({"video": {"width": "geniş", "fps": 60.0, "show_cursor": "evet"},
+                                                "audio": {"mic_gain": 2}, "camera": {"position": [0.5, 0.5]}}),
+                                    encoding="utf-8")
+    a = Ayarlar()
+    assert a.al("video.width") == 1280                   # metin -> varsayılan
+    assert a.al("video.fps") == 60 and isinstance(a.al("video.fps"), int)   # 60.0 -> 60
+    assert a.al("video.show_cursor") is True             # "evet" bool değil -> varsayılan
+    assert a.al("audio.mic_gain") == 2.0 and isinstance(a.al("audio.mic_gain"), float)
+    assert a.al("camera.position") == [0.5, 0.5]         # türü serbest alan korunur
+
+
+def test_kaydedilemezse_cokmez(monkeypatch):
+    a = Ayarlar()
+
+    def kilitli(*_a, **_k):
+        raise PermissionError("dosya başka bir program tarafından kullanılıyor")
+
+    monkeypatch.setattr(type(paths.ayar_dosyasi()), "replace", kilitli)
+    a.ayarla("video.monitor", 2)                          # hata fırlatmamalı
+    assert a.al("video.monitor") == 2
+    assert a.kaydet() is False

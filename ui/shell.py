@@ -46,7 +46,7 @@ class UygulamaKabugu(QObject):
         self.tepsi = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             from ui.tray import Tepsi
-            self.tepsi = Tepsi(komutlar, hat, depo, self.pencereyi_goster, self.cik)
+            self.tepsi = Tepsi(komutlar, hat, depo, self.pencereyi_goster, self.cikmayi_onayla)
             self.tepsi.show()
         self.pencere.tepsiye_kucul = self.tepsi is not None and ayarlar.al("ui.minimize_to_tray", True)
         self.pencere.tepsiye_kuculdu = self._tepsiye_kuculdu
@@ -57,6 +57,7 @@ class UygulamaKabugu(QObject):
         self.mini.ana_pencere_istendi.connect(self.pencereyi_goster)
         self.pencere.mini_moda_gec = self.mini_moda_gec
         self.pencere.ayarlari_ac = self.ayarlari_ac
+        self.pencere.uygulamadan_cik = self.cikmayi_onayla
         depo.dinle(lambda eski, yeni: self._durum_sinyali.emit(yeni))
         komutlar.kaydet("pencere.mini", "Mini moda geç", lambda _: self.mini_moda_gec())
         komutlar.kaydet("kayit.klasor", "Kayıt klasörünü aç", self._kayit_klasoru)
@@ -213,11 +214,33 @@ class UygulamaKabugu(QObject):
         self.pencere.activateWindow()
 
     def _tepsiye_kuculdu(self) -> None:
+        d = self.depo.durum
+        if d.cikis_acik or d.kayit == "açık":
+            # Yayın/kayıt arka planda sürüyor (kamera da açık olabilir): görünür olsun, mini çubuktan durdurulsun.
+            self.mini_moda_gec()
+            ne = "Yayın" if d.cikis_acik else "Kayıt"
+            self.bildirim.goster(f"{ne} sürüyor", "Mini çubuktan durdurabilirsin", bildirim_rengi("açık"))
+            return
         if self._ilk_kuculme and self.tepsi is not None:
             self._ilk_kuculme = False
             self.tepsi.showMessage("Yayın Uygulaması", "Arka planda çalışıyor. Kısayollar açık; "
                                    "kapatmak için simgeye sağ tıklayıp Çıkış'ı seç.",
                                    QSystemTrayIcon.Information, 3000)
+
+    def cikmayi_onayla(self) -> None:
+        """Çıkış düğmesi / tepsi menüsü: yayın veya kayıt açıksa önce sorar."""
+        d = self.depo.durum
+        if d.cikis_acik or d.kayit == "açık":
+            from PySide6.QtWidgets import QMessageBox
+            ne = "Yayın ve kayıt" if d.cikis_acik and d.kayit == "açık" else ("Yayın" if d.cikis_acik else "Kayıt")
+            cevap = QMessageBox.question(
+                self.pencere if self.pencere.isVisible() else None, "Çıkış",
+                f"{ne} açık. Uygulama tamamen kapatılsın mı?"
+                + ("\nKayıt durdurulup kaydedilir." if d.kayit == "açık" else ""),
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if cevap != QMessageBox.Yes:
+                return
+        self.cik()
 
     def cik(self) -> None:
         self.pencere.tepsiye_kucul = False

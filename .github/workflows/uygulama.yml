@@ -42,12 +42,16 @@ jobs:
           if (-not $asset) { $asset = $rel.assets | Where-Object { $_.name -eq 'ffmpeg-master-latest-win64-lgpl.zip' } }
           Write-Host "FFmpeg: $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile ffmpeg.zip
+          $ozet = (Get-FileHash -Algorithm SHA256 ffmpeg.zip).Hash.ToLower()
+          Write-Host "FFmpeg SHA-256: $ozet"
           Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
           $kok = Get-ChildItem ffmpeg_tmp | Select-Object -First 1
           New-Item -ItemType Directory -Force ffmpeg | Out-Null
           Copy-Item "$($kok.FullName)\bin\ffmpeg.exe" ffmpeg\
           Copy-Item "$($kok.FullName)\LICENSE.txt" ffmpeg\LICENSE.txt
-          "FFmpeg $($asset.name) - https://github.com/BtbN/FFmpeg-Builds (LGPL)" | Out-File ffmpeg\KAYNAK.txt
+          @("FFmpeg $($asset.name) - https://github.com/BtbN/FFmpeg-Builds (LGPL)",
+            "Yayın: $($rel.tag_name)", "İndirme: $($asset.browser_download_url)", "SHA-256: $ozet") |
+            Out-File -Encoding utf8 ffmpeg\KAYNAK.txt
           .\ffmpeg\ffmpeg.exe -hide_banner -version | Select-Object -First 1
 
       - name: Birim testleri
@@ -90,12 +94,24 @@ jobs:
           Move-Item Output\YayinUygulamasi-Kurulum.exe YayinUygulamasi-Kurulum.exe
           Get-Item YayinUygulamasi-Kurulum.exe | Select-Object Name, Length
 
+      - name: Dosya özetleri (SHA-256)
+        run: |
+          Get-FileHash -Algorithm SHA256 YayinUygulamasi.zip, YayinUygulamasi-Kurulum.exe |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Out-File -Encoding ascii SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+          $surum = (Select-String -Path core\surum.py -Pattern 'SURUM = "(.+)"').Matches[0].Groups[1].Value
+          "SURUM=$surum" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          python kurulum/surum_notu.py $surum surum_notu.md
+          if ($LASTEXITCODE -ne 0) { throw "CHANGELOG.md'de $surum sürümünün notu yok" }
+
       - uses: actions/upload-artifact@v4
         with:
           name: YayinUygulamasi
           path: |
             YayinUygulamasi.zip
             YayinUygulamasi-Kurulum.exe
+            SHA256SUMS.txt
 
       # Sadece main'e birleşen kod indirme sayfasına gider; dallar sadece test edilir.
       - name: İndirme sayfasına koy (Releases)
@@ -107,6 +123,7 @@ jobs:
           prerelease: true
           target_commitish: ${{ github.sha }}
           body: |
+            Sürüm ${{ env.SURUM }}. Her sürümün kalıcı kopyası Releases'te v<sürüm> adıyla durur.
             Kurmak için: YayinUygulamasi-Kurulum.exe'yi indir ve çalıştır (kurulum yerini sorar,
             Başlat menüsüne ve istersen masaüstüne kısayol ekler; Ayarlar > Uygulamalar'dan kaldırılır).
             Kurmadan denemek için: YayinUygulamasi.zip'i bir klasöre çıkar, YayinUygulamasi.exe'yi çalıştır.
@@ -116,3 +133,18 @@ jobs:
           files: |
             YayinUygulamasi.zip
             YayinUygulamasi-Kurulum.exe
+            SHA256SUMS.txt
+
+      # Her sürüm numarası için bir kez kalıcı sürüm (v1.5.0 gibi): sonradan üstüne yazılmaz,
+      # sorun bildiren kişinin hangi paketi kullandığı bilinir, eskiye dönülebilir.
+      # Zip konmaz (guncelle.bat sadece "uygulama"dakini indirsin); kurulum programı ve özetler konur.
+      - name: Sürüm numaralı kalıcı sürüm
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $etiket = "v$env:SURUM"
+          gh release view $etiket *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Host "$etiket zaten var, dokunulmadı"; exit 0 }
+          gh release create $etiket YayinUygulamasi-Kurulum.exe SHA256SUMS.txt `
+            --title "Yayın Uygulaması $env:SURUM" --notes-file surum_notu.md --target $env:GITHUB_SHA --latest
