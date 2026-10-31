@@ -122,7 +122,7 @@ def main() -> int:
 
     pencere = AnaPencere(depo, komutlar, hat, onizleme_fps=ayarlar.al("ui.preview_fps", 15),
                          ses=ses, mikser=mikser, ayarlar=ayarlar)
-    kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar, cizimler)
+    kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar, cizimler, ses)
     app.setQuitOnLastWindowClosed(not pencere.tepsiye_kucul)
     hat.baslat()
     ses.baslat()

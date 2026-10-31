@@ -21,22 +21,17 @@ class UygulamaKabugu(QObject):
     _bildirim_sinyali = Signal(str, str)
     _durum_sinyali = Signal(object)
 
-    def __init__(self, app, pencere, komutlar, depo, hat, ayarlar, cizimler=None):
+    def __init__(self, app, pencere, komutlar, depo, hat, ayarlar, cizimler=None, ses=None):
         super().__init__()
         self.app, self.pencere, self.komutlar, self.depo, self.ayarlar = app, pencere, komutlar, depo, ayarlar
-        self.hat = hat
+        self.hat, self.ses = hat, ses
         self._katman = None
         komutlar.kaydet("bolge.sec", "Kare seç / tam ekrana dön", self._bolge_sec)
         self._komut_sinyali.connect(self._komutu_calistir)
         self._bildirim_sinyali.connect(self._bildirim_goster)
         self._durum_sinyali.connect(self._durumu_goster)
 
-        # komut adı -> tuş (bildirimlerde "Mikrofon kapandı · F8" yazmak için)
-        self.tus_haritasi: dict[str, str] = {}
-        for ayar in ("hotkeys", "pen_hotkeys"):
-            for komut, tus in (ayarlar.al(ayar, {}) or {}).items():
-                if tus:
-                    self.tus_haritasi[komut] = tus_metni(tus)
+        self._tus_haritasini_kur()
 
         self.bildirim = Bildirim()
         komutlar.dinle(self._komut_bitti)
@@ -52,11 +47,26 @@ class UygulamaKabugu(QObject):
             from ui.tray import Tepsi
             self.tepsi = Tepsi(komutlar, hat, depo, self.pencereyi_goster, self.cik)
             self.tepsi.show()
-            depo.dinle(lambda eski, yeni: self._durum_sinyali.emit(yeni))
-            self._durumu_goster(depo.durum)
         self.pencere.tepsiye_kucul = self.tepsi is not None and ayarlar.al("ui.minimize_to_tray", True)
         self.pencere.tepsiye_kuculdu = self._tepsiye_kuculdu
         self._ilk_kuculme = True
+
+        from ui.mini_bar import MiniCubuk
+        self.mini = MiniCubuk(komutlar, hat, ayarlar)
+        self.mini.ana_pencere_istendi.connect(self.pencereyi_goster)
+        self.pencere.mini_moda_gec = self.mini_moda_gec
+        self.pencere.ayarlari_ac = self.ayarlari_ac
+        depo.dinle(lambda eski, yeni: self._durum_sinyali.emit(yeni))
+        komutlar.kaydet("pencere.mini", "Mini moda geç", lambda _: self.mini_moda_gec())
+        self._durumu_goster(depo.durum)
+
+    def _tus_haritasini_kur(self) -> None:
+        """komut adı -> tuş (bildirimlerde 'Mikrofon kapandı · F8' yazmak için)."""
+        self.tus_haritasi: dict[str, str] = {}
+        for ayar in ("hotkeys", "pen_hotkeys"):
+            for komut, tus in (self.ayarlar.al(ayar, {}) or {}).items():
+                if tus:
+                    self.tus_haritasi[komut] = tus_metni(tus)
 
     def baslat(self) -> None:
         self.kisayollar.baslat()
@@ -67,6 +77,7 @@ class UygulamaKabugu(QObject):
         if self.kalem is not None and self.kalem.acik:
             self.kalem.kapat()
         self.kisayollar.durdur()
+        self.mini.hide()
         if self.tepsi is not None:
             self.tepsi.hide()
 
@@ -94,6 +105,8 @@ class UygulamaKabugu(QObject):
     def _durumu_goster(self, d) -> None:
         if self.tepsi is not None:
             self.tepsi.durumu_goster(d)
+        if self.mini.isVisible():
+            self.mini.durumu_goster(d)
 
     # ---- F6 kare seçme
 
@@ -126,7 +139,26 @@ class UygulamaKabugu(QObject):
 
     # ---- pencere / tepsi
 
+    def mini_moda_gec(self) -> None:
+        self.pencere.hide()
+        self.mini.durumu_goster(self.depo.durum)
+        self.mini.goster()
+
+    def ayarlari_ac(self) -> None:
+        from ui.settings_dialog import AyarlarPenceresi
+        AyarlarPenceresi(self.ayarlar, self.hat, self.ses, self._ayarlar_degisti, self.pencere).exec()
+
+    def _ayarlar_degisti(self) -> None:
+        self._tus_haritasini_kur()
+        self.kisayollar.grup_ayarla("genel", gruplara_ayir(self.ayarlar.al("hotkeys", {}), self.komutlar))
+        if self.kalem is not None and self.kalem.acik:
+            self.kalem._kalem_tuslari(True)
+        self.pencere.tepsiye_kucul = self.tepsi is not None and self.ayarlar.al("ui.minimize_to_tray", True)
+        self.app.setQuitOnLastWindowClosed(not self.pencere.tepsiye_kucul)
+        QTimer.singleShot(800, self._basarisizlari_bildir)
+
     def pencereyi_goster(self) -> None:
+        self.mini.hide()
         self.pencere.showNormal()
         self.pencere.raise_()
         self.pencere.activateWindow()
