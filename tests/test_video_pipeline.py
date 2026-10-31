@@ -26,7 +26,7 @@ class SahteCikis:
 
     def ac(self):
         if self.yok:
-            raise SanalKameraYok("sürücü yok")
+            raise SanalKameraYok("OBS Virtual Camera sürücüsü bulunamadı")
         self.acik = True
 
     def gonder(self, kare):
@@ -70,7 +70,8 @@ def test_surucu_yoksa_cokmez_ve_durum_yok_olur():
     try:
         hat.cikisi_ayarla(True)
         assert _bekle(lambda: depo.durum.sanal_kamera == "yok")
-        assert not depo.durum.cikis_acik and "OBS" in depo.durum.son_hata
+        assert not depo.durum.cikis_acik
+        assert depo.durum.son_hata == "OBS Virtual Camera sürücüsü bulunamadı"   # nedeni kullanıcıya iletilir
         assert not hat.cikis_istegi
     finally:
         hat.durdur()
