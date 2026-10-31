@@ -17,6 +17,7 @@ Ne deniyoruz?
 Durdurmak için: Ctrl+C
 """
 
+import sys
 import argparse
 import threading
 import time
@@ -79,6 +80,9 @@ def cubuk(seviye):
 
 
 def main():
+    # Türkçe karakterler her konsolda/yönlendirmede düzgün çıksın
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--liste", action="store_true")
     ap.add_argument("--mik", type=float, default=1.0, help="mikrofon seviyesi")

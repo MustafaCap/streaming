@@ -217,6 +217,9 @@ def ses_istemcisi_al(pid: int, haric: bool):
 # ---------------------------------------------------------------- ana akış
 
 def main():
+    # Türkçe karakterler her konsolda/yönlendirmede düzgün çıksın
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--surec", required=True, help="ör. chrome.exe, Discord.exe, spotify.exe")
     ap.add_argument("--haric", action="store_true", help="bu uygulama HARİÇ her şeyi yakala")

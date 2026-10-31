@@ -18,6 +18,7 @@ Tuşlar:
   bunu da dene ve sonucu not et.
 """
 
+import sys
 import ctypes
 import winsound
 from ctypes import wintypes
@@ -43,6 +44,9 @@ def kaydet(kimlik, mod, vk, ad):
 
 
 def main():
+    # Türkçe karakterler her konsolda/yönlendirmede düzgün çıksın
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     print("Kısayollar kaydediliyor:")
     kaydet(ID_F6, 0, VK_F6, "F6")
     kaydet(ID_F7, 0, VK_F7, "F7 (kalem modu)")

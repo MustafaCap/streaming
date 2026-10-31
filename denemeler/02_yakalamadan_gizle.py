@@ -50,6 +50,9 @@ def pembe_orani(hwnd) -> float:
 
 
 def main():
+    # Türkçe karakterler her konsolda/yönlendirmede düzgün çıksın
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     app = QApplication(sys.argv)
     w = QLabel("Bu pencere ekranda görünüyor.\nAma yakalamada görünmemeli.")
     w.setAlignment(Qt.AlignCenter)

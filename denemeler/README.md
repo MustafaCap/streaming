@@ -2,7 +2,11 @@
 
 Bu klasördeki her dosya tek bir riskli konuyu dener. Asıl uygulama değiller; amaç, bir şey çalışmazsa bunu kod yazmaya başlamadan öğrenmek. Her denemeden sonra sonucu [SONUCLAR.md](SONUCLAR.md) dosyasına yaz.
 
-## 1. Kurulum (bir kere)
+## En kolay yol: hazır .exe
+
+Python kurmak istemiyorsan [Releases sayfasından](https://github.com/MustafaCap/streaming/releases/tag/asama-0) `Asama0-Denemeler.zip`'i indir, bir klasöre çıkar ve içindeki `BENIOKU.txt`'yi izle. Sadece OBS ve VB-Cable kurulu olmalı. Zip, GitHub'da her değişiklikte otomatik olarak yeniden derlenir.
+
+## 1. Kurulum (Python ile, bir kere)
 
 1. **Python 3.11 veya 3.12** kur: https://www.python.org/downloads/ (kurulumda "Add python.exe to PATH" kutusunu işaretle). 3.13 kullanma; bazı kütüphaneler henüz hazır olmayabilir.
 2. **OBS Studio** kur: https://obsproject.com/ (sanal kamera sürücüsü için). Kurduktan sonra OBS'yi bir kere aç, "Sanal Kamerayı Başlat"a bas, kapat. Bu, sürücünün kaydolmasını sağlar.
@@ -13,7 +17,6 @@ Bu klasördeki her dosya tek bir riskli konuyu dener. Asıl uygulama değiller; 
 ```powershell
 git clone https://github.com/MustafaCap/streaming.git
 cd streaming
-git checkout asama-0-denemeler
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r denemeler\requirements.txt
