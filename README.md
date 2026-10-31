@@ -10,6 +10,16 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından (ya da [Releases](https://github.com/MustafaCap/streaming/releases)'teki sürüm numaralı `v…` sayfalarından) **`YayinUygulamasi-Kurulum.exe`**'yi indir ve çalıştır. Yeni sürümü kurmak için aynısını yap, eskisinin üstüne kurulur. Kurulum yerini sorar, Başlat menüsüne ekler (Windows aramasına "Yayın" yazınca çıkar) ve istersen masaüstüne kısayol koyar. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır* (kurulum programı imzalı değil). Kaldırmak için: *Ayarlar → Uygulamalar → Yayın Uygulaması → Kaldır* (ayarların ve kayıtların silinmez).
    - Kurmadan denemek istersen aynı sayfadaki `YayinUygulamasi.zip`'i bir klasöre çıkarıp `YayinUygulamasi\YayinUygulamasi.exe`'yi çalıştırabilirsin (`D:\streaming\guncelle.bat` bunu indirir).
 
+### İndirirken ya da açarken Windows uyarı verirse
+
+Kurulum programı henüz **kod imzalı değil** ve az indirildiği için Microsoft'un "tanınmış dosyalar" listesinde yok. Bu yüzden Windows ve Edge, virüs bulmasalar da tanımadıkları her .exe için uyarı gösterir.
+
+1. **Edge indirmeyi durdurursa** ("… yaygın olarak indirilmiyor"): İndirilenler listesinde dosyanın üstüne gel, **⋯** → **Sakla** (*Keep*) → **Daha fazla göster** (*Show more*) → **Yine de sakla** (*Keep anyway*).
+2. **Açınca "Windows bilgisayarınızı korudu" çıkarsa:** **Ek bilgi** → **Yine de çalıştır**.
+3. **Dosyanın gerçekten bu depodan geldiğini denetlemek için:** PowerShell'de `Get-FileHash .\YayinUygulamasi-Kurulum.exe` yaz. Çıkan özet, aynı Releases sayfasındaki `SHA256SUMS.txt` dosyasındaki satırla aynı olmalı.
+
+Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa geçme; bize bildir. Bu, Windows Defender'ın yanlış alarmı olabilir. Dosyayı Microsoft'a inceleme için göndermemiz gerekir.
+
 ## Kullanım
 
 1. **Yayın** düğmesine bas (görüntü ve ses birlikte başlar).
@@ -77,7 +87,7 @@ python main.py          # uygulamayı çalıştır
 python -m pytest -q     # testler
 ```
 
-Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır (paketlenmiş sürümde kullanılmaz). Bağımlılık sürümleri `requirements*.txt`'te sabittir; güncellerken CI'da testlerin geçtiğini gör. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. `core/surum.py`'deki sürüm numarası ilk kez görüldüğünde ayrıca kalıcı bir `v<sürüm>` sürümü açılır; notu [CHANGELOG.md](CHANGELOG.md)'den gelir (yeni sürüm numarası verirken oraya not ekle, yoksa test kırılır). Her Release'te `SHA256SUMS.txt` dosya özetleri bulunur; paketteki `ffmpeg\KAYNAK.txt` kullanılan FFmpeg'in adını ve özetini yazar. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `YayinUygulamasi-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır.
+Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır (paketlenmiş sürümde kullanılmaz). Bağımlılık sürümleri `requirements*.txt`'te sabittir; güncellerken CI'da testlerin geçtiğini gör. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. `core/surum.py`'deki sürüm numarası ilk kez görüldüğünde ayrıca kalıcı bir `v<sürüm>` sürümü açılır; notu [CHANGELOG.md](CHANGELOG.md)'den gelir (yeni sürüm numarası verirken oraya not ekle, yoksa test kırılır). Her Release'te `SHA256SUMS.txt` dosya özetleri bulunur; paketteki `ffmpeg\KAYNAK.txt` kullanılan FFmpeg'in adını ve özetini yazar. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `YayinUygulamasi-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır. Aynı nedenle CI, PyInstaller önyükleyicisini kaynaktan derler (hazır önyükleyiciye antivirüsler daha çok takılıyor). Exe'ye `kurulum/surum_bilgisi.py` ile sürüm bilgisi yazar ve paketlenmiş exe'yi `YayinUygulamasi.exe --duman-testi sonuc.txt` ile pencere açmadan bir kez çalıştırır.
 
 ## Klasör yapısı
 

@@ -29,6 +29,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # PyInstaller'ın hazır önyükleyicisi (exe'nin başındaki küçük program) her PyInstaller
+      # kullanıcısında aynı; zararlı yazılımlar da kullandığı için antivirüsler ona takılabiliyor.
+      # Aynı sürümü kaynak koddan kendimiz derliyoruz (MSVC), böylece exe'miz bize özgü oluyor.
+      - name: PyInstaller önyükleyicisini kaynaktan derle
+        env:
+          PYINSTALLER_COMPILE_BOOTLOADER: "1"
+        run: |
+          $pyi = (Select-String -Path requirements-dev.txt -Pattern '^pyinstaller==(.+)$').Matches[0].Groups[1].Value
+          python -m pip uninstall -y pyinstaller
+          python -m pip install --no-cache-dir --no-deps --no-binary pyinstaller "pyinstaller==$pyi"
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller kaynaktan kurulamadı" }
+          $runw = python -c "import pathlib, PyInstaller; print(pathlib.Path(PyInstaller.__file__).parent / 'bootloader' / 'Windows-64bit-intel' / 'runw.exe')"
+          $dosya = Get-Item $runw
+          Write-Host "Önyükleyici: $runw · $($dosya.Length) bayt · $($dosya.LastWriteTime)"
+          if ($dosya.LastWriteTime -lt (Get-Date).AddHours(-1)) { throw "Önyükleyici yeniden derlenmemiş (hazır olan kullanılıyor)" }
+          (Get-FileHash -Algorithm SHA256 $runw).Hash
+
       # FFmpeg (LGPL sürümü; libx264 gibi GPL parçaları yok) — yerel kayıt için
       - name: FFmpeg indir (LGPL)
         env:
@@ -62,7 +79,9 @@ jobs:
 
       - name: .exe derle
         run: |
-          pyinstaller --noconfirm --windowed --name YayinUygulamasi `
+          python kurulum/surum_bilgisi.py build/surum_bilgisi.txt
+          pyinstaller --noconfirm --windowed --noupx --name YayinUygulamasi `
+            --version-file build/surum_bilgisi.txt `
             --add-data "config/settings.default.json;config" `
             --add-data "models/selfie_segmentation_landscape.tflite;models" `
             --add-data "models/LICENSE-mediapipe-Apache-2.0.txt;models" `
@@ -78,6 +97,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Lisanslar toplanamadı" }
           Get-Content dist\YayinUygulamasi\lisanslar\UCUNCU_PARTI_LISANSLAR.txt
           Compress-Archive -Path dist\YayinUygulamasi -DestinationPath YayinUygulamasi.zip -Force
+
+      # Paketlenmiş exe gerçekten açılıyor mu (eksik DLL/modül, bozuk önyükleyici): pencere açmadan denetler
+      - name: Paketlenmiş exe açılış testi
+        run: |
+          $sonuc = Join-Path $env:RUNNER_TEMP "duman.txt"
+          $p = Start-Process -FilePath dist\YayinUygulamasi\YayinUygulamasi.exe -ArgumentList "--duman-testi", "`"$sonuc`"" -PassThru
+          $null = $p.Handle
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); throw "Exe 3 dakikada kapanmadı" }
+          if (Test-Path $sonuc) { Get-Content $sonuc -Encoding utf8 }
+          if ($p.ExitCode -ne 0) { throw "Paketlenmiş exe açılış testi başarısız (çıkış kodu $($p.ExitCode))" }
+          $bilgi = (Get-Item dist\YayinUygulamasi\YayinUygulamasi.exe).VersionInfo
+          Write-Host "Exe bilgisi: $($bilgi.ProductName) $($bilgi.ProductVersion) · $($bilgi.CompanyName)"
+          if (-not $bilgi.ProductVersion) { throw "Exe'de sürüm bilgisi yok" }
 
       # Kurulum programı: kurulum yerini sorar, Başlat menüsü + masaüstü kısayolu, kaldırıcı
       - name: Kurulum programı derle (Inno Setup)
@@ -127,6 +159,9 @@ jobs:
             Kurmak için: YayinUygulamasi-Kurulum.exe'yi indir ve çalıştır (kurulum yerini sorar,
             Başlat menüsüne ve istersen masaüstüne kısayol ekler; Ayarlar > Uygulamalar'dan kaldırılır).
             Kurmadan denemek için: YayinUygulamasi.zip'i bir klasöre çıkar, YayinUygulamasi.exe'yi çalıştır.
+            Edge indirmeyi durdurursa: İndirilenler'de dosya → ⋯ → Sakla → Daha fazla göster → Yine de sakla.
+            Windows "bilgisayarınızı korudu" derse: Ek bilgi → Yine de çalıştır. (Kurulum programı henüz
+            imzalı değil; ayrıntı README'de "İndirirken ya da açarken Windows uyarı verirse" bölümünde.)
             Lisans: GNU GPL sürüm 3 (özgür ve açık kaynak). Kaynak kod bu depoda; kullanılan
             kütüphanelerin lisansları paketteki "lisanslar" klasöründe.
             (Derlenen commit: ${{ github.sha }})

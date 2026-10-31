@@ -29,6 +29,13 @@ AppVersion={#Surum}
 AppVerName={#UygulamaAdi} {#Surum}
 AppPublisher=Mustafa
 AppPublisherURL=https://github.com/MustafaCap/streaming
+; Kurulum exe'sinin Özellikler > Ayrıntılar bilgisi (exe'ninkiyle aynı: kurulum/surum_bilgisi.py)
+VersionInfoVersion={#Surum}
+VersionInfoCompany=Mustafa
+VersionInfoDescription={#UygulamaAdi} kurulum programı
+VersionInfoCopyright=Copyright (C) 2026 Mustafa. GNU GPL sürüm 3 ile lisanslıdır.
+VersionInfoProductName={#UygulamaAdi}
+VersionInfoProductVersion={#Surum}
 ; Klasör adı ASCII: bazı kütüphaneler Türkçe karakterli yolları sevmiyor
 DefaultDirName={autopf}\YayinUygulamasi
 DefaultGroupName={#UygulamaAdi}

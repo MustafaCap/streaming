@@ -297,7 +297,43 @@ def acilis_hatasi_goster(hata: BaseException) -> None:
         os.startfile(klasor)
 
 
+# Paketlenmiş exe'de yüklenebilmesi gereken modüller (CI'daki "Modüller Windows'ta yükleniyor mu?" ile aynı)
+DUMAN_MODULLERI = (
+    "PySide6.QtWidgets", "numpy", "cv2", "pyaudiowpatch", "comtypes", "psutil", "mss",
+    "ui.main_window", "ui.mixer_panel", "ui.shell", "ui.tray", "ui.toast", "ui.region_overlay",
+    "ui.drawing_overlay", "ui.mini_bar", "ui.settings_dialog", "ui.hakkinda", "outputs.obs_kamera",
+    "outputs.virtualcam", "overlay.cursor", "overlay.drawing", "core.recorder", "capture.background_blur",
+    "capture.region", "core.hotkeys", "capture.screen", "capture.webcam", "capture.app_audio",
+    "core.audio_engine", "scenes.scene_manager", "core.platform_win",
+)
+
+
+def duman_testi(sonuc_yolu: str) -> int:
+    """`YayinUygulamasi.exe --duman-testi sonuc.txt`: pencere açmadan exe'nin çalıştığını denetler (CI).
+
+    Paketlenmiş exe'de eksik DLL / modül varsa burada çıkar. Sonucu dosyaya yazar, çünkü
+    pencereli exe'nin konsolu yok. Hata penceresi göstermez (CI'da kimse kapatamaz)."""
+    import importlib
+    import traceback
+    try:
+        for ad in DUMAN_MODULLERI:
+            importlib.import_module(ad)
+        from core.recorder import ffmpeg_bul
+        from core.surum import SURUM
+        ffmpeg = ffmpeg_bul()
+        if ffmpeg is None:
+            raise RuntimeError("ffmpeg\\ffmpeg.exe bulunamadı")
+        sonuc, kod = f"tamam · sürüm {SURUM} · {len(DUMAN_MODULLERI)} modül · ffmpeg: {ffmpeg}\n", 0
+    except BaseException:
+        sonuc, kod = traceback.format_exc(), 1
+    with open(sonuc_yolu, "w", encoding="utf-8") as f:
+        f.write(sonuc)
+    return kod
+
+
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "--duman-testi":
+        sys.exit(duman_testi(sys.argv[2]))
     try:
         sys.exit(main())
     except SystemExit:
