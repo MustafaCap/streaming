@@ -23,11 +23,13 @@ log = logging.getLogger(__name__)
 
 
 class VideoHatti:
-    def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30):
+    def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30,
+                 imlec_goster: bool = True):
         self.depo = depo
         self.kaynak = kaynak
         self.cikis = cikis
         self.genislik, self.yukseklik, self.fps = genislik, yukseklik, fps
+        self.imlec_goster = imlec_goster
         self._son_kare = frames.siyah_kare(genislik, yukseklik)
         self._kilit = threading.Lock()
         self._cikis_istegi = False
@@ -93,7 +95,15 @@ class VideoHatti:
             self.depo.guncelle(ekran_kaynagi="koptu", yakalama_yontemi="")
             return frames.bilgi_karesi(self.genislik, self.yukseklik, "Ekran yakalanamiyor")
         self.depo.guncelle(ekran_kaynagi="çalışıyor", yakalama_yontemi=self.kaynak.yontem)
-        return frames.sigdir(ham, self.genislik, self.yukseklik)
+        kare = frames.sigdir(ham, self.genislik, self.yukseklik)
+        if self.imlec_goster:
+            konum = getattr(self.kaynak, "imlec", lambda: None)()
+            if konum is not None:
+                if kare is ham:  # aynı boyuttaysa sigdir kopyalamaz; yakalayıcının önbelleğini bozma
+                    kare = kare.copy()
+                olcek, dx, dy = frames.sigdir_donusumu(ham.shape[1], ham.shape[0], self.genislik, self.yukseklik)
+                frames.imlec_ciz(kare, konum[0] * olcek + dx, konum[1] * olcek + dy)
+        return kare
 
     def _dongu(self) -> None:
         aralik = 1.0 / self.fps

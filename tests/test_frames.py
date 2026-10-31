@@ -23,3 +23,15 @@ def test_dikey_kare_yan_bantlar():
 
 def test_bilgi_karesi_boyutu():
     assert frames.bilgi_karesi(1280, 720, "Test").shape == (720, 1280, 3)
+
+
+def test_donusum_sigdir_ile_tutarli():
+    olcek, dx, dy = frames.sigdir_donusumu(2560, 1080, 1280, 720)
+    assert olcek == 0.5 and dx == 0 and dy == (720 - 540) // 2
+
+
+def test_imlec_ciziliyor():
+    k = np.zeros((100, 100, 3), np.uint8)
+    frames.imlec_ciz(k, 10, 10)
+    assert k[20, 13].min() > 200        # okun içi beyaz
+    assert k[90, 90].max() == 0         # uzak bir yer değişmedi

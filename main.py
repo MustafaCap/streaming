@@ -48,7 +48,8 @@ def main() -> int:
     hat = VideoHatti(depo,
                      kaynak=EkranKaynagi(ayarlar.al("video.monitor", 0), ayarlar.al("video.capture_backend", "dxcam")),
                      cikis=SanalKameraCikisi(w, h, fps),
-                     genislik=w, yukseklik=h, fps=fps)
+                     genislik=w, yukseklik=h, fps=fps,
+                     imlec_goster=ayarlar.al("video.show_cursor", True))
     komutlari_kaydet(komutlar, depo, hat)
     komutlar.dinle(lambda ad, mesaj: log.info("Komut: %s%s", ad, f" ({mesaj})" if mesaj else ""))
 
