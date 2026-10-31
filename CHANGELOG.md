@@ -8,6 +8,7 @@ Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfas�
   - Exe'nin başındaki PyInstaller önyükleyicisi artık hazır gelen yerine kaynak koddan derleniyor. Hazır olanı zararlı programlar da kullandığı için antivirüslere takılabiliyordu.
   - Exe ve kurulum programının *Özellikler → Ayrıntılar* sekmesinde artık ürün adı, sürüm, üretici ve lisans bilgisi var.
 - Her derlemede paketlenmiş exe pencere açmadan bir kez çalıştırılıyor. Böylece eksik bir parça varsa sürüm yayınlanmadan fark ediliyor.
+- Microsoft Store için MSIX paketi (`YayinUygulamasi-Store.msix`) her derlemede hazırlanıyor. Gizlilik politikası (`docs/gizlilik.md`) ve mağaza / SignPath başvuru metinleri (`docs/magaza-ve-imzalama.md`) eklendi.
 - README'ye, Edge indirmeyi durdurduğunda ya da Windows "bilgisayarınızı korudu" dediğinde ne yapılacağı ve dosyanın SHA-256 ile nasıl denetleneceği eklendi.
 
 ## 1.5.0 — 2026-10-31

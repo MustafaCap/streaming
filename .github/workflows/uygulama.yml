@@ -126,9 +126,26 @@ jobs:
           Move-Item Output\YayinUygulamasi-Kurulum.exe YayinUygulamasi-Kurulum.exe
           Get-Item YayinUygulamasi-Kurulum.exe | Select-Object Name, Length
 
+      # Microsoft Store paketi: Store'a yüklenince Microsoft imzalar (SmartScreen uyarısı olmaz).
+      # Kimlik bilgileri Partner Center'dan gelir; depo değişkenleri yoksa deneme kimliğiyle derlenir.
+      - name: Store paketi (MSIX)
+        env:
+          MSIX_KIMLIK_ADI: ${{ vars.MSIX_KIMLIK_ADI }}
+          MSIX_YAYINCI: ${{ vars.MSIX_YAYINCI }}
+          MSIX_YAYINCI_ADI: ${{ vars.MSIX_YAYINCI_ADI }}
+        run: |
+          python kurulum/msix_paketle.py dist\YayinUygulamasi build\msix
+          if ($LASTEXITCODE -ne 0) { throw "MSIX klasörü hazırlanamadı" }
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $makeappx) { throw "makeappx.exe (Windows SDK) bulunamadı" }
+          & $makeappx.FullName pack /o /d build\msix /p YayinUygulamasi-Store.msix
+          if ($LASTEXITCODE -ne 0) { throw "MSIX paketlenemedi" }
+          Get-Item YayinUygulamasi-Store.msix | Select-Object Name, Length
+
       - name: Dosya özetleri (SHA-256)
         run: |
-          Get-FileHash -Algorithm SHA256 YayinUygulamasi.zip, YayinUygulamasi-Kurulum.exe |
+          Get-FileHash -Algorithm SHA256 YayinUygulamasi.zip, YayinUygulamasi-Kurulum.exe, YayinUygulamasi-Store.msix |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
             Out-File -Encoding ascii SHA256SUMS.txt
           Get-Content SHA256SUMS.txt
@@ -143,6 +160,7 @@ jobs:
           path: |
             YayinUygulamasi.zip
             YayinUygulamasi-Kurulum.exe
+            YayinUygulamasi-Store.msix
             SHA256SUMS.txt
 
       # Sadece main'e birleşen kod indirme sayfasına gider; dallar sadece test edilir.
@@ -162,12 +180,14 @@ jobs:
             Edge indirmeyi durdurursa: İndirilenler'de dosya → ⋯ → Sakla → Daha fazla göster → Yine de sakla.
             Windows "bilgisayarınızı korudu" derse: Ek bilgi → Yine de çalıştır. (Kurulum programı henüz
             imzalı değil; ayrıntı README'de "İndirirken ya da açarken Windows uyarı verirse" bölümünde.)
+            YayinUygulamasi-Store.msix sadece Microsoft Store'a yüklemek içindir; çift tıklayarak kurulmaz.
             Lisans: GNU GPL sürüm 3 (özgür ve açık kaynak). Kaynak kod bu depoda; kullanılan
             kütüphanelerin lisansları paketteki "lisanslar" klasöründe.
             (Derlenen commit: ${{ github.sha }})
           files: |
             YayinUygulamasi.zip
             YayinUygulamasi-Kurulum.exe
+            YayinUygulamasi-Store.msix
             SHA256SUMS.txt
 
       # Her sürüm numarası için bir kez kalıcı sürüm (v1.5.0 gibi): sonradan üstüne yazılmaz,
@@ -181,5 +201,5 @@ jobs:
           $etiket = "v$env:SURUM"
           gh release view $etiket *> $null
           if ($LASTEXITCODE -eq 0) { Write-Host "$etiket zaten var, dokunulmadı"; exit 0 }
-          gh release create $etiket YayinUygulamasi-Kurulum.exe SHA256SUMS.txt `
+          gh release create $etiket YayinUygulamasi-Kurulum.exe YayinUygulamasi-Store.msix SHA256SUMS.txt `
             --title "Yayın Uygulaması $env:SURUM" --notes-file surum_notu.md --target $env:GITHUB_SHA --latest
