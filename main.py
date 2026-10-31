@@ -20,12 +20,21 @@ log = logging.getLogger("main")
 
 def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None, mikser=None,
                      ayarlar=None) -> None:
+    hatirlatildi = [False]
+
     def cikis_ac_kapat(_):
         acilacak = not hat.cikis_istegi
         hat.cikisi_ayarla(acilacak)
         if ses is not None:
             ses.ac(acilacak)  # görüntü ve ses birlikte başlar/durur
-        return "Yayın başlatılıyor" if acilacak else "Yayın durduruldu"
+        if not acilacak:
+            return "Yayın durduruldu"
+        if ayarlar is not None and ayarlar.al("ui.dnd_reminder", True) and not hatirlatildi[0]:
+            # Windows bildirimleri ekran yakalamaya girer ve başka uygulamaların penceresini
+            # gizlemenin resmi yolu yok; en güvenlisi Rahatsız Etme modu (brif 14. özellik).
+            hatirlatildi[0] = True
+            return "Yayın başladı · bildirimler görünmesin: Rahatsız Etme'yi aç (Win+N)"
+        return "Yayın başlatılıyor"
 
     komutlar.kaydet("cikis.ac_kapat", "Yayını başlat/durdur", cikis_ac_kapat)
 
@@ -48,6 +57,15 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
         return "Kamera açıldı" if acilacak else "Kamera kapatıldı"
 
     komutlar.kaydet("kamera.ac_kapat", "Kamerayı aç/kapat", kamera_ac_kapat)
+
+    def panik(_):
+        hat.panik = not hat.panik
+        if mikser is not None:
+            mikser.ana_sessiz = hat.panik  # panikte ses de gitmez
+        depo.guncelle(panik=hat.panik)
+        return "Panik: bekleme ekranı, ses kapalı" if hat.panik else "Panik kapandı"
+
+    komutlar.kaydet("panik", "Panik: bekleme ekranına geç", panik)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -106,11 +124,15 @@ def main() -> int:
                                               ayarlar.al("transition_ms", 300)),
                      kamera_yerlesimi=KameraYerlesimi.ayarlardan(ayarlar.al("camera", {})),
                      bekleme_metni=ayarlar.al("standby_text", "Birazdan döneceğim"),
-                     kamera_acik=ayarlar.al("camera.enabled", True))
+                     kamera_acik=ayarlar.al("camera.enabled", True),
+                     imlec_vurgusu=ayarlar.al("video.cursor_highlight", False),
+                     bekleme_gorseli=ayarlar.al("standby_image", ""))
     mikser = SesKaristirici()
     mikser.kanal_ekle("mikrofon", "Mikrofon", ayarlar.al("audio.mic_gain", 1.0), ayarlar.al("audio.mic_muted", False))
     mikser.kanal_ekle("sistem", "Bilgisayar sesi", ayarlar.al("audio.system_gain", 0.7),
                       ayarlar.al("audio.system_muted", False))
+    mikser.kisma_acik = ayarlar.al("audio.ducking", False)
+    mikser.kisma_seviyesi = ayarlar.al("audio.ducking_level", 0.3)
     depo.guncelle(mikrofon_sessiz=mikser.kanallar["mikrofon"].sessiz,
                   sistem_sessiz=mikser.kanallar["sistem"].sessiz)
     ses = SesMotoru(depo, mikser, mikrofon_adi=ayarlar.al("audio.mic_device", ""),
@@ -124,11 +146,21 @@ def main() -> int:
                          ses=ses, mikser=mikser, ayarlar=ayarlar)
     kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar, cizimler, ses)
     app.setQuitOnLastWindowClosed(not pencere.tepsiye_kucul)
+
+    from core.hotkeys import BasKonus
+
+    def bas_konus_degisti(basili: bool) -> None:
+        mikser.kanallar["mikrofon"].kapi = basili or not bas_konus.aktif
+        depo.guncelle(bas_konus=bas_konus.aktif, konusuyor=basili)
+
+    bas_konus = BasKonus(bas_konus_degisti)
+    kabuk.bas_konus_kur(bas_konus, bas_konus_degisti)
     hat.baslat()
     ses.baslat()
     kabuk.baslat()
     pencere.show()
     kod = app.exec()
+    bas_konus.durdur()
     kabuk.durdur()
     hat.durdur()
     ses.durdur()

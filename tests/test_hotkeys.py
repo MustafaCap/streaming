@@ -33,3 +33,20 @@ def test_gruplara_ayir_olmayan_komutu_ve_cakismayi_atlar():
                            "sahne.sec:2": "ctrl+1", "bas_konus": ""}, k)
     assert sonuc == {"F8": "ses.mikrofon", "Ctrl+1": "sahne.sec:1"}
     assert tus_metni("ctrl+shift+r") == "Ctrl+Shift+R"
+
+
+def test_bas_konus_tus_durumunu_izler():
+    import time
+    basili = set()
+    olaylar = []
+    bk = __import__("core.hotkeys", fromlist=["BasKonus"]).BasKonus(olaylar.append, lambda vk: vk in basili)
+    assert bk.ayarla("Ctrl+Space") and bk.aktif
+    basili.add(0x20)            # Ctrl olmadan Space: sayılmaz
+    time.sleep(0.1)
+    assert olaylar == []
+    basili.add(0x11)
+    time.sleep(0.1)
+    basili.clear()
+    time.sleep(0.1)
+    assert olaylar == [True, False]
+    assert not bk.ayarla("Hyper+X") and not bk.aktif

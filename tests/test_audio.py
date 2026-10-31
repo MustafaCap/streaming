@@ -221,3 +221,20 @@ def test_surec_sesi_acilamazsa_hoparlor_loopbacke_gecer(motor_kur):
     motor.baslat()
     assert _bekle(lambda: depo.durum.sistem_sesi == "açık", 8)
     assert depo.durum.sistem_kaynagi == "Hoparlörden çıkan tüm ses"
+
+
+def test_otomatik_ses_kisma_ve_bas_konus_ve_panik():
+    m = SesKaristirici()
+    mik, sis = m.kanal_ekle("mikrofon", "Mikrofon"), m.kanal_ekle("sistem", "Bilgisayar sesi")
+    m.kisma_acik, m.kisma_seviyesi = True, 0.3
+    _dolu(sis, 0.5, n=48000)
+    _dolu(mik, 0.2, n=48000)
+    for _ in range(20):            # 200 ms konuşma
+        m.karistir(480)
+    assert m.konusuyor and sis.carpan == pytest.approx(0.3)
+    mik.kapi = False               # bas-konuş tuşu bırakıldı -> mikrofon susar, ses geri açılır
+    for _ in range(150):           # 1,5 sn
+        m.karistir(480)
+    assert sis.carpan == pytest.approx(1.0) and m.seviyeler()["mikrofon"] == 0
+    m.ana_sessiz = True
+    assert (m.karistir(480) == 0).all()

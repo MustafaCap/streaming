@@ -6,12 +6,14 @@
     "fps": 30,
     "monitor": 0,
     "capture_backend": "dxcam",
-    "show_cursor": true
+    "show_cursor": true,
+    "cursor_highlight": false
   },
   "ui": {
     "preview_fps": 15,
     "toasts": true,
-    "minimize_to_tray": true
+    "minimize_to_tray": true,
+    "dnd_reminder": true
   },
   "camera": {
     "enabled": true,
@@ -19,7 +21,8 @@
     "mirror": false,
     "corner": "bottom-right",
     "size": 0.25,
-    "margin": 24
+    "margin": 24,
+    "blur": false
   },
   "scenes": [
     {
@@ -42,6 +45,7 @@
   ],
   "transition_ms": 300,
   "standby_text": "Birazdan döneceğim",
+  "standby_image": "",
   "audio": {
     "mic_device": "",
     "mic_gain": 1.0,
@@ -56,7 +60,9 @@
       "Teams.exe",
       "Skype.exe"
     ],
-    "include_app": ""
+    "include_app": "",
+    "ducking": false,
+    "ducking_level": 0.3
   },
   "pen": {
     "clear_on_close": true

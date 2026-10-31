@@ -28,13 +28,19 @@ class VideoHatti:
     def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30,
                  imlec_goster: bool = True, kamera=None, sahneler: SahneYoneticisi | None = None,
                  kamera_yerlesimi: KameraYerlesimi | None = None, bekleme_metni: str = "Birazdan döneceğim",
-                 kamera_acik: bool = True, bolge: BolgeSecimi | None = None, cizimler=None):
+                 kamera_acik: bool = True, bolge: BolgeSecimi | None = None, cizimler=None,
+                 imlec_vurgusu: bool = False, bekleme_gorseli: str = ""):
         self.depo = depo
         self.kaynak = kaynak
         self.cikis = cikis
         self.kamera = kamera  # WebcamKaynagi ya da None
         self.bolge = bolge or BolgeSecimi()  # F6 kare seçme / yakınlaştırma / vurgulama
         self.cizimler = cizimler             # overlay.drawing.CizimDeposu ya da None
+        self.imlec_vurgusu = imlec_vurgusu   # imlecin etrafında halka + tıklama dalgası
+        self.bekleme_gorseli = bekleme_gorseli
+        self.panik = False                   # F12: anında bekleme ekranı
+        from overlay.cursor import ImlecVurgusu
+        self._vurgu = ImlecVurgusu()
         self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
         self.kamera_yerlesimi = kamera_yerlesimi or KameraYerlesimi()
         self.bekleme_metni = bekleme_metni
@@ -124,14 +130,23 @@ class VideoHatti:
         if self.cizimler is not None:
             from overlay.drawing import cizimleri_uygula
             kare = cizimleri_uygula(kare, self.cizimler, ham.shape[1], ham.shape[0], donusum)
-        if self.imlec_goster:
+        if self.imlec_goster or self.imlec_vurgusu:
             konum = getattr(self.kaynak, "imlec", lambda: None)()
+            cikis_konumu = None
             if konum is not None:
                 x, y = donusum(*konum)
                 if -30 < x < self.genislik and -30 < y < self.yukseklik:
-                    if kare is ham:  # aynı boyuttaysa kopyalanmamıştır; yakalayıcının önbelleğini bozma
-                        kare = kare.copy()
-                    frames.imlec_ciz(kare, x, y)
+                    cikis_konumu = (x, y)
+            if self.imlec_vurgusu:
+                self._vurgu.guncelle(konum)
+            if cikis_konumu is not None or (self.imlec_vurgusu and self._vurgu._dalgalar):
+                if kare is ham:  # aynı boyuttaysa kopyalanmamıştır; yakalayıcının önbelleğini bozma
+                    kare = kare.copy()
+                if self.imlec_vurgusu:
+                    olcek = donusum(1, 0)[0] - donusum(0, 0)[0]
+                    self._vurgu.ciz(kare, cikis_konumu, donusum, max(0.3, olcek * ham.shape[0] / 1080))
+                if self.imlec_goster and cikis_konumu is not None:
+                    frames.imlec_ciz(kare, *cikis_konumu)
         return kare
 
     def _kamera_karesi(self, sahne: Sahne):
@@ -156,13 +171,20 @@ class VideoHatti:
             self.depo.guncelle(webcam="yok")
         return kare
 
+    def _bekleme(self):
+        return frames.bekleme_karesi(self.genislik, self.yukseklik, self.bekleme_metni, self.bekleme_gorseli)
+
     def _kare_uret(self):
+        if self.panik:
+            # Panik: hiçbir kaynağa dokunmadan, geçiş beklemeden bekleme ekranı
+            return self._bekleme()
         sahne = self.sahneler.aktif
         self.depo.guncelle(aktif_sahne=self.sahneler.indeks, sahne_adi=sahne.ad)
         ekran = self._ekran_karesi() if sahne.ekran else None
         kamera = self._kamera_karesi(sahne)
         kare = sahne_karesi(sahne, self.genislik, self.yukseklik, ekran, kamera,
-                            self._kamera_istegi, self.kamera_yerlesimi, self.bekleme_metni)
+                            self._kamera_istegi, self.kamera_yerlesimi, self.bekleme_metni,
+                            bekleme=self._bekleme)
         with self._kilit:
             onceki = self._son_kare
         return self.sahneler.gecis_uygula(kare, onceki)

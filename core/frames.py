@@ -104,6 +104,35 @@ def bilgi_karesi(genislik: int, yukseklik: int, metin: str, boy: int | None = No
     return _bilgi_onbellek[anahtar]
 
 
+_bekleme_onbellek: dict = {}
+
+
+def bekleme_karesi(genislik: int, yukseklik: int, metin: str, gorsel_yolu: str = "") -> np.ndarray:
+    """Bekleme ekranı: görsel verilmişse (ve açılabiliyorsa) o, yoksa yazı. Önbellekli, salt okunur."""
+    if not gorsel_yolu:
+        return bilgi_karesi(genislik, yukseklik, metin)
+    anahtar = (genislik, yukseklik, gorsel_yolu)
+    if anahtar not in _bekleme_onbellek:
+        kare = None
+        try:
+            veri = np.fromfile(gorsel_yolu, np.uint8)  # Türkçe karakterli yollar için imread yerine
+            bgr = cv2.imdecode(veri, cv2.IMREAD_COLOR)
+            if bgr is not None:
+                kare = sigdir(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB), genislik, yukseklik)
+                if metin:
+                    kare = yazi_yaz(kare, metin, (genislik // 2, yukseklik - yukseklik // 10),
+                                    max(12, round(30 * genislik / 1280)))
+        except Exception:
+            kare = None
+        if kare is None:
+            return bilgi_karesi(genislik, yukseklik, metin)
+        kare = np.ascontiguousarray(kare)
+        kare.setflags(write=False)
+        _bekleme_onbellek.clear()
+        _bekleme_onbellek[anahtar] = kare
+    return _bekleme_onbellek[anahtar]
+
+
 def karistir(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
     """a'dan b'ye geçiş: t=0 -> a, t=1 -> b."""
     if t <= 0:

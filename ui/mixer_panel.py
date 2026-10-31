@@ -198,7 +198,11 @@ class MikserPaneli(QFrame):
         self.cikis_gosterge.ayarla(s.get("cikis", 0.0))
 
     def durumu_goster(self, d: Durum) -> None:
-        self.mik.durum(d.mikrofon_sessiz, d.mikrofon, d.mikrofon_adi if d.mikrofon != "yok" else d.ses_hatasi)
+        mik_aciklama = d.mikrofon_adi if d.mikrofon != "yok" else d.ses_hatasi
+        if d.bas_konus and d.mikrofon != "yok":
+            mik_aciklama = ("🎙 Konuşuyor" if d.konusuyor else "Bas-konuş: konuşmak için tuşu basılı tut") \
+                + (f" · {d.mikrofon_adi}" if d.mikrofon_adi else "")
+        self.mik.durum(d.mikrofon_sessiz, d.mikrofon, mik_aciklama)
         self.sistem.durum(d.sistem_sessiz, d.sistem_sesi, d.sistem_kaynagi)
         if d.sanal_mikrofon == "açık":
             self.cikis_bilgi.setText("Zoom/Meet/Discord'da mikrofon olarak 'CABLE Output'u seç")

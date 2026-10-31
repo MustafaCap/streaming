@@ -32,8 +32,8 @@ def test_kamera_kapaliyken_kose_bos_tam_ekranda_bilgi():
     kare = sahne_karesi(Sahne("x", ekran=True, kamera="corner"), W, H, EKRAN, KAMERA, False, YER, "")
     x, y, w, h = YER.dikdortgen(W, H)
     assert kare[y + h // 2, x + w // 2, 0] == 100
-    tam = sahne_karesi(Sahne("k", kamera="full"), W, H, None, None, False, YER, "")
-    assert tam.shape == (H, W, 3) and tam.max() > 30  # "Kamera kapalı" yazısı var
+    tam = sahne_karesi(Sahne("k", kamera="full"), W, H, None, None, False, YER, "Birazdan döneceğim")
+    assert tam.shape == (H, W, 3) and tam.max() > 30  # bekleme yazısı var
 
 
 def test_tam_ekran_kamera_kirpilarak_doldurulur():
