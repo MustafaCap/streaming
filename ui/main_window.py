@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMainWindow, QPushBu
 from core.commands import KomutYoneticisi
 from core.platform_win import yakalamadan_gizle
 from core.state import Durum, DurumDeposu
-from ui.theme import QSS, rozet_stili
+from ui.theme import QSS, RENK, rozet_stili
 
 log = logging.getLogger(__name__)
 
@@ -24,23 +24,27 @@ class _DurumKoprusu(QObject):
 
 
 class AnaPencere(QMainWindow):
-    def __init__(self, depo: DurumDeposu, komutlar: KomutYoneticisi, hat, onizleme_fps: int = 15):
+    def __init__(self, depo: DurumDeposu, komutlar: KomutYoneticisi, hat, onizleme_fps: int = 15,
+                 ses=None, mikser=None, ayarlar=None):
         super().__init__()
         self.depo, self.komutlar, self.hat = depo, komutlar, hat
         self.setWindowTitle("Yayın Uygulaması")
         self.setStyleSheet(QSS)
-        self.resize(1000, 700)
+        self.resize(1240, 720)
 
         # --- üst çubuk: ad + durum rozetleri
         self.rozet_kamera = QLabel(objectName="rozet")
         self.rozet_ekran = QLabel(objectName="rozet")
         self.rozet_webcam = QLabel(objectName="rozet")
+        self.rozet_mikrofon = QLabel(objectName="rozet")
         ust = QHBoxLayout()
         ust.addWidget(QLabel("Yayın Uygulaması", objectName="baslik"))
         ust.addStretch()
         ust.addWidget(self.rozet_ekran)
         ust.addWidget(self.rozet_webcam)
         ust.addWidget(self.rozet_kamera)
+        ust.addWidget(self.rozet_mikrofon)
+        self.rozet_mikrofon.setVisible(ses is not None)
 
         # --- sahne düğmeleri (Ctrl+1..4) + kamera aç/kapat (F10)
         sahne_satiri = QHBoxLayout()
@@ -64,6 +68,21 @@ class AnaPencere(QMainWindow):
         self.onizleme.setAlignment(Qt.AlignCenter)
         self.onizleme.setMinimumSize(480, 270)
         self.onizleme.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # önizlemenin sol üstünde: ses kapalı uyarısı
+        self.ses_uyarisi = QLabel(self.onizleme)
+        self.ses_uyarisi.setStyleSheet(f"background: {RENK['kapali']}; color: white; border-radius: 6px;"
+                                       " padding: 3px 8px; font-weight: 600; font-size: 12px;")
+        self.ses_uyarisi.move(10, 10)
+        self.ses_uyarisi.hide()
+
+        orta_satir = QHBoxLayout()
+        orta_satir.addWidget(self.onizleme, 1)
+        self.mikser_paneli = None
+        if ses is not None and mikser is not None:
+            from ui.mixer_panel import MikserPaneli
+            self.mikser_paneli = MikserPaneli(depo, komutlar, ses, mikser, ayarlar)
+            orta_satir.addSpacing(12)
+            orta_satir.addWidget(self.mikser_paneli)
 
         # --- alt: büyük düğme + bilgi
         self.dugme = QPushButton(objectName="buyuk")
@@ -85,7 +104,7 @@ class AnaPencere(QMainWindow):
         kok.setContentsMargins(16, 12, 16, 16)
         kok.addLayout(ust)
         kok.addLayout(sahne_satiri)
-        kok.addWidget(self.onizleme, 1)
+        kok.addLayout(orta_satir, 1)
         kok.addWidget(alt_panel)
         orta = QWidget()
         orta.setLayout(kok)
@@ -118,6 +137,15 @@ class AnaPencere(QMainWindow):
         kamera_acik = self.hat.kamera_istegi
         self.kamera_dugmesi.setChecked(kamera_acik)
         self.kamera_dugmesi.setText("Kamera: Açık" if kamera_acik else "Kamera: Kapalı")
+        self.rozet_mikrofon.setText(f"Sanal mikrofon: {d.sanal_mikrofon.capitalize()}")
+        self.rozet_mikrofon.setStyleSheet(rozet_stili(d.sanal_mikrofon))
+        if self.mikser_paneli is not None:
+            self.mikser_paneli.durumu_goster(d)
+            uyarilar = [ad for ad, sessiz in (("Mikrofon", d.mikrofon_sessiz), ("Bilgisayar sesi", d.sistem_sessiz))
+                        if sessiz]
+            self.ses_uyarisi.setText("🔇 " + " ve ".join(uyarilar) + " kapalı")
+            self.ses_uyarisi.adjustSize()
+            self.ses_uyarisi.setVisible(bool(uyarilar))
         self.rozet_webcam.setText(f"Webcam: {d.webcam.capitalize()}")
         self.rozet_webcam.setStyleSheet(rozet_stili(d.webcam))
 
