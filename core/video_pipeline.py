@@ -28,12 +28,13 @@ class VideoHatti:
     def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30,
                  imlec_goster: bool = True, kamera=None, sahneler: SahneYoneticisi | None = None,
                  kamera_yerlesimi: KameraYerlesimi | None = None, bekleme_metni: str = "Birazdan döneceğim",
-                 kamera_acik: bool = True, bolge: BolgeSecimi | None = None):
+                 kamera_acik: bool = True, bolge: BolgeSecimi | None = None, cizimler=None):
         self.depo = depo
         self.kaynak = kaynak
         self.cikis = cikis
         self.kamera = kamera  # WebcamKaynagi ya da None
         self.bolge = bolge or BolgeSecimi()  # F6 kare seçme / yakınlaştırma / vurgulama
+        self.cizimler = cizimler             # overlay.drawing.CizimDeposu ya da None
         self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
         self.kamera_yerlesimi = kamera_yerlesimi or KameraYerlesimi()
         self.bekleme_metni = bekleme_metni
@@ -120,6 +121,9 @@ class VideoHatti:
         self.depo.guncelle(ekran_kaynagi="çalışıyor", yakalama_yontemi=self.kaynak.yontem)
         kare, donusum = bolge_uygula(ham, self.bolge.gorunum(), self.genislik, self.yukseklik,
                                      self.bolge.karartma_gucu)
+        if self.cizimler is not None:
+            from overlay.drawing import cizimleri_uygula
+            kare = cizimleri_uygula(kare, self.cizimler, ham.shape[1], ham.shape[0], donusum)
         if self.imlec_goster:
             konum = getattr(self.kaynak, "imlec", lambda: None)()
             if konum is not None:

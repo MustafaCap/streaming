@@ -76,6 +76,11 @@ class AnaPencere(QMainWindow):
                                        " padding: 3px 8px; font-weight: 600; font-size: 12px;")
         self.ses_uyarisi.move(10, 10)
         self.ses_uyarisi.hide()
+        self.kalem_etiketi = QLabel("✎ Kalem açık · F7", self.onizleme)
+        self.kalem_etiketi.setStyleSheet(f"background: {RENK['vurgu']}; color: white; border-radius: 6px;"
+                                         " padding: 3px 8px; font-weight: 600; font-size: 12px;")
+        self.kalem_etiketi.adjustSize()
+        self.kalem_etiketi.hide()
 
         orta_satir = QHBoxLayout()
         orta_satir.addWidget(self.onizleme, 1)
@@ -148,6 +153,8 @@ class AnaPencere(QMainWindow):
             self.ses_uyarisi.setText("🔇 " + " ve ".join(uyarilar) + " kapalı")
             self.ses_uyarisi.adjustSize()
             self.ses_uyarisi.setVisible(bool(uyarilar))
+        self.kalem_etiketi.setVisible(d.kalem_acik)
+        self.kalem_etiketi.move((self.onizleme.width() - self.kalem_etiketi.width()) // 2, 10)
         self.rozet_webcam.setText(f"Webcam: {d.webcam.capitalize()}")
         self.rozet_webcam.setStyleSheet(rozet_stili(d.webcam))
 

@@ -58,6 +58,9 @@
     ],
     "include_app": ""
   },
+  "pen": {
+    "clear_on_close": true
+  },
   "hotkeys": {
     "bolge.sec": "F6",
     "kalem.ac_kapat": "F7",

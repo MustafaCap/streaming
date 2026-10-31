@@ -35,6 +35,8 @@ class Durum:
     sistem_sessiz: bool = False       # F9 ile susturuldu mu
     ses_hatasi: str = ""
     bolge: str = ""                   # "" (tam ekran) | yakinlastir | vurgula
+    kalem_acik: bool = False
+    kalem_turu: str = "kalem"
 
 
 Dinleyici = Callable[[Durum, Durum], None]  # (eski, yeni)

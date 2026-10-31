@@ -21,7 +21,7 @@ class UygulamaKabugu(QObject):
     _bildirim_sinyali = Signal(str, str)
     _durum_sinyali = Signal(object)
 
-    def __init__(self, app, pencere, komutlar, depo, hat, ayarlar):
+    def __init__(self, app, pencere, komutlar, depo, hat, ayarlar, cizimler=None):
         super().__init__()
         self.app, self.pencere, self.komutlar, self.depo, self.ayarlar = app, pencere, komutlar, depo, ayarlar
         self.hat = hat
@@ -42,6 +42,10 @@ class UygulamaKabugu(QObject):
         komutlar.dinle(self._komut_bitti)
 
         self.kisayollar = KisayolYoneticisi(self._komut_sinyali.emit)
+        self.kalem = None
+        if cizimler is not None:
+            from ui.drawing_overlay import KalemDenetleyici
+            self.kalem = KalemDenetleyici(komutlar, depo, hat, cizimler, self.kisayollar, ayarlar)
 
         self.tepsi = None
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -60,6 +64,8 @@ class UygulamaKabugu(QObject):
         QTimer.singleShot(800, self._basarisizlari_bildir)
 
     def durdur(self) -> None:
+        if self.kalem is not None and self.kalem.acik:
+            self.kalem.kapat()
         self.kisayollar.durdur()
         if self.tepsi is not None:
             self.tepsi.hide()
