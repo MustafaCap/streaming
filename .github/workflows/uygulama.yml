@@ -1,0 +1,66 @@
+name: Uygulama (test + .exe)
+
+on:
+  push:
+    paths-ignore:
+      - "denemeler/**"
+      - ".github/workflows/windows-exe.yml"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-ve-derle:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıkları kur
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Birim testleri
+        run: python -m pytest -q
+
+      - name: Modüller Windows'ta yükleniyor mu?
+        run: python -c "import ui.main_window, capture.screen, outputs.virtualcam, core.platform_win; print('tamam')"
+
+      - name: .exe derle
+        run: |
+          pyinstaller --noconfirm --windowed --name YayinUygulamasi `
+            --add-data "config/settings.default.json;config" `
+            --collect-all pyvirtualcam --collect-all dxcam --hidden-import mss `
+            main.py
+
+      - name: Zip paketi hazırla
+        run: |
+          Copy-Item README.md dist\YayinUygulamasi\BENIOKU.md
+          Compress-Archive -Path dist\YayinUygulamasi -DestinationPath YayinUygulamasi.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YayinUygulamasi
+          path: YayinUygulamasi.zip
+
+      - name: İndirme sayfasına koy (Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: asama-1
+          name: Aşama 1 - ekran -> sanal kamera
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          body: |
+            YayinUygulamasi.zip dosyasını indir, bir klasöre çıkar,
+            YayinUygulamasi klasöründeki YayinUygulamasi.exe'yi çalıştır.
+            (Derlenen commit: ${{ github.sha }})
+          files: YayinUygulamasi.zip
