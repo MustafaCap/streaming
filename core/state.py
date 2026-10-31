@@ -41,7 +41,10 @@ class Durum:
     konusuyor: bool = False           # bas-konuş tuşu basılı mı
     panik: bool = False               # Panik: bekleme ekranı + sesler kapalı
     kayit: str = "kapalı"             # kapalı | açık | hata (yerel MP4 kayıt)
-    kayit_suresi: int = 0             # saniye
+    kayit_suresi: int = 0             # saniye (duraklatılan süre sayılmaz)
+    kayit_duraklatildi: bool = False  # kayıt sürüyor ama duraklatıldı
+    kaynak_turu: str = "ekran"        # ekran | pencere (yayında/kayıtta ne yakalanıyor)
+    kaynak_adi: str = ""              # pencere seçildiyse başlığı
 
 
 Dinleyici = Callable[[Durum, Durum], None]  # (eski, yeni)

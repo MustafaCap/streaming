@@ -197,6 +197,7 @@ VARSAYILAN_KISAYOLLAR = {
     "sahne.sec:3": "Ctrl+3",
     "sahne.sec:4": "Ctrl+4",
     "kayit.ac_kapat": "Ctrl+Shift+R",
+    "kayit.duraklat": "Ctrl+Alt+D",
 }
 
 

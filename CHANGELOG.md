@@ -2,6 +2,13 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 1.7.0 — 2026-10-31
+
+- Kayıt duraklatılıp devam ettirilebiliyor. Kayıt sürerken **Duraklat** düğmesi çıkıyor (mini çubukta ⏸, kısayol Ctrl+Alt+D). Duraklatılan süre videoya girmiyor ve kayıt süresine sayılmıyor. Duraklatılmışken uygulama çökerse kayıt yine kurtarılıyor.
+- Tüm ekran yerine tek bir pencere gösterilebiliyor. **Göster** düğmesinden (mini çubukta 🗔) açık pencerelerden biri seçiliyor. Yayında ve kayıtta sadece o pencere görünüyor, üstüne başka pencere gelse bile. Yayın ya da kayıt sürerken de değiştirilebiliyor.
+- Ana pencere sadeleşti. Varsayılan görünümde önizleme ve temel düğmeler var: Yayın, Kayıt, Göster, Kamera, Mikrofon, Bilgisayar sesi. Sahneler, ses mikseri, kare seçme, kalem, panik ve bekleme ekranı **☰ Gelişmiş** düğmesiyle açılıyor. Uygulama son seçimi hatırlıyor.
+- Kayıtlar düğmesi sağ alta taşındı.
+
 ## 1.6.0 — 2026-10-31
 
 - Uygulamanın adı artık **RizeOn**. Pencere, tepsi, Hakkında, exe (`RizeOn.exe`), kurulum programı (`RizeOn-Kurulum.exe`), zip ve Store paketi yeni adla geliyor.

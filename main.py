@@ -89,7 +89,7 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
 
     if kayitci is not None:
         def kayit_bitti(dosya, hata):
-            depo.guncelle(kayit="hata" if hata and dosya is None else "kapalı")
+            depo.guncelle(kayit="hata" if hata and dosya is None else "kapalı", kayit_duraklatildi=False)
             if ses is not None:
                 ses.kayit_icin_ac(False)
             if bildir is not None:
@@ -102,6 +102,7 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
                 if mikser is not None:
                     mikser.kayit_dinleyici = None
                 kayitci.durdur(kayit_bitti)
+                depo.guncelle(kayit_duraklatildi=False)
                 if kamera_onceki[0] is not None:
                     hat.kamerayi_ayarla(kamera_onceki[0])
                     kamera_onceki[0] = None
@@ -131,6 +132,20 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
         komutlar.kaydet("kayit.ac_kapat", "Yerel kaydı başlat/durdur", kayit_ac_kapat)
         komutlar.kaydet("kayit.durdur", "Yerel kaydı durdur",
                         lambda p: kayit_ac_kapat(p) if kayitci.kayitta else None)
+
+        def kayit_duraklat(_):
+            if not kayitci.kayitta:
+                return "Kayıt açık değil"
+            if kayitci.duraklatildi:
+                if not kayitci.devam_et():
+                    return f"Kayda devam edilemedi: {kayitci.son_hata}"
+                depo.guncelle(kayit_duraklatildi=False)
+                return "Kayda devam ediliyor"
+            kayitci.duraklat()
+            depo.guncelle(kayit_duraklatildi=True)
+            return "Kayıt duraklatıldı · devam etmek için tekrar bas"
+
+        komutlar.kaydet("kayit.duraklat", "Kaydı duraklat/devam et", kayit_duraklat)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -304,7 +319,7 @@ DUMAN_MODULLERI = (
     "ui.drawing_overlay", "ui.mini_bar", "ui.settings_dialog", "ui.hakkinda", "outputs.obs_kamera",
     "outputs.virtualcam", "overlay.cursor", "overlay.drawing", "core.recorder", "capture.background_blur",
     "capture.region", "core.hotkeys", "capture.screen", "capture.webcam", "capture.app_audio",
-    "core.audio_engine", "scenes.scene_manager", "core.platform_win",
+    "core.audio_engine", "scenes.scene_manager", "core.platform_win", "capture.window", "ui.pencere_secici",
 )
 
 

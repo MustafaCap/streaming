@@ -1,10 +1,14 @@
-"""Ana pencere (brifteki tasarım).
+"""Ana pencere.
 
-  üst   : uygulama adı, durum rozetleri (sanal kamera, sanal mikrofon, kayıt), Kayıtlar, Mini mod, Ayarlar, Çıkış
-  sol   : Sahneler (Ctrl+1..4) ve Kaynaklar (ekran, webcam, mikrofon, bilgisayar sesi)
-  orta  : 16:9 önizleme = karşı tarafın gördüğü (ses kapalı / kalem açık uyarılarıyla)
+Sade görünüm (varsayılan): önizleme ve altta temel düğmeler: Yayın, Kayıt (kayıtta
+Duraklat), Göster (tüm ekran ya da bir pencere), Kamera, Mikrofon, Bilgisayar sesi.
+"Gelişmiş" düğmesi açılınca kenarlarda şunlar da görünür:
+
+  sol   : Araçlar (Kare seç, Kalem, Panik), Sahneler (Ctrl+1..4), bekleme ekranı, kaynakların durumu
   sağ   : ses mikseri
-  alt   : büyük kontrol düğmeleri; her birinde adı, Açık/Kapalı ve kısayol tuşu
+
+  üst   : uygulama adı, durum rozetleri (sanal kamera, sanal mikrofon, kayıt), Gelişmiş, Mini mod, Ayarlar, Çıkış
+  orta  : 16:9 önizleme = karşı tarafın gördüğü (ses kapalı / kalem açık uyarılarıyla)
 
 Pencere hiçbir durumu kendi tutmaz; her şey DurumDeposu'ndan okunur, her işlem
 komut adıyla çalıştırılır (kısayol, mini mod ve tepsi ile aynı yol).
@@ -82,9 +86,13 @@ class AnaPencere(QMainWindow):
         mini.clicked.connect(lambda: self.mini_moda_gec and self.mini_moda_gec())
         ayar = QPushButton("⚙  Ayarlar", objectName="sahne")
         ayar.clicked.connect(lambda: self.ayarlari_ac and self.ayarlari_ac())
-        kayitlar = QPushButton("📁  Kayıtlar", objectName="sahne")
+        kayitlar = QPushButton("📁  Kayıtlar", objectName="liste")
         kayitlar.setToolTip("Kayıt klasörünü aç")
         kayitlar.clicked.connect(self.kayit_klasorunu_ac)
+        self.gelismis_dugmesi = QPushButton("☰  Gelişmiş", objectName="sahne")
+        self.gelismis_dugmesi.setCheckable(True)
+        self.gelismis_dugmesi.setToolTip("Sahneler, ses mikseri, kare seçme, kalem, panik ve bekleme ekranı")
+        self.gelismis_dugmesi.toggled.connect(self._gelismis_goster)
         cikis = QPushButton("⏻  Çıkış", objectName="sahne")
         cikis.setToolTip("Uygulamayı tamamen kapat (tepside çalışmaya devam etmez, kamera ve kısayollar kapanır)")
         cikis.clicked.connect(lambda: self.uygulamadan_cik and self.uygulamadan_cik())
@@ -95,17 +103,32 @@ class AnaPencere(QMainWindow):
             ust.addWidget(r)
         self.rozet_mikrofon.setVisible(ses is not None)
         ust.addStretch()
-        ust.addWidget(kayitlar)
+        ust.addWidget(self.gelismis_dugmesi)
         ust.addWidget(mini)
         ust.addWidget(ayar)
         ust.addWidget(cikis)
 
-        # ---------------- sol: sahneler + kaynaklar
+        self.kontroller: dict[str, KontrolDugmesi] = {}
+
+        # ---------------- sol (Gelişmiş): araçlar + sahneler + kaynaklar
         sol = QFrame(objectName="panel")
-        sol.setFixedWidth(240)
+        self.sol_panel = sol
+        sol.setFixedWidth(260)
         sol_kutu = QVBoxLayout(sol)
         sol_kutu.setContentsMargins(12, 12, 12, 12)
         sol_kutu.setSpacing(6)
+        sol_kutu.addWidget(self._bolum_basligi("Araçlar"))
+        araclar = QHBoxLayout()
+        araclar.setSpacing(6)
+        for komut, ad, renk in (("bolge.sec", "Kare seç", RENK["vurgu"]), ("kalem.ac_kapat", "Kalem", RENK["vurgu"]),
+                                ("panik", "Panik", RENK["panik"])):
+            d = KontrolDugmesi(ad, self._tus(komut), renk)
+            d.setMinimumSize(70, 66)
+            d.clicked.connect(lambda _=False, k=komut: self._calistir(k))
+            araclar.addWidget(d)
+            self.kontroller[komut] = d
+        sol_kutu.addLayout(araclar)
+        sol_kutu.addSpacing(12)
         sol_kutu.addWidget(self._bolum_basligi("Sahneler"))
         self.sahne_dugmeleri = []
         for i, sahne in enumerate(hat.sahneler.sahneler):
@@ -166,19 +189,17 @@ class AnaPencere(QMainWindow):
             self.mikser_paneli = MikserPaneli(depo, komutlar, ses, mikser, ayarlar)
             orta.addWidget(self.mikser_paneli)
 
-        # ---------------- alt: kontrol düğmeleri
-        self.kontroller: dict[str, KontrolDugmesi] = {}
+        # ---------------- alt: temel kontrol düğmeleri
         alt = QHBoxLayout()
         alt.setSpacing(8)
         tanimlar = [
             ("cikis.ac_kapat", "Yayın", RENK["acik"]),
+            ("kayit.ac_kapat", "Kayıt", RENK["kapali"]),
+            ("kayit.duraklat", "Duraklat", RENK["panik"]),
+            ("kaynak.sec", "Göster", RENK["vurgu"]),
+            ("kamera.ac_kapat", "Kamera", RENK["acik"]),
             ("ses.mikrofon", "Mikrofon", RENK["acik"]),
             ("ses.sistem", "Bilgisayar sesi", RENK["acik"]),
-            ("kamera.ac_kapat", "Kamera", RENK["acik"]),
-            ("bolge.sec", "Kare seç", RENK["vurgu"]),
-            ("kalem.ac_kapat", "Kalem", RENK["vurgu"]),
-            ("panik", "Panik", RENK["panik"]),
-            ("kayit.ac_kapat", "Kayıt", RENK["kapali"]),
         ]
         for komut, ad, renk in tanimlar:
             d = KontrolDugmesi(ad, self._tus(komut), renk,
@@ -186,6 +207,8 @@ class AnaPencere(QMainWindow):
             d.clicked.connect(lambda _=False, k=komut: self._calistir(k))
             alt.addWidget(d)
             self.kontroller[komut] = d
+        self.kontroller["kaynak.sec"].setToolTip("Yayında ve kayıtta tüm ekran mı, tek bir pencere mi görünsün")
+        self.kontroller["kayit.duraklat"].setVisible(False)   # sadece kayıt sürerken görünür
         self.bilgi = QLabel(objectName="ikincil")
         self.hata = QLabel(objectName="hata")
         self.hata.setWordWrap(True)
@@ -193,6 +216,7 @@ class AnaPencere(QMainWindow):
         bilgi_satiri.addWidget(self.bilgi)
         bilgi_satiri.addStretch()
         bilgi_satiri.addWidget(self.hata, 1)
+        bilgi_satiri.addWidget(kayitlar)
         alt_kutu = QVBoxLayout()
         alt_kutu.addLayout(alt)
         alt_kutu.addLayout(bilgi_satiri)
@@ -208,6 +232,10 @@ class AnaPencere(QMainWindow):
         govde = QWidget()
         govde.setLayout(kok)
         self.setCentralWidget(govde)
+
+        gelismis = bool(ayarlar.al("ui.advanced", False)) if ayarlar is not None else False
+        self.gelismis_dugmesi.setChecked(gelismis)
+        self._gelismis_goster(gelismis, kaydet=False)
 
         # ---------------- durum bağlantısı (iş parçacığı güvenli)
         self._kopru = _DurumKoprusu()
@@ -245,6 +273,18 @@ class AnaPencere(QMainWindow):
         e.adjustSize()
         e.hide()
         return e
+
+    def _gelismis_goster(self, acik: bool, kaydet: bool = True) -> None:
+        self.sol_panel.setVisible(acik)
+        if self.mikser_paneli is not None:
+            self.mikser_paneli.setVisible(acik)
+        self.bilgi.setVisible(acik)
+        if kaydet and self.ayarlar is not None:
+            self.ayarlar.ayarla("ui.advanced", acik)
+            try:
+                self.ayarlar.kaydet()
+            except Exception:
+                log.exception("Ayar kaydedilemedi")
 
     # ---------------- bekleme ekranı
 
@@ -393,8 +433,10 @@ class AnaPencere(QMainWindow):
         self.rozet_mikrofon.setStyleSheet(rozet_stili(d.sanal_mikrofon))
         kayit = getattr(d, "kayit", "kapalı")
         sure = f"{d.kayit_suresi // 60:02d}:{d.kayit_suresi % 60:02d}"
-        self.rozet_kayit.setText(f"● Kayıt {sure}" if kayit == "açık" else
-                                 ("Kayıt: Hata" if kayit == "hata" else "Kayıt: Kapalı"))
+        duraklatildi = kayit == "açık" and d.kayit_duraklatildi
+        self.rozet_kayit.setText(f"⏸ Kayıt {sure} · duraklatıldı" if duraklatildi else
+                                 (f"● Kayıt {sure}" if kayit == "açık" else
+                                  ("Kayıt: Hata" if kayit == "hata" else "Kayıt: Kapalı")))
         self.rozet_kayit.setStyleSheet(rozet_stili("hata" if kayit == "açık" else "kapalı"))
 
         secili = self.hat.sahneler.indeks
@@ -430,7 +472,11 @@ class AnaPencere(QMainWindow):
             "kalem.ac_kapat": (d.kalem_acik, "Açık", "Kapalı"),
             "panik": (panik, "AÇIK", "Kapalı"),
             "kayit.ac_kapat": (kayit == "açık", "Kayıtta", "Kapalı"),
+            "kayit.duraklat": (duraklatildi, "▶ Devam et", "Kayıt sürüyor"),
+            "kaynak.sec": (d.kaynak_turu == "pencere", self._kisalt(d.kaynak_adi or "Pencere"), "Tüm ekran"),
         }
+        self.kontroller["kayit.duraklat"].setVisible(kayit == "açık")
+        self.kontroller["kayit.duraklat"].ad = "Duraklatıldı" if duraklatildi else "Duraklat"
         for komut, dugme in self.kontroller.items():
             dugme.setEnabled(self.komutlar.var_mi(komut))
             dugme.goster(*durumlar[komut])
@@ -454,6 +500,10 @@ class AnaPencere(QMainWindow):
                            + ("  ·  Meet/Zoom/Discord'da kamera: 'OBS Virtual Camera', mikrofon: 'CABLE Output'"
                               if d.cikis_acik else ""))
         self.hata.setText(d.son_hata)
+
+    @staticmethod
+    def _kisalt(metin: str, n: int = 16) -> str:
+        return metin if len(metin) <= n else metin[: n - 1] + "…"
 
     def _onizlemeyi_guncelle(self) -> None:
         if not self.isVisible() or self.isMinimized():

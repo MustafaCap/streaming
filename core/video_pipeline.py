@@ -58,6 +58,7 @@ class VideoHatti:
         self._son_kare = frames.siyah_kare(genislik, yukseklik)
         self._kilit = threading.Lock()
         self._cikis_istegi = False
+        self._bekleyen_kaynak = None         # kaynagi_degistir() ile gelen, sonraki karede geçilecek kaynak
         self._calisiyor = threading.Event()
         self._is_parcacigi: threading.Thread | None = None
 
@@ -77,9 +78,32 @@ class VideoHatti:
             self._is_parcacigi = None
         self.cikis.kapat()
         self.kaynak.kapat()
+        with self._kilit:
+            bekleyen, self._bekleyen_kaynak = self._bekleyen_kaynak, None
+        if bekleyen is not None:
+            bekleyen.kapat()
         if self.kamera is not None:
             self.kamera.durdur(bekle=True)
         self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı", ekran_kaynagi="kapalı", webcam="kapalı")
+
+    def kaynagi_degistir(self, yeni) -> None:
+        """Ekran ya da pencere kaynağına geç. Geçiş video hattının kendi iş parçacığında, bir
+        sonraki karede yapılır; eski kaynak orada kapatılır (yakalama ortasında kapanmasın)."""
+        with self._kilit:
+            onceki, self._bekleyen_kaynak = self._bekleyen_kaynak, yeni
+        if onceki is not None:
+            onceki.kapat()
+
+    def _bekleyen_kaynaga_gec(self) -> None:
+        with self._kilit:
+            yeni, self._bekleyen_kaynak = self._bekleyen_kaynak, None
+        if yeni is None:
+            return
+        eski, self.kaynak = self.kaynak, yeni
+        try:
+            eski.kapat()
+        except Exception:
+            log.exception("Eski görüntü kaynağı kapatılamadı")
 
     def cikisi_ayarla(self, acik: bool) -> None:
         self._cikis_istegi = acik
@@ -129,6 +153,8 @@ class VideoHatti:
             self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı")
 
     def _ekran_karesi(self):
+        if self._bekleyen_kaynak is not None:
+            self._bekleyen_kaynaga_gec()
         ham = self.kaynak.grab()
         if ham is None:
             self.depo.guncelle(ekran_kaynagi="koptu", yakalama_yontemi="")

@@ -24,9 +24,10 @@ Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa
 
 ## Kullanım
 
-1. **Yayın** düğmesine bas (görüntü ve ses birlikte başlar).
+1. **Yayın** düğmesine bas (görüntü ve ses birlikte başlar). Tüm ekran yerine tek bir pencere göstermek için **Göster** düğmesinden pencereyi seç.
 2. Zoom / Meet / Discord'da: kamera **OBS Virtual Camera**, mikrofon **CABLE Output (VB-Audio Virtual Cable)**.
-3. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan yenisi başlamaz, çalışan pencere öne gelir. Pencere gizliyken (yayın ve kayıt da yoksa) kamera kapalı tutulur. Yayın ya da kayıt sürerken pencereyi kapatırsan mini çubuk açılır; yayının sürdüğünü görür, oradan durdurursun. Tamamen kapatmak için sağ üstteki **⏻ Çıkış** düğmesi ya da tepsi simgesine sağ tık → *Çıkış* (yayın/kayıt açıksa önce sorar).
+3. Ana pencere sade açılır: önizleme ve temel düğmeler (Yayın, Kayıt, Göster, Kamera, Mikrofon, Bilgisayar sesi). Sahneler, ses mikseri, kare seçme, kalem, panik ve bekleme ekranı sağ üstteki **☰ Gelişmiş** düğmesiyle açılır. Uygulama son seçimi hatırlar.
+4. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan yenisi başlamaz, çalışan pencere öne gelir. Pencere gizliyken (yayın ve kayıt da yoksa) kamera kapalı tutulur. Yayın ya da kayıt sürerken pencereyi kapatırsan mini çubuk açılır; yayının sürdüğünü görür, oradan durdurursun. Tamamen kapatmak için sağ üstteki **⏻ Çıkış** düğmesi ya da tepsi simgesine sağ tık → *Çıkış* (yayın/kayıt açıksa önce sorar).
 
 ### Kısayollar (hepsi Ayarlar > Kısayollar'dan değiştirilebilir)
 
@@ -40,21 +41,24 @@ Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa
 | Ctrl+Alt+P | Panik: anında bekleme ekranı, ses kesilir; tekrar basınca geri döner |
 | Ctrl+1 … Ctrl+4 | Sahne: Ekran + Kamera, Sadece ekran, Sadece kamera, Bekleme |
 | Ctrl+Shift+R | Yerel MP4 kaydı başlat/durdur. Yayın kapalıyken kayıt kamerasız başlar (F10 ile açılır; Ayarlar'dan değiştirilebilir). Başka bir uygulamadayken basarsan mini çubuk açılır |
+| Ctrl+Alt+D | Kaydı duraklat / devam et. Duraklatılan süre videoya girmez |
+| (ayarlanabilir) | Ne gösterilsin: tüm ekran ya da bir pencere |
 | (ayarlanabilir) | Bas-konuş: basılıyken mikrofon açık |
 
 Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · F8"). Başka bir program aynı tuşu kullanıyorsa uygulama bunu söyler.
 
 ### Özellikler
 
+- **Pencere seçme**: **Göster** düğmesinden (mini çubukta 🗔) açık bir pencereyi seçersen yayında ve kayıtta sadece o pencere görünür, üstüne başka pencere gelse bile. Listenin en üstündeki *Tüm ekran* geri döndürür. Pencere seçiliyken kare seçme ve kalem çalışmaz (ikisi de tüm ekranda çalışır). Seçilen pencere kapanırsa uygulama kendiliğinden tüm ekrana dönmez, "Ekran yakalanamıyor" gösterir ve seni uyarır. Bazı oyunlar ve video oynatıcılar pencereyi doğrudan vermez; o zaman pencerenin ekrandaki yeri gösterilir ve üstüne gelen pencereler de görünür.
 - **Sahneler** ve 0,3 sn yumuşak geçiş; webcam köşede. Kamerayı **önizlemede fareyle sürükleyerek** istediğin yere koyabilirsin (boyut, ayna, **arka plan bulanıklaştırma** Ayarlar > Kamera).
-- **Ses mikseri**: mikrofon ve bilgisayar sesi ayrı seviyeler (%0–200), seviye göstergeleri, mikrofon seçimi. Bilgisayar sesinde ses çıkaran her uygulama ayrı yakalanır; Zoom/Discord/Teams ve uygulamanın kendi sesi **hiç alınmaz**, böylece yankı oluşmaz. Hangi uygulamaların alındığı soldaki *Bilgisayar sesi* satırında yazar. (Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da Ayarlar > Ses'te `msedge.exe`'yi hariç listesine ekle.)
+- **Ses mikseri**: mikrofon ve bilgisayar sesi ayrı seviyeler (%0–200), seviye göstergeleri, mikrofon seçimi. Bilgisayar sesinde ses çıkaran her uygulama ayrı yakalanır; Zoom/Discord/Teams ve uygulamanın kendi sesi **hiç alınmaz**, böylece yankı oluşmaz. Hangi uygulamaların alındığı Gelişmiş görünümde soldaki *Bilgisayar sesi* satırında yazar. (Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da Ayarlar > Ses'te `msedge.exe`'yi hariç listesine ekle.)
 - **Otomatik ses kısma** (konuşunca oyun sesi kısılır) ve **bas-konuş** (Ayarlar).
 - **Kare seçme**: animasyonlu yakınlaştırma ya da vurgulama (geri kalan kararır).
 - **Kalem**: kalem, fosforlu, ok, kare, yazı (Türkçe), lazer; 4 renk. Çizimler yayına ayrıca eklenir, tam ekran oyunda katman görünmese bile karşı taraf görür.
 - **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil. Düğmelerin adı ve kısayolu fareyle üstüne gelince görünür.
-- **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
+- **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Gelişmiş görünümde soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
 - **İmleç vurgulama**: halka + tıklama dalgası (Ayarlar > Genel).
-- **Yerel kayıt**: `Videolar\RizeOn\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar. Kayıt sırasında uygulama çökerse ya da elektrik giderse kayıt kaybolmaz: bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
+- **Yerel kayıt**: `Videolar\RizeOn\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Kayıt sürerken **Duraklat** düğmesi çıkar (mini çubukta ⏸); duraklatılan süre videoya girmez. Klasörü sağ alttaki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar. Kayıt sırasında uygulama çökerse ya da elektrik giderse kayıt kaybolmaz: bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
 - Uygulamanın kendi pencereleri (önizleme, kalem çubuğu, kare seçme, bildirimler, mini mod) **ekran yakalamaya girmez**; karşı taraf görmez.
 - Bir kaynak koparsa (kamera çıkarılır, mikrofon değişir) uygulama çökmez; o kaynak kırmızı görünür ve birkaç saniyede bir yeniden denenir.
 

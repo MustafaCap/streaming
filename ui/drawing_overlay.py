@@ -299,6 +299,8 @@ class KalemDenetleyici:
         if self.acik:
             self.kapat()
             return "Kalem kapandı"
+        if getattr(self.depo.durum, "kaynak_turu", "ekran") == "pencere":
+            return "Kalem tüm ekranda çalışır · Göster düğmesinden Tüm ekran'ı seç"
         self.ac()
         return "Kalem açıldı"
 

@@ -28,6 +28,9 @@ class UygulamaKabugu(QObject):
         self._katman = None
         self._iz = None   # yakınlaştırılan karenin ekrandaki yerini gösteren çerçeve
         komutlar.kaydet("bolge.sec", "Kare seç / tam ekrana dön", self._bolge_sec)
+        komutlar.kaydet("kaynak.sec", "Ne gösterilsin: tüm ekran ya da bir pencere", self._kaynak_sec)
+        komutlar.kaydet("kaynak.ekran", "Tüm ekranı yakala", self._ekrana_don)
+        self._pencere_koptu = False
         self._komut_sinyali.connect(self._komutu_calistir)
         self._bildirim_sinyali.connect(self._bildirim_goster)
         self._durum_sinyali.connect(self._durumu_goster)
@@ -121,6 +124,12 @@ class UygulamaKabugu(QObject):
 
     @Slot(object)
     def _durumu_goster(self, d) -> None:
+        koptu = d.kaynak_turu == "pencere" and d.ekran_kaynagi == "koptu"
+        if koptu and not self._pencere_koptu:
+            # Tüm ekrana kendiliğinden dönülmez: yayında başka bir şey görünmesin
+            self.bildirim.goster("Seçilen pencere kapandı", "Göster düğmesinden yeni pencere ya da Tüm ekran'ı seç",
+                                 bildirim_rengi("kapalı"))
+        self._pencere_koptu = koptu
         if self.tepsi is not None:
             self.tepsi.durumu_goster(d)
         if self.mini.isVisible():
@@ -128,8 +137,49 @@ class UygulamaKabugu(QObject):
 
     # ---- F6 kare seçme
 
+    # ---- kaynak: tüm ekran ya da tek pencere
+
+    def _kaynak_sec(self, _):
+        from capture.window import PencereKaynagi
+        from core.platform_win import yakalamadan_gizle
+        from ui.pencere_secici import PencereSecici
+        secici = PencereSecici(self.pencere if self.pencere.isVisible() else None)
+        yakalamadan_gizle(int(secici.winId()))   # seçim penceresi karşı tarafa gitmesin
+        if not secici.exec() or secici.secilen is None:
+            return None
+        if secici.secilen == "ekran":
+            return self._ekrana_don(None)
+        hwnd, baslik = secici.secilen
+        self._tam_ekrana_hazirla()
+        self.hat.kaynagi_degistir(PencereKaynagi(hwnd, baslik))
+        self._pencere_koptu = False
+        self.depo.guncelle(kaynak_turu="pencere", kaynak_adi=baslik)
+        return f"Sadece bu pencere gösteriliyor: {baslik}"
+
+    def _ekrana_don(self, _):
+        if self.depo.durum.kaynak_turu == "ekran":
+            return "Tüm ekran zaten gösteriliyor"
+        from capture.screen import EkranKaynagi
+        self.hat.kaynagi_degistir(EkranKaynagi(self.ayarlar.al("video.monitor", 0),
+                                               self.ayarlar.al("video.capture_backend", "dxcam")))
+        self.depo.guncelle(kaynak_turu="ekran", kaynak_adi="")
+        return "Tüm ekran gösteriliyor"
+
+    def _tam_ekrana_hazirla(self) -> None:
+        """Pencereye geçerken kare seçme ve kalem kapanır (ikisi de monitörün üstünde çalışır)."""
+        if self._katman is not None:
+            self._katman.close()
+        if self.hat.bolge.aktif:
+            self.hat.bolge.temizle()
+            self.depo.guncelle(bolge="")
+        self._izi_gizle()
+        if self.kalem is not None and self.kalem.acik:
+            self.kalem.kapat()
+
     def _bolge_sec(self, _):
         from ui.region_overlay import BolgeKatmani, ekrani_bul
+        if self.depo.durum.kaynak_turu == "pencere" and self._katman is None and not self.hat.bolge.aktif:
+            return "Kare seçme tüm ekranda çalışır · Göster düğmesinden Tüm ekran'ı seç"
         if self._katman is not None:
             self._katman.close()
             return "Kare seçme iptal edildi"
