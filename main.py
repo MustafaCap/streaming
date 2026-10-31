@@ -26,6 +26,26 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat) -> None:
 
     komutlar.kaydet("cikis.ac_kapat", "Yayını başlat/durdur", cikis_ac_kapat)
 
+    def sahne_sec(param):
+        try:
+            numara = int(param)
+        except (TypeError, ValueError):
+            return "Sahne numarası gerekli"
+        if not hat.sahne_sec(numara - 1):
+            return f"{numara}. sahne yok"
+        return f"Sahne: {hat.sahneler.aktif.ad}"
+
+    komutlar.kaydet("sahne.sec", "Sahne seç (1-4)", sahne_sec)
+
+    def kamera_ac_kapat(_):
+        if hat.kamera is None:
+            return "Kamera yok"
+        acilacak = not hat.kamera_istegi
+        hat.kamerayi_ayarla(acilacak)
+        return "Kamera açıldı" if acilacak else "Kamera kapatıldı"
+
+    komutlar.kaydet("kamera.ac_kapat", "Kamerayı aç/kapat", kamera_ac_kapat)
+
 
 def main() -> int:
     logging_setup.kur()
@@ -35,6 +55,8 @@ def main() -> int:
     from PySide6.QtWidgets import QApplication
 
     from capture.screen import EkranKaynagi
+    from capture.webcam import WebcamKaynagi
+    from scenes.scene_manager import KameraYerlesimi, SahneYoneticisi, sahneleri_oku
     from core.video_pipeline import VideoHatti
     from outputs.virtualcam import SanalKameraCikisi
     from ui.main_window import AnaPencere
@@ -49,7 +71,14 @@ def main() -> int:
                      kaynak=EkranKaynagi(ayarlar.al("video.monitor", 0), ayarlar.al("video.capture_backend", "dxcam")),
                      cikis=SanalKameraCikisi(w, h, fps),
                      genislik=w, yukseklik=h, fps=fps,
-                     imlec_goster=ayarlar.al("video.show_cursor", True))
+                     imlec_goster=ayarlar.al("video.show_cursor", True),
+                     kamera=WebcamKaynagi(ayarlar.al("camera.device", 0), w, h, fps,
+                                          ayna=ayarlar.al("camera.mirror", False)),
+                     sahneler=SahneYoneticisi(sahneleri_oku(ayarlar.al("scenes", [])),
+                                              ayarlar.al("transition_ms", 300)),
+                     kamera_yerlesimi=KameraYerlesimi.ayarlardan(ayarlar.al("camera", {})),
+                     bekleme_metni=ayarlar.al("standby_text", "Birazdan döneceğim"),
+                     kamera_acik=ayarlar.al("camera.enabled", True))
     komutlari_kaydet(komutlar, depo, hat)
     komutlar.dinle(lambda ad, mesaj: log.info("Komut: %s%s", ad, f" ({mesaj})" if mesaj else ""))
 

@@ -11,5 +11,34 @@
   "ui": {
     "preview_fps": 15
   },
+  "camera": {
+    "enabled": true,
+    "device": 0,
+    "mirror": false,
+    "corner": "bottom-right",
+    "size": 0.25,
+    "margin": 24
+  },
+  "scenes": [
+    {
+      "name": "Ekran + Kamera",
+      "screen": true,
+      "camera": "corner"
+    },
+    {
+      "name": "Sadece ekran",
+      "screen": true
+    },
+    {
+      "name": "Sadece kamera",
+      "camera": "full"
+    },
+    {
+      "name": "Bekleme",
+      "standby": true
+    }
+  ],
+  "transition_ms": 300,
+  "standby_text": "Birazdan döneceğim",
   "hotkeys": {}
 }

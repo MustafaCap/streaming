@@ -1,10 +1,10 @@
 """Video hattı: kaynak -> birleştirme -> çıkışlar.
 
 Ayrı bir iş parçacığında sabit FPS ile döner:
-  1) ekranı yakala (kaynak koparsa bilgi ekranı göster)
-  2) 1280x720'ye sığdır (ileride: sahneler, kamera, çizimler burada eklenecek)
-  3) sanal kameraya gönder
-  4) son kareyi önizleme için sakla
+  1) aktif sahne ekran istiyorsa ekranı yakala ve 1280x720'ye sığdır
+  2) aktif sahne kamera istiyorsa webcam'in son karesini al
+  3) sahneyi kur (scenes/), sahne değiştiyse yumuşak geçiş uygula
+  4) sanal kameraya gönder, son kareyi önizleme için sakla
 
 Arayüz bu iş parçacığını asla beklemez; sadece son_kare() ile en son kareyi alır.
 Sanal kamerayı açıp kapatma istekleri de bu iş parçacığında işlenir, böylece
@@ -18,18 +18,26 @@ import time
 from core import frames
 from core.state import DurumDeposu
 from outputs.virtualcam import SanalKameraYok
+from scenes.scene_manager import KameraYerlesimi, Sahne, SahneYoneticisi, sahne_karesi
 
 log = logging.getLogger(__name__)
 
 
 class VideoHatti:
     def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30,
-                 imlec_goster: bool = True):
+                 imlec_goster: bool = True, kamera=None, sahneler: SahneYoneticisi | None = None,
+                 kamera_yerlesimi: KameraYerlesimi | None = None, bekleme_metni: str = "Birazdan döneceğim",
+                 kamera_acik: bool = True):
         self.depo = depo
         self.kaynak = kaynak
         self.cikis = cikis
+        self.kamera = kamera  # WebcamKaynagi ya da None
+        self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
+        self.kamera_yerlesimi = kamera_yerlesimi or KameraYerlesimi()
+        self.bekleme_metni = bekleme_metni
         self.genislik, self.yukseklik, self.fps = genislik, yukseklik, fps
         self.imlec_goster = imlec_goster
+        self._kamera_istegi = kamera_acik and kamera is not None
         self._son_kare = frames.siyah_kare(genislik, yukseklik)
         self._kilit = threading.Lock()
         self._cikis_istegi = False
@@ -52,10 +60,23 @@ class VideoHatti:
             self._is_parcacigi = None
         self.cikis.kapat()
         self.kaynak.kapat()
-        self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı", ekran_kaynagi="kapalı")
+        if self.kamera is not None:
+            self.kamera.durdur(bekle=True)
+        self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı", ekran_kaynagi="kapalı", webcam="kapalı")
 
     def cikisi_ayarla(self, acik: bool) -> None:
         self._cikis_istegi = acik
+
+    def kamerayi_ayarla(self, acik: bool) -> None:
+        """Webcam'i aç/kapat (F10). Kapalıyken cihaz bırakılır, ışığı söner."""
+        self._kamera_istegi = acik and self.kamera is not None
+
+    @property
+    def kamera_istegi(self) -> bool:
+        return self._kamera_istegi
+
+    def sahne_sec(self, indeks: int) -> bool:
+        return self.sahneler.sec(indeks)
 
     @property
     def cikis_istegi(self) -> bool:
@@ -89,11 +110,11 @@ class VideoHatti:
             self.cikis.kapat()
             self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı")
 
-    def _kare_uret(self):
+    def _ekran_karesi(self):
         ham = self.kaynak.grab()
         if ham is None:
             self.depo.guncelle(ekran_kaynagi="koptu", yakalama_yontemi="")
-            return frames.bilgi_karesi(self.genislik, self.yukseklik, "Ekran yakalanamiyor")
+            return None
         self.depo.guncelle(ekran_kaynagi="çalışıyor", yakalama_yontemi=self.kaynak.yontem)
         kare = frames.sigdir(ham, self.genislik, self.yukseklik)
         if self.imlec_goster:
@@ -104,6 +125,39 @@ class VideoHatti:
                 olcek, dx, dy = frames.sigdir_donusumu(ham.shape[1], ham.shape[0], self.genislik, self.yukseklik)
                 frames.imlec_ciz(kare, konum[0] * olcek + dx, konum[1] * olcek + dy)
         return kare
+
+    def _kamera_karesi(self, sahne: Sahne):
+        """Webcam'i sadece gerektiğinde açık tutar; son karesini (ya da None) döndürür."""
+        if self.kamera is None:
+            return None
+        gerekli = self._kamera_istegi and sahne.kamera is not None
+        if gerekli and not self.kamera.acik:
+            self.kamera.baslat()
+        elif not gerekli and self.kamera.acik:
+            self.kamera.durdur()
+        if not self._kamera_istegi:
+            self.depo.guncelle(webcam="kapalı")
+            return None
+        if not gerekli:
+            self.depo.guncelle(webcam="açık")  # açık ama bu sahnede kullanılmıyor
+            return None
+        kare = self.kamera.son_kare()
+        if kare is not None:
+            self.depo.guncelle(webcam="açık")
+        elif self.kamera.son_hata:
+            self.depo.guncelle(webcam="yok")
+        return kare
+
+    def _kare_uret(self):
+        sahne = self.sahneler.aktif
+        self.depo.guncelle(aktif_sahne=self.sahneler.indeks, sahne_adi=sahne.ad)
+        ekran = self._ekran_karesi() if sahne.ekran else None
+        kamera = self._kamera_karesi(sahne)
+        kare = sahne_karesi(sahne, self.genislik, self.yukseklik, ekran, kamera,
+                            self._kamera_istegi, self.kamera_yerlesimi, self.bekleme_metni)
+        with self._kilit:
+            onceki = self._son_kare
+        return self.sahneler.gecis_uygula(kare, onceki)
 
     def _dongu(self) -> None:
         aralik = 1.0 / self.fps

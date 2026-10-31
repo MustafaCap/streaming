@@ -50,11 +50,64 @@ def sigdir(kare: np.ndarray, genislik: int, yukseklik: int) -> np.ndarray:
     return tuval
 
 
-def bilgi_karesi(genislik: int, yukseklik: int, metin: str) -> np.ndarray:
-    """Kaynak yokken gönderilecek koyu ekran. (OpenCV yazısı Türkçe karakter desteklemez, ASCII kullan.)"""
-    kare = np.full((yukseklik, genislik, 3), (25, 20, 18), np.uint8)  # RGB: #121419'a yakın
-    olcek = genislik / 1280
-    (tw, th), _ = cv2.getTextSize(metin, cv2.FONT_HERSHEY_SIMPLEX, 1.2 * olcek, 2)
-    cv2.putText(kare, metin, ((genislik - tw) // 2, (yukseklik + th) // 2),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.2 * olcek, (163, 169, 184), 2, cv2.LINE_AA)
-    return kare
+_ZEMIN = (18, 20, 25)        # #121419
+_IKINCIL_YAZI = (163, 169, 184)  # #A3A9B8
+_YAZI_FONTLARI = ["C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf",
+                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+_font_onbellek: dict = {}
+_bilgi_onbellek: dict = {}
+
+
+def _font(boy: int):
+    from PIL import ImageFont
+    if boy not in _font_onbellek:
+        for yol in _YAZI_FONTLARI:
+            try:
+                _font_onbellek[boy] = ImageFont.truetype(yol, boy)
+                break
+            except OSError:
+                continue
+        else:
+            _font_onbellek[boy] = ImageFont.load_default(boy)
+    return _font_onbellek[boy]
+
+
+def yazi_yaz(kare: np.ndarray, metin: str, merkez: tuple[int, int], boy: int,
+             renk=(232, 234, 240)) -> np.ndarray:
+    """Kareye Türkçe karakter destekli yazı yazar (Pillow ile). Yeni dizi döndürür."""
+    from PIL import Image, ImageDraw
+    resim = Image.fromarray(kare)
+    ciz = ImageDraw.Draw(resim)
+    satirlar = metin.split("\n")
+    font = _font(boy)
+    yukseklikler = [ciz.textbbox((0, 0), s or " ", font=font) for s in satirlar]
+    toplam = sum(b[3] - b[1] for b in yukseklikler) + (len(satirlar) - 1) * boy // 3
+    y = merkez[1] - toplam // 2
+    for satir, b in zip(satirlar, yukseklikler):
+        w = b[2] - b[0]
+        ciz.text((merkez[0] - w // 2 - b[0], y - b[1]), satir, font=font, fill=renk)
+        y += (b[3] - b[1]) + boy // 3
+    return np.asarray(resim).copy()
+
+
+def bilgi_karesi(genislik: int, yukseklik: int, metin: str, boy: int | None = None) -> np.ndarray:
+    """Koyu zemin üzerinde ortalanmış yazı (kaynak yok, bekleme ekranı vb.). Önbelleklidir; değiştirme."""
+    anahtar = (genislik, yukseklik, metin, boy)
+    if anahtar not in _bilgi_onbellek:
+        if len(_bilgi_onbellek) > 32:
+            _bilgi_onbellek.clear()
+        kare = np.full((yukseklik, genislik, 3), _ZEMIN, np.uint8)
+        kare = yazi_yaz(kare, metin, (genislik // 2, yukseklik // 2),
+                        boy or max(12, round(36 * genislik / 1280)), _IKINCIL_YAZI)
+        kare.setflags(write=False)  # önbellekteki kare yanlışlıkla bozulmasın
+        _bilgi_onbellek[anahtar] = kare
+    return _bilgi_onbellek[anahtar]
+
+
+def karistir(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
+    """a'dan b'ye geçiş: t=0 -> a, t=1 -> b."""
+    if t <= 0:
+        return a
+    if t >= 1:
+        return b
+    return cv2.addWeighted(a, 1.0 - t, b, t, 0.0)

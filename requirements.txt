@@ -5,3 +5,4 @@ dxcam
 mss
 pyvirtualcam
 PySide6
+Pillow

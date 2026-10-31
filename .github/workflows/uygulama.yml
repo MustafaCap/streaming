@@ -33,7 +33,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Modüller Windows'ta yükleniyor mu?
-        run: python -c "import ui.main_window, capture.screen, outputs.virtualcam, core.platform_win; print('tamam')"
+        run: python -c "import ui.main_window, capture.screen, capture.webcam, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
 
       - name: .exe derle
         run: |
@@ -52,11 +52,13 @@ jobs:
           name: YayinUygulamasi
           path: YayinUygulamasi.zip
 
+      # Sadece main'e birleşen kod indirme sayfasına gider; dallar sadece test edilir.
       - name: İndirme sayfasına koy (Releases)
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: asama-1
-          name: Aşama 1 - ekran -> sanal kamera
+          tag_name: uygulama
+          name: Yayın Uygulaması - son sürüm
           prerelease: true
           target_commitish: ${{ github.sha }}
           body: |
