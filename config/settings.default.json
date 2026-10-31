@@ -5,7 +5,8 @@
     "height": 720,
     "fps": 30,
     "monitor": 0,
-    "capture_backend": "dxcam"
+    "capture_backend": "dxcam",
+    "show_cursor": true
   },
   "ui": {
     "preview_fps": 15

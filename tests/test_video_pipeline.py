@@ -85,3 +85,23 @@ def test_kaynak_koparsa_bilgi_karesi_gosterilir():
         assert hat.son_kare().shape == (720, 1280, 3)
     finally:
         hat.durdur()
+
+
+class ImlecliKaynak(SahteKaynak):
+    def __init__(self):
+        super().__init__()
+        self.kare = np.zeros((720, 1280, 3), np.uint8)  # çıkışla aynı boyut: sigdir kopyalamaz
+
+    def grab(self):
+        return self.kare
+
+    def imlec(self):
+        return (100, 100)
+
+
+def test_imlec_cizilir_ama_kaynak_karesi_bozulmaz():
+    kaynak = ImlecliKaynak()
+    hat = VideoHatti(DurumDeposu(), kaynak, SahteCikis(), fps=60)
+    kare = hat._kare_uret()
+    assert kare[110, 103].min() > 200
+    assert kaynak.kare.max() == 0

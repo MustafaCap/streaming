@@ -61,6 +61,38 @@ class _MssYakalayici:
 YONTEMLER = {"dxcam": _DxcamYakalayici, "mss": _MssYakalayici}
 
 
+def monitor_dikdortgeni(monitor: int):
+    """Monitörün sanal masaüstündeki (sol, üst, genişlik, yükseklik) değeri; bulunamazsa None."""
+    try:
+        import mss
+        with mss.mss() as sct:
+            m = sct.monitors[monitor + 1]
+            return m["left"], m["top"], m["width"], m["height"]
+    except Exception:
+        return None
+
+
+def fare_konumu():
+    """Fare imlecinin ekrandaki konumu (x, y); imleç gizliyse (ör. oyunda) veya Windows değilse None."""
+    import sys
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class CURSORINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("flags", wintypes.DWORD),
+                    ("hCursor", wintypes.HANDLE), ("ptScreenPos", wintypes.POINT)]
+
+    bilgi = CURSORINFO()
+    bilgi.cbSize = ctypes.sizeof(CURSORINFO)
+    if not ctypes.windll.user32.GetCursorInfo(ctypes.byref(bilgi)):
+        return None
+    if not bilgi.flags & 0x1:  # CURSOR_SHOWING
+        return None
+    return bilgi.ptScreenPos.x, bilgi.ptScreenPos.y
+
+
 class EkranKaynagi:
     """Bir monitörü yakalar. Hata durumunda kendi kendini toparlar."""
 
@@ -72,6 +104,7 @@ class EkranKaynagi:
         self._yakalayici = None
         self._son_deneme = 0.0
         self.son_hata = ""
+        self.dikdortgen = None  # (sol, üst, genişlik, yükseklik)
 
     @property
     def yontem(self) -> str:
@@ -87,7 +120,8 @@ class EkranKaynagi:
         for ad in sira:
             try:
                 self._yakalayici = YONTEMLER[ad](self.monitor)
-                log.info("Ekran yakalama başladı: %s, monitör %d", ad, self.monitor)
+                self.dikdortgen = monitor_dikdortgeni(self.monitor)
+                log.info("Ekran yakalama başladı: %s, monitör %d %s", ad, self.monitor, self.dikdortgen)
                 self.son_hata = ""
                 return
             except Exception as e:
@@ -112,6 +146,19 @@ class EkranKaynagi:
             self.son_hata = str(e)
             self.kapat()
             return None
+
+    def imlec(self):
+        """Fare bu monitördeyse monitöre göre (x, y), değilse None."""
+        if self.dikdortgen is None:
+            return None
+        konum = fare_konumu()
+        if konum is None:
+            return None
+        sol, ust, w, h = self.dikdortgen
+        x, y = konum[0] - sol, konum[1] - ust
+        if 0 <= x < w and 0 <= y < h:
+            return x, y
+        return None
 
     def kapat(self):
         if self._yakalayici is not None:

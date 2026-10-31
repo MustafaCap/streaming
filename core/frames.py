@@ -8,6 +8,28 @@ def siyah_kare(genislik: int, yukseklik: int) -> np.ndarray:
     return np.zeros((yukseklik, genislik, 3), np.uint8)
 
 
+def sigdir_donusumu(w: int, h: int, genislik: int, yukseklik: int) -> tuple[float, int, int]:
+    """sigdir()'in kullandığı ölçek ve kaydırma: kaynak (x, y) -> çıkış (x*olcek + dx, y*olcek + dy)."""
+    olcek = min(genislik / w, yukseklik / h)
+    yeni_w, yeni_h = max(1, round(w * olcek)), max(1, round(h * olcek))
+    return olcek, (genislik - yeni_w) // 2, (yukseklik - yeni_h) // 2
+
+
+# Klasik ok imleci (sol üst ucu 0,0), 1 birim = 1 piksel @ 20 piksel boy
+_IMLEC = np.array([[0, 0], [0, 16], [4, 12], [7, 19], [10, 18], [7, 11], [12, 11]], np.float32)
+
+
+def imlec_ciz(kare: np.ndarray, x: float, y: float, boy: int = 22) -> None:
+    """Kareye (yerinde) beyaz dolgulu, siyah kenarlı bir fare oku çizer.
+
+    dxcam ve mss fare imlecini yakalamaz; imleci kendimiz ekliyoruz.
+    (Aşama 8'deki imleç vurgulama halkası da buraya eklenecek.)
+    """
+    noktalar = (_IMLEC * (boy / 19.0) + np.array([x, y], np.float32)).round().astype(np.int32)
+    cv2.fillPoly(kare, [noktalar], (255, 255, 255), cv2.LINE_AA)
+    cv2.polylines(kare, [noktalar], True, (0, 0, 0), 1, cv2.LINE_AA)
+
+
 def sigdir(kare: np.ndarray, genislik: int, yukseklik: int) -> np.ndarray:
     """Kareyi en-boy oranını bozmadan hedef boyuta sığdırır, boşluklar siyah kalır.
 
