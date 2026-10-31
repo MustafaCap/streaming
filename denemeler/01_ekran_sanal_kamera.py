@@ -14,6 +14,7 @@ Ne deniyoruz?
 Durdurmak için: Ctrl+C
 """
 
+import sys
 import argparse
 import time
 
@@ -57,6 +58,9 @@ def mss_yakalayici(monitor: int):
 
 
 def main():
+    # Türkçe karakterler her konsolda/yönlendirmede düzgün çıksın
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--mss", action="store_true", help="dxcam yerine mss kullan")
     ap.add_argument("--monitor", type=int, default=0)
