@@ -113,10 +113,11 @@ class VideoHatti:
                 self.cikis.ac()
                 self.depo.guncelle(cikis_acik=True, sanal_kamera="açık", son_hata="")
             except SanalKameraYok as e:
-                log.warning("Sanal kamera bulunamadı: %s", e)
+                log.warning("Sanal kamera açılamadı: %s", e)
                 self._cikis_istegi = False
                 self.depo.guncelle(cikis_acik=False, sanal_kamera="yok",
-                                   son_hata="OBS Virtual Camera bulunamadı. OBS'yi kurup sanal kamerayı bir kez başlat.")
+                                   son_hata=str(e) or "OBS Virtual Camera bulunamadı. OBS'yi kurup sanal kamerayı "
+                                                      "bir kez başlat.")
             except Exception as e:
                 log.exception("Sanal kamera açılamadı")
                 self._cikis_istegi = False

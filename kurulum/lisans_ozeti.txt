@@ -13,8 +13,8 @@ sürüm 3 (GPLv3) ile dağıtılır. Kısaca:
   • Program HİÇBİR GARANTİ olmadan, "olduğu gibi" sunulur.
 
 Program kendi lisanslarıyla gelen başka açık kaynak parçalar da kullanır
-(PySide6/Qt, OpenCV, FFmpeg, pyvirtualcam ve diğerleri). Listesi ve lisans
-metinleri kurulum klasöründeki "lisanslar" klasöründedir.
+(PySide6/Qt, OpenCV, FFmpeg ve diğerleri). Listesi ve lisans metinleri
+kurulum klasöründeki "lisanslar" klasöründedir.
 
 Aşağıda GPLv3'ün resmi (İngilizce) tam metni var. Bağlayıcı olan bu metindir.
 

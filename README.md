@@ -109,7 +109,6 @@ Paketin içindeki `lisanslar` klasöründe her parçanın kendi lisans metni ve 
 
 | Parça | Lisans |
 | --- | --- |
-| pyvirtualcam | GPLv2 |
 | PySide6 / Qt | LGPLv3 |
 | OpenCV (opencv-python) | Apache 2.0 (içindeki FFmpeg LGPLv2.1) |
 | FFmpeg (BtbN LGPL derlemesi, `ffmpeg\`) | LGPLv2.1+ |
@@ -120,6 +119,6 @@ Paketin içindeki `lisanslar` klasöründe her parçanın kendi lisans metni ve 
 | MediaPipe Selfie Segmentation modeli (`models\`) | Apache 2.0 |
 | Python çalışma zamanı | PSF |
 
-Not: pyvirtualcam'in lisansı sadece GPLv2, "veya sonraki sürüm" demiyor. FSF'ye göre sadece-GPLv2 kod GPLv3 kodla aynı pakette dağıtılamaz. Uygulamayı "GPLv2 veya sonrası" yapmak da çözmez, çünkü OpenCV'nin Apache 2.0 lisansı GPLv2 ile uyumsuz. Temiz çözüm, sanal kamera çıkışını (`outputs/virtualcam.py`, tek dosya) pyvirtualcam yerine OBS'nin sanal kamera sürücüsüne doğrudan yazan kendi kodumuzla değiştirmek.
+Sanal kamera çıkışı kendi kodumuzdur (`outputs/obs_kamera.py`): görüntüyü OBS'nin sanal kamera sürücüsünün okuduğu paylaşılan belleğe yazar. Önceden kullanılan pyvirtualcam sadece GPLv2 lisanslı olduğu ve GPLv3 ile aynı pakette dağıtılamadığı için çıkarıldı.
 
 OBS Virtual Camera ve VB-Cable pakete konmaz, kullanıcı ayrıca kurar. QFluentWidgets bilerek kullanılmadı.

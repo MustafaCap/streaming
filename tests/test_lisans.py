@@ -36,9 +36,11 @@ def test_ucuncu_parti_lisanslar_toplanir(tmp_path):
     assert "GPL sürüm 3" in liste and "numpy" in liste
 
 
-def test_bilinen_paketlerin_lisans_notu_var():
+def test_bilinen_paketlerin_lisans_notu_var_ve_pyvirtualcam_yok():
+    gereksinimler = (KOK / "requirements.txt").read_text(encoding="utf-8").lower()
+    assert "pyvirtualcam" not in gereksinimler
     betik = _betik()
-    assert "GPLv2" in betik.NOTLAR["pyvirtualcam"]
+    assert "pyvirtualcam" not in betik.NOTLAR  # GPLv2-only, GPLv3 ile uyumsuz: kullanılmıyor
     assert "LGPLv3" in betik.NOTLAR["pyside6"]
 
 

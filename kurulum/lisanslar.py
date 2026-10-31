@@ -30,7 +30,6 @@ KAYNAK = "https://github.com/MustafaCap/streaming"
 
 # Paket bilgisinde lisans yazmayan ya da eksik yazan parçalar için açıklama
 NOTLAR = {
-    "pyvirtualcam": "GPLv2. Paketin lisans bilgisinde 'veya sonraki sürüm' ifadesi yok.",
     "pyside6": "LGPLv3 (Qt for Python). Qt kütüphaneleri ayrı DLL olarak pakette, değiştirilebilir.",
     "pyside6-essentials": "LGPLv3 (Qt for Python)",
     "pyside6-addons": "LGPLv3 (Qt for Python)",

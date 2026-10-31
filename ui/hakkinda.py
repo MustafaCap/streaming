@@ -33,7 +33,7 @@ def metin() -> str:
         "\"olduğu gibi\" sunulur.</p>"
         f"<p>Kaynak kod ve yeni sürümler:<br>{KAYNAK}</p>"
         "<p>Uygulama internete bağlanmaz. Kullandığı açık kaynak kütüphanelerin (PySide6/Qt, OpenCV, "
-        "FFmpeg, pyvirtualcam ve diğerleri) lisansları <i>lisanslar</i> klasöründedir.</p>"
+        "FFmpeg ve diğerleri) lisansları <i>lisanslar</i> klasöründedir.</p>"
     )
 
 

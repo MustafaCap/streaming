@@ -54,7 +54,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Modüller Windows'ta yükleniyor mu?
-        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, ui.hakkinda, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
+        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, ui.hakkinda, outputs.obs_kamera, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
 
       - name: .exe derle
         run: |
@@ -62,7 +62,7 @@ jobs:
             --add-data "config/settings.default.json;config" `
             --add-data "models/selfie_segmentation_landscape.tflite;models" `
             --add-data "models/LICENSE-mediapipe-Apache-2.0.txt;models" `
-            --collect-all pyvirtualcam --collect-all dxcam --hidden-import mss `
+            --collect-all dxcam --hidden-import mss `
             --icon kurulum/uygulama.ico `
             main.py
 

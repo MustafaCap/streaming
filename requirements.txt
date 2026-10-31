@@ -3,7 +3,6 @@ numpy
 opencv-python>=4.9
 dxcam
 mss
-pyvirtualcam
 PySide6
 Pillow
 PyAudioWPatch; sys_platform == "win32"
