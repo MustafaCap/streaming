@@ -26,6 +26,7 @@ class UygulamaKabugu(QObject):
         self.app, self.pencere, self.komutlar, self.depo, self.ayarlar = app, pencere, komutlar, depo, ayarlar
         self.hat, self.ses = hat, ses
         self._katman = None
+        self._iz = None   # yakınlaştırılan karenin ekrandaki yerini gösteren çerçeve
         komutlar.kaydet("bolge.sec", "Kare seç / tam ekrana dön", self._bolge_sec)
         self._komut_sinyali.connect(self._komutu_calistir)
         self._bildirim_sinyali.connect(self._bildirim_goster)
@@ -58,6 +59,7 @@ class UygulamaKabugu(QObject):
         self.pencere.ayarlari_ac = self.ayarlari_ac
         depo.dinle(lambda eski, yeni: self._durum_sinyali.emit(yeni))
         komutlar.kaydet("pencere.mini", "Mini moda geç", lambda _: self.mini_moda_gec())
+        komutlar.kaydet("kayit.klasor", "Kayıt klasörünü aç", self._kayit_klasoru)
         self._durumu_goster(depo.durum)
 
     def _tus_haritasini_kur(self) -> None:
@@ -77,6 +79,7 @@ class UygulamaKabugu(QObject):
         if self.kalem is not None and self.kalem.acik:
             self.kalem.kapat()
         self.kisayollar.durdur()
+        self._izi_gizle()
         self.mini.hide()
         if self.tepsi is not None:
             self.tepsi.hide()
@@ -122,7 +125,9 @@ class UygulamaKabugu(QObject):
         if self.hat.bolge.aktif:
             self.hat.bolge.temizle()
             self.depo.guncelle(bolge="")
+            self._izi_gizle()
             return "Tam ekrana dönüldü"
+        self._izi_gizle()
         ekran = ekrani_bul(getattr(self.hat.kaynak, "dikdortgen", None))
         self._katman = BolgeKatmani(ekran, self.hat.bolge.bolge)
         self._katman.secildi.connect(self._bolge_secildi)
@@ -134,12 +139,26 @@ class UygulamaKabugu(QObject):
     def _bolge_secildi(self, bolge, mod) -> None:
         self.hat.bolge.sec(bolge, mod)
         self.depo.guncelle(bolge=mod)
+        if mod == "yakinlastir":
+            from ui.region_marker import YakinlastirmaIzi
+            from ui.region_overlay import ekrani_bul
+            if self._iz is None:
+                self._iz = YakinlastirmaIzi()
+            self._iz.goster(ekrani_bul(getattr(self.hat.kaynak, "dikdortgen", None)), self.hat.bolge.bolge or bolge)
         metin = "Kare yayında" if mod == "yakinlastir" else "Vurgulama açık"
         self._bildirim_goster(f"{metin} · tam ekran için tekrar", self.tus_haritasi.get("bolge.sec", ""))
+
+    def _izi_gizle(self) -> None:
+        if self._iz is not None:
+            self._iz.hide()
 
     @Slot()
     def _katman_kapandi(self, *_):
         self._katman = None
+
+    def _kayit_klasoru(self, _):
+        from ui.klasor import kayit_klasorunu_ac
+        return None if kayit_klasorunu_ac(self.ayarlar) else "Kayıt klasörü açılamadı"
 
     # ---- pencere / tepsi
 
@@ -167,6 +186,8 @@ class UygulamaKabugu(QObject):
 
     def _ayarlar_degisti(self) -> None:
         self._tus_haritasini_kur()
+        if hasattr(self.pencere, "_bekleme_dugmesini_yaz"):
+            self.pencere._bekleme_dugmesini_yaz()
         self._bas_konusu_uygula()
         self.kisayollar.grup_ayarla("genel", gruplara_ayir(self.ayarlar.al("hotkeys", {}), self.komutlar))
         if self.kalem is not None and self.kalem.acik:

@@ -88,6 +88,28 @@ class Kanal:
         self.seviye = 0.0        # son bloğun tepe değeri (kazanç sonrası, 0..1+)
         self.carpan = 1.0        # otomatik ses kısma gibi geçici etkiler için
         self.kapi = True         # bas-konuş: tuş basılı değilken False (mikrofon susar)
+        # Aynı kanala birden çok kaynak (ör. her uygulamanın sesi ayrı yakalanır).
+        # Değiştirirken sözlüğün yenisi atanır; ses iş parçacığı eski kopyayı güvenle okur.
+        self.alt_tamponlar: dict = {}
+
+    def alt_tampon_ekle(self, anahtar, giris_hizi: int = ORNEKLEME) -> "Tampon":
+        t = Tampon(giris_hizi)
+        yeni = dict(self.alt_tamponlar)
+        yeni[anahtar] = t
+        self.alt_tamponlar = yeni
+        return t
+
+    def alt_tampon_sil(self, anahtar) -> None:
+        if anahtar in self.alt_tamponlar:
+            yeni = dict(self.alt_tamponlar)
+            del yeni[anahtar]
+            self.alt_tamponlar = yeni
+
+    def oku(self, n: int) -> np.ndarray:
+        blok = self.tampon.oku(n)
+        for t in self.alt_tamponlar.values():
+            blok = blok + t.oku(n)
+        return blok
 
     @property
     def kazanc(self) -> float:
@@ -145,7 +167,7 @@ class SesKaristirici:
         # mikrofon önce: ses kısma kararı ona göre verilir
         sirali = sorted(self.kanallar.items(), key=lambda kv: kv[0] != "mikrofon")
         for anahtar, k in sirali:
-            blok = k.tampon.oku(n)  # sessizken de oku ki tampon dolup eski ses birikmesin
+            blok = k.oku(n)  # sessizken de oku ki tampon dolup eski ses birikmesin
             if k.sessiz or not k.bagli or not k.kapi:
                 k.seviye = 0.0
             else:
@@ -181,6 +203,8 @@ class SesKaristirici:
     def sifirla(self) -> None:
         for k in self.kanallar.values():
             k.tampon.temizle()
+            for t in k.alt_tamponlar.values():
+                t.temizle()
             k.seviye = 0.0
         self.cikis_seviyesi = 0.0
 

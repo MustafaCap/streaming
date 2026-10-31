@@ -54,6 +54,9 @@ def tus_coz(metin: str) -> tuple[int, int]:
     if len(tus) == 1 and tus.isalnum() and tus.isascii():
         return mod, ord(tus.upper())
     if k.startswith("f") and k[1:].isdigit() and 1 <= int(k[1:]) <= 24:
+        if k == "f12" and mod == 0:
+            # Windows tek başına F12'yi hata ayıklayıcıya ayırır; global kısayol olarak çalışmaz.
+            raise GecersizTus("F12 tek başına kullanılamaz (Windows'a ayrılmış); Ctrl/Alt/Shift ile birlikte kullan")
         return mod, 0x70 + int(k[1:]) - 1
     if k.startswith("num") and k[3:].isdigit() and len(k) == 4:
         return mod, 0x60 + int(k[3:])
@@ -188,7 +191,7 @@ VARSAYILAN_KISAYOLLAR = {
     "ses.sistem": "F9",
     "kamera.ac_kapat": "F10",
     "anlik_kayit.kaydet": "F11",
-    "panik": "F12",
+    "panik": "Ctrl+Alt+P",
     "sahne.sec:1": "Ctrl+1",
     "sahne.sec:2": "Ctrl+2",
     "sahne.sec:3": "Ctrl+3",

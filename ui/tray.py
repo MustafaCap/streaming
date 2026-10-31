@@ -26,6 +26,7 @@ class Tepsi(QSystemTrayIcon):
             a.setCheckable(True)
             self.sahne_eylemleri.append(a)
         menu.addSeparator()
+        menu.addAction("Kayıt klasörünü aç", lambda: komutlar.calistir("kayit.klasor"))
         menu.addAction("Pencereyi göster", pencereyi_goster)
         menu.addAction("Mini mod", lambda: komutlar.calistir("pencere.mini"))
         menu.addAction("Çıkış", cikis)

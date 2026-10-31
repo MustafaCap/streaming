@@ -1,6 +1,7 @@
 """Mini mod: ekran kenarında sürüklenebilir, her zaman üstte duran küçük çubuk.
 
-Durum noktası, Mikrofon, Ses, Kamera, Kare, Kalem, Panik ve ana pencereye dönüş.
+Durum (CANLI/KAPALI/PANİK, kayıt süresi), Yayın, Kayıt, Mikrofon, Ses, Kamera, Kare,
+Kalem, Panik ve ana pencereye dönüş.
 Her düğmenin altında kısayol tuşu yazar. Ekran yakalamaya girmez.
 """
 
@@ -17,6 +18,8 @@ class MiniCubuk(QWidget):
     ana_pencere_istendi = Signal()
 
     DUGMELER = [  # komut, simge, ad
+        ("cikis.ac_kapat", "📡", "Yayın"),
+        ("kayit.ac_kapat", "⏺", "Kayıt"),
         ("ses.mikrofon", "🎙", "Mik"),
         ("ses.sistem", "🔊", "Ses"),
         ("kamera.ac_kapat", "📷", "Kamera"),
@@ -30,22 +33,31 @@ class MiniCubuk(QWidget):
         self.komutlar, self.hat, self.ayarlar = komutlar, hat, ayarlar
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setStyleSheet(QSS + f"""
-            QWidget#mini {{ background: {RENK['panel']}; border: 1px solid {RENK['kenarlik']}; border-radius: 12px; }}
-            QPushButton {{ background: transparent; border: 1px solid transparent; border-radius: 8px;
-                           padding: 4px 6px; font-size: 16px; min-width: 44px; }}
-            QPushButton:hover {{ border-color: {RENK['kenarlik']}; }}
-            QLabel#tus {{ color: {RENK['yazi2']}; font-size: 10px; background: transparent; }}
+            QWidget#mini {{ background: #20242D; border-radius: 14px; }}
+            QPushButton {{ background: {RENK['zemin']}; border: 1px solid {RENK['kenarlik']}; border-radius: 9px;
+                           padding: 6px 8px; font-size: 20px; min-width: 50px; min-height: 30px; }}
+            QPushButton:hover {{ border-color: {RENK['vurgu']}; }}
+            QLabel#tus {{ color: {RENK['yazi']}; font-size: 11px; font-weight: 600; background: transparent; }}
+            QLabel#durum {{ font-size: 13px; font-weight: 700; background: transparent; padding: 0 4px; }}
         """)
         kap = QWidget(self, objectName="mini")
+        self._kap = kap
         satir = QHBoxLayout(kap)
-        satir.setContentsMargins(10, 6, 10, 6)
-        satir.setSpacing(2)
+        satir.setContentsMargins(12, 8, 12, 8)
+        satir.setSpacing(4)
 
-        self.nokta = QLabel("●")
+        # Durum: yayın açık/kapalı, panik, kayıt — renkli ve yazılı (tek bakışta görünsün)
+        durum_kutu = QVBoxLayout()
+        durum_kutu.setSpacing(0)
+        self.nokta = QLabel("●", objectName="durum")
         self.nokta.setToolTip("Yayın durumu")
-        self.nokta.setStyleSheet("font-size: 16px; background: transparent;")
-        satir.addWidget(self.nokta)
-        satir.addSpacing(6)
+        self.nokta.setAlignment(Qt.AlignCenter)
+        self.durum_yazisi = QLabel("KAPALI", objectName="durum")
+        self.durum_yazisi.setAlignment(Qt.AlignCenter)
+        durum_kutu.addWidget(self.nokta)
+        durum_kutu.addWidget(self.durum_yazisi)
+        satir.addLayout(durum_kutu)
+        satir.addSpacing(8)
 
         tuslar = (ayarlar.al("hotkeys", {}) if ayarlar is not None else {}) or {}
         self.dugmeler = {}
@@ -77,8 +89,16 @@ class MiniCubuk(QWidget):
         satir.addLayout(kutu)
 
         dis = QHBoxLayout(self)
-        dis.setContentsMargins(0, 0, 0, 0)
+        dis.setContentsMargins(10, 10, 10, 10)   # gölge için yer
         dis.addWidget(kap)
+        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        golge = QGraphicsDropShadowEffect(kap)
+        golge.setBlurRadius(18)
+        golge.setOffset(0, 3)
+        golge.setColor(QColor(0, 0, 0, 170))
+        kap.setGraphicsEffect(golge)
+        self._cerceve_rengi(RENK["kenarlik"])
         self.adjustSize()
         self._surukle: QPoint | None = None
         self._konumu_yukle()
@@ -119,10 +139,27 @@ class MiniCubuk(QWidget):
 
     # ---- durum
 
+    def _cerceve_rengi(self, renk: str) -> None:
+        self._kap.setStyleSheet(f"QWidget#mini {{ background: #20242D; border: 2px solid {renk}; border-radius: 14px; }}")
+
     def durumu_goster(self, d) -> None:
-        self.nokta.setStyleSheet(f"font-size: 16px; background: transparent; color: "
-                                 f"{RENK['panik'] if d.panik else (RENK['acik'] if d.cikis_acik else RENK['yazi2'])};")
+        kayitta = getattr(d, "kayit", "kapalı") == "açık"
+        if d.panik:
+            renk, yazi = RENK["panik"], "PANİK"
+        elif d.cikis_acik:
+            renk, yazi = RENK["acik"], "CANLI"
+        else:
+            renk, yazi = RENK["yazi2"], "KAPALI"
+        metin = f'<span style="color:{renk}">{yazi}</span>'
+        if kayitta:
+            sn = int(getattr(d, "kayit_suresi", 0) or 0)
+            metin += f'<br><span style="color:{RENK["kapali"]}">● REC {sn // 60:02d}:{sn % 60:02d}</span>'
+        self.nokta.setStyleSheet(f"color: {renk}; font-size: 18px;")
+        self.durum_yazisi.setText(metin)
+        self._cerceve_rengi(RENK["kapali"] if kayitta and not d.panik else renk)
         acik = {
+            "cikis.ac_kapat": d.cikis_acik,
+            "kayit.ac_kapat": kayitta,
             "ses.mikrofon": not d.mikrofon_sessiz,
             "ses.sistem": not d.sistem_sessiz,
             "kamera.ac_kapat": self.hat.kamera_istegi,
@@ -140,5 +177,6 @@ class MiniCubuk(QWidget):
                 d_.setToolTip(f"{d_.toolTip().split(':')[0]}: {'Açık' if a else 'Kapalı'}")
                 d_.setStyleSheet(f"color: {RENK['acik'] if a else RENK['kapali']};")
             else:
-                renk = (RENK["panik"] if komut == "panik" else RENK["vurgu"]) if a else RENK["yazi"]
+                renk = {"panik": RENK["panik"], "cikis.ac_kapat": RENK["acik"],
+                        "kayit.ac_kapat": RENK["kapali"]}.get(komut, RENK["vurgu"]) if a else RENK["yazi"]
                 d_.setStyleSheet(f"color: {renk}; border-color: {renk if a else 'transparent'};")

@@ -238,3 +238,86 @@ def test_otomatik_ses_kisma_ve_bas_konus_ve_panik():
     assert sis.carpan == pytest.approx(1.0) and m.seviyeler()["mikrofon"] == 0
     m.ana_sessiz = True
     assert (m.karistir(480) == 0).all()
+
+
+def test_yayin_kapatip_acinca_mikrofon_yeniden_acilir(motor_kur):
+    """1.0.0 hatası: kayıt ya da yayın bir kez kapanınca mikrofon bir daha açılmıyordu."""
+    motor, depo, mikser, mod, _ = motor_kur(CIHAZLAR, "Mikrofon (Realtek(R) Audio)", sistem_modu="all")
+    motor.baslat()
+    motor.kayit_icin_ac(True)                       # Ctrl+Shift+R (yayın kapalı)
+    assert _bekle(lambda: depo.durum.mikrofon == "açık", 3)
+    motor.kayit_icin_ac(False)                      # kayıt bitti -> cihazlar kapanır
+    assert _bekle(lambda: depo.durum.sanal_mikrofon == "kapalı", 3)
+    motor.ac(True)                                  # sonra yayın
+    assert _bekle(lambda: depo.durum.mikrofon == "açık", 3)
+    assert mod.acilanlar.count("Mikrofon (Realtek(R) Audio)") == 2
+    assert _bekle(lambda: mikser.seviyeler()["mikrofon"] > 0.2)
+
+
+# ------------------------------------------------------------------ uygulama bazlı yakalama ("auto")
+
+def test_yakalanacak_surecler_zoomu_kendimizi_ve_atalarimizi_atar():
+    from capture.app_audio import yakalanacak_surecler
+    tablo = {
+        1: (0, "explorer.exe"),
+        5: (1, "yayinuygulamasi.exe"), 6: (5, "ffmpeg.exe"),   # biz ve alt sürecimiz
+        10: (1, "msedge.exe"), 11: (10, "msedge.exe"),          # Edge ve ses alt süreci
+        20: (1, "zoom.exe"), 21: (20, "zoomaudio.exe"),
+        30: (1, "spotify.exe"),
+        40: (0, "launcher.exe"), 41: (40, "discord.exe"),       # Discord'u açan uygulama
+    }
+    oturumlar = {1, 5, 6, 10, 11, 20, 21, 30, 40}
+    sonuc = yakalanacak_surecler(oturumlar, ["Zoom.exe", "Discord.exe"], 5, tablo)
+    # explorer (bizim atamız), biz, ffmpeg, Zoom ağacı ve Discord'un atası yok; Edge tek ağaç olarak
+    assert sonuc == {10, 30}
+
+
+class _SahteSurecSesi:
+    olusan = []
+
+    def __init__(self, pid, haric, yaz):
+        self.pid, self.haric, self.yaz = pid, haric, yaz
+        self.calisiyor = True
+        _SahteSurecSesi.olusan.append(self)
+
+    def baslat(self):
+        self.yaz(np.full((480, 2), 0.1, np.float32))
+        return True
+
+    def durdur(self):
+        self.calisiyor = False
+
+
+def test_auto_mod_her_uygulamayi_ayri_yakalar(motor_kur, monkeypatch):
+    from capture import app_audio
+    tablo = {1: (0, "explorer.exe"), 5: (1, "python.exe"), 10: (1, "msedge.exe"),
+             20: (1, "zoom.exe"), 30: (1, "spotify.exe")}
+    oturumlar = {10, 20}
+    _SahteSurecSesi.olusan = []
+    monkeypatch.setattr(app_audio, "surec_tablosu", lambda: dict(tablo))
+    monkeypatch.setattr(app_audio, "ses_oturumu_pidleri", lambda: set(oturumlar))
+    monkeypatch.setattr(app_audio, "kendi_pid", lambda: 5)
+    monkeypatch.setattr(app_audio, "SurecSesi", _SahteSurecSesi)
+    motor, depo, mikser, *_ = motor_kur(CIHAZLAR, "Mikrofon (Realtek(R) Audio)", sistem_modu="auto")
+    motor.ac(True)
+    motor.baslat()
+    assert _bekle(lambda: depo.durum.sistem_sesi == "açık", 3)
+    assert [s.pid for s in _SahteSurecSesi.olusan] == [10]          # Zoom yakalanmaz
+    assert all(not s.haric for s in _SahteSurecSesi.olusan)         # hep "dahil" modu
+    assert depo.durum.sistem_kaynagi == "msedge (zoom hariç)"
+    oturumlar.add(30)                                                # Spotify çalmaya başladı
+    assert _bekle(lambda: [s.pid for s in _SahteSurecSesi.olusan] == [10, 30], 4)
+    oturumlar.discard(10)                                            # Edge sustu/kapandı
+    assert _bekle(lambda: not _SahteSurecSesi.olusan[0].calisiyor, 4)
+    assert set(mikser.kanallar["sistem"].alt_tamponlar) == {30}
+
+
+def test_kanal_alt_tamponlari_toplanir():
+    m = SesKaristirici()
+    sis = m.kanal_ekle("sistem", "Bilgisayar sesi")
+    sis.bagli = True
+    sis.alt_tampon_ekle(1).yaz(np.full((4800, 2), 0.1, np.float32))
+    sis.alt_tampon_ekle(2).yaz(np.full((4800, 2), 0.2, np.float32))
+    assert np.allclose(m.karistir(480), 0.3)
+    sis.alt_tampon_sil(1)
+    assert np.allclose(m.karistir(480), 0.2)

@@ -8,6 +8,12 @@ Process Loopback ile:
 Hedef olarak kendi sürecimizi "hariç" verirsek bütün bilgisayar sesi gelir,
 ama kendi çıkardığımız ses gelmez (geri besleme olmaz).
 
+Dikkat (1.0.0 testinde bulundu): hariç modu tek bir süreç ağacı alır. Zoom'u hariç
+tutunca bizim VB-Cable'a gönderdiğimiz ses de yakalanıyor, karışıma geri giriyor ve
+yankı katlanarak büyüyordu. Bu yüzden "auto" modda artık ses çıkaran her uygulama
+ayrı ayrı "dahil" moduyla yakalanır (ses_oturumu_pidleri + yakalanacak_surecler);
+Zoom/Discord ve kendi sürecimiz bu listeye hiç girmez.
+
 Aşama 0, deneme 5'te Mustafa'nın bilgisayarında Edge ile doğrulandı.
 COM çağrıları ayrı bir iş parçacığında, çok iş parçacıklı (MTA) modda yapılır;
 arayüzün (Qt) ana iş parçacığına dokunulmaz.
@@ -298,4 +304,138 @@ class SurecSesi:
 
 def kendi_pid() -> int:
     return os.getpid()
+
+
+# ------------------------------------------------------------------ hangi uygulamalar ses çıkarıyor?
+
+def _oturum_tanimlari():
+    """Ses oturumlarını (Windows ses karıştırıcısındaki uygulamalar) listelemek için COM arayüzleri."""
+    global _OTURUM
+    if "_OTURUM" in globals():
+        return _OTURUM
+    import comtypes
+    from comtypes import COMMETHOD, GUID, IUnknown
+
+    def bos(ad):  # kullanmadığımız metotlar: sadece sanal tablo sırası doğru olsun
+        return COMMETHOD([], HRESULT, ad)
+
+    class IAudioSessionControl2(IUnknown):
+        _iid_ = GUID("{bfb7ff88-7239-4fc9-8fa2-07c950be9c6d}")
+        _methods_ = [
+            COMMETHOD([], HRESULT, "GetState", (["out"], POINTER(c_int), "pRetVal")),
+            bos("GetDisplayName"), bos("SetDisplayName"), bos("GetIconPath"), bos("SetIconPath"),
+            bos("GetGroupingParam"), bos("SetGroupingParam"),
+            bos("RegisterAudioSessionNotification"), bos("UnregisterAudioSessionNotification"),
+            bos("GetSessionIdentifier"), bos("GetSessionInstanceIdentifier"),
+            COMMETHOD([], HRESULT, "GetProcessId", (["out"], POINTER(wintypes.DWORD), "pRetVal")),
+        ]
+
+    class IAudioSessionEnumerator(IUnknown):
+        _iid_ = GUID("{E2F5BB11-0570-40CA-ACDD-3AA01277DEE8}")
+        _methods_ = [
+            COMMETHOD([], HRESULT, "GetCount", (["out"], POINTER(c_int), "SessionCount")),
+            COMMETHOD([], HRESULT, "GetSession", (["in"], c_int, "SessionCount"),
+                      (["out"], POINTER(POINTER(IUnknown)), "Session")),
+        ]
+
+    class IAudioSessionManager2(IUnknown):
+        _iid_ = GUID("{77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F}")
+        _methods_ = [
+            bos("GetAudioSessionControl"), bos("GetSimpleAudioVolume"),
+            COMMETHOD([], HRESULT, "GetSessionEnumerator",
+                      (["out"], POINTER(POINTER(IAudioSessionEnumerator)), "SessionEnum")),
+        ]
+
+    class IMMDevice(IUnknown):
+        _iid_ = GUID("{D666063F-1587-4E43-81F1-B948E807363F}")
+        _methods_ = [
+            COMMETHOD([], HRESULT, "Activate", (["in"], POINTER(GUID), "iid"), (["in"], wintypes.DWORD, "ctx"),
+                      (["in"], c_void_p, "params"), (["out"], POINTER(POINTER(IUnknown)), "ppInterface")),
+        ]
+
+    class IMMDeviceEnumerator(IUnknown):
+        _iid_ = GUID("{A95664D2-9614-4F35-A746-DE8DB63617E6}")
+        _methods_ = [
+            bos("EnumAudioEndpoints"),
+            COMMETHOD([], HRESULT, "GetDefaultAudioEndpoint", (["in"], c_int, "dataFlow"), (["in"], c_int, "role"),
+                      (["out"], POINTER(POINTER(IMMDevice)), "ppEndpoint")),
+        ]
+
+    _OTURUM = dict(comtypes=comtypes, GUID=GUID, IAudioSessionControl2=IAudioSessionControl2,
+                   IAudioSessionManager2=IAudioSessionManager2, IMMDeviceEnumerator=IMMDeviceEnumerator)
+    return _OTURUM
+
+
+def ses_oturumu_pidleri() -> set[int]:
+    """Varsayılan hoparlörde ses oturumu açık olan süreçler (Windows ses karıştırıcısındakiler).
+
+    COM'un bu iş parçacığında başlatılmış olması gerekir (SesMotoru denetçisi yapar).
+    """
+    c = _oturum_tanimlari()
+    clsid = c["GUID"]("{BCDE0395-E52F-467C-8E3D-C4579291692E}")   # MMDeviceEnumerator
+    numaralayici = c["comtypes"].CoCreateInstance(clsid, interface=c["IMMDeviceEnumerator"], clsctx=23)
+    cihaz = numaralayici.GetDefaultAudioEndpoint(0, 1)   # eRender, eMultimedia
+    unk = cihaz.Activate(byref(c["IAudioSessionManager2"]._iid_), 23, None)
+    yonetici = unk.QueryInterface(c["IAudioSessionManager2"])
+    liste = yonetici.GetSessionEnumerator()
+    pidler = set()
+    for i in range(liste.GetCount()):
+        try:
+            oturum = liste.GetSession(i).QueryInterface(c["IAudioSessionControl2"])
+            if oturum.GetState() == 2:   # AudioSessionStateExpired
+                continue
+            pid = int(oturum.GetProcessId())
+            if pid > 0:
+                pidler.add(pid)
+        except Exception:
+            continue
+    return pidler
+
+
+def surec_tablosu() -> dict[int, tuple[int, str]]:
+    """{pid: (ebeveyn pid, küçük harfli ad)} — bütün süreçler."""
+    import psutil
+    tablo = {}
+    for p in psutil.process_iter(["pid", "ppid", "name"]):
+        try:
+            tablo[p.info["pid"]] = (p.info["ppid"] or 0, (p.info["name"] or "").lower())
+        except Exception:
+            continue
+    return tablo
+
+
+def _atalar(pid: int, tablo) -> list[int]:
+    """pid'in kendisi ve bütün üst süreçleri (döngüye karşı en fazla 64 adım)."""
+    zincir, gorulen = [], set()
+    while pid and pid in tablo and pid not in gorulen and len(zincir) < 64:
+        zincir.append(pid)
+        gorulen.add(pid)
+        pid = tablo[pid][0]
+    return zincir
+
+
+def yakalanacak_surecler(oturum_pidleri, haric_adlar, kendi: int, tablo) -> set[int]:
+    """Hangi süreç ağaçları ayrı ayrı "dahil" moduyla yakalanmalı?
+
+    Atılanlar:
+      - kendisi ya da bir üst süreci hariç listesinde olanlar (Zoom'un alt süreçleri dahil)
+      - kendi sürecimiz ve alt süreçleri (FFmpeg vb.)
+      - kendi sürecimizin ya da hariç tutulan bir sürecin ÜST süreci olanlar
+        (ör. explorer.exe: onun ağacını yakalarsak biz de içinde oluruz -> yankı)
+    Bir sürecin üst süreci zaten listedeyse onu ayrıca yakalamayız (ağaç onu içerir).
+    """
+    haric = {a.lower() for a in haric_adlar}
+    yasakli_atalar = set(_atalar(kendi, tablo))
+    for pid, (_, ad) in tablo.items():
+        if ad in haric:
+            yasakli_atalar.update(_atalar(pid, tablo))
+    adaylar = set()
+    for pid in oturum_pidleri:
+        zincir = _atalar(pid, tablo) or [pid]
+        if pid in yasakli_atalar:
+            continue
+        if kendi in zincir or any(tablo.get(p, (0, ""))[1] in haric for p in zincir):
+            continue
+        adaylar.add(pid)
+    return {p for p in adaylar if not any(a in adaylar for a in _atalar(p, tablo)[1:])}
 

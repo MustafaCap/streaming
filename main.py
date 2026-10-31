@@ -73,7 +73,7 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             if ses is not None:
                 ses.kayit_icin_ac(False)
             if bildir is not None:
-                bildir(f"Kayıt kaydedildi: {dosya.name}" if dosya else f"Kayıt kaydedilemedi: {hata}")
+                bildir(f"Kayıt kaydedildi: {dosya.name} · 📁 Kayıtlar düğmesiyle aç" if dosya else f"Kayıt kaydedilemedi: {hata}")
 
         def kayit_ac_kapat(_):
             if kayitci.kayitta:

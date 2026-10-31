@@ -16,7 +16,16 @@ from core import paths
 
 log = logging.getLogger(__name__)
 
-SURUM = 1
+SURUM = 2
+
+
+def _tasi(veri: dict, eski_surum: int) -> None:
+    """Eski sürümün ayar dosyasını yeni sürüme uyarlar."""
+    if eski_surum < 2:
+        # F12'yi Windows hata ayıklayıcıya ayırdığı için global kısayol olarak çalışmıyordu.
+        tuslar = veri.get("hotkeys")
+        if isinstance(tuslar, dict) and str(tuslar.get("panik", "")).lower() == "f12":
+            tuslar["panik"] = "Ctrl+Alt+P"
 
 
 def _birlestir(varsayilan: dict, kullanici: dict) -> dict:
@@ -53,8 +62,16 @@ class Ayarlar:
                 except OSError:
                     pass
                 kullanici = {}
+        eski_surum = kullanici.get("version", 1) if kullanici else SURUM
         self.veri = _birlestir(varsayilan, kullanici)
+        try:
+            _tasi(self.veri, int(eski_surum))
+        except (TypeError, ValueError):
+            pass
+        degisti = bool(kullanici) and eski_surum != SURUM
         self.veri["version"] = SURUM
+        if degisti:
+            self.kaydet()
         if not self.dosya.exists():
             self.kaydet()
 

@@ -12,7 +12,7 @@ komut adıyla çalıştırılır (kısayol, mini mod ve tepsi ile aynı yol).
 
 import logging
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QMainWindow, QPushButton,
                                QSizePolicy, QVBoxLayout, QWidget)
@@ -76,9 +76,14 @@ class AnaPencere(QMainWindow):
         self.rozet_mikrofon = QLabel(objectName="rozet")
         self.rozet_kayit = QLabel(objectName="rozet")
         mini = QPushButton("▭  Mini mod", objectName="sahne")
+        mini.setToolTip("Ana pencereyi gizle, her zaman üstte duran küçük çubuğa geç")
+        mini.setStyleSheet(f"QPushButton {{ border-color: {RENK['vurgu']}; color: {RENK['vurgu']}; font-weight: 600; }}")
         mini.clicked.connect(lambda: self.mini_moda_gec and self.mini_moda_gec())
         ayar = QPushButton("⚙  Ayarlar", objectName="sahne")
         ayar.clicked.connect(lambda: self.ayarlari_ac and self.ayarlari_ac())
+        kayitlar = QPushButton("📁  Kayıtlar", objectName="sahne")
+        kayitlar.setToolTip("Kayıt klasörünü aç")
+        kayitlar.clicked.connect(self.kayit_klasorunu_ac)
         ust = QHBoxLayout()
         ust.addWidget(QLabel("Yayın Uygulaması", objectName="baslik"))
         ust.addSpacing(12)
@@ -86,6 +91,7 @@ class AnaPencere(QMainWindow):
             ust.addWidget(r)
         self.rozet_mikrofon.setVisible(ses is not None)
         ust.addStretch()
+        ust.addWidget(kayitlar)
         ust.addWidget(mini)
         ust.addWidget(ayar)
 
@@ -104,6 +110,12 @@ class AnaPencere(QMainWindow):
             d.clicked.connect(lambda _=False, n=i + 1: self._calistir(f"sahne.sec:{n}"))
             sol_kutu.addWidget(d)
             self.sahne_dugmeleri.append(d)
+        self.bekleme_dugmesi = QPushButton(objectName="liste")
+        self.bekleme_dugmesi.setToolTip("Bekleme ekranında (ve panikte) gösterilecek resim ya da kısa video")
+        self.bekleme_dugmesi.clicked.connect(self._bekleme_menusu)
+        sol_kutu.addSpacing(4)
+        sol_kutu.addWidget(self.bekleme_dugmesi)
+        self._bekleme_dugmesini_yaz()
         sol_kutu.addSpacing(12)
         sol_kutu.addWidget(self._bolum_basligi("Kaynaklar"))
         self.kaynaklar = {}
@@ -130,6 +142,10 @@ class AnaPencere(QMainWindow):
         self.onizleme.setAlignment(Qt.AlignCenter)
         self.onizleme.setMinimumSize(480, 270)
         self.onizleme.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.onizleme.setMouseTracking(True)
+        self.onizleme.installEventFilter(self)
+        self.onizleme.setToolTip("Köşedeki kamerayı fareyle sürükleyerek taşıyabilirsin")
+        self._kamera_surukle = None   # (fare ile kutu merkezi arasındaki fark) sürüklerken
         self.ses_uyarisi = self._etiket(RENK["kapali"])
         self.kalem_etiketi = self._etiket(RENK["vurgu"], "✎ Kalem açık" + self._tus_eki("kalem.ac_kapat"))
         self.bolge_etiketi = self._etiket(RENK["vurgu"])
@@ -224,6 +240,109 @@ class AnaPencere(QMainWindow):
         e.adjustSize()
         e.hide()
         return e
+
+    # ---------------- bekleme ekranı
+
+    def _bekleme_dugmesini_yaz(self) -> None:
+        from pathlib import Path
+
+        from core.standby import video_mu
+        yol = getattr(self.hat, "bekleme_gorseli", "") or ""
+        tur = "Video" if video_mu(yol) else ("Resim" if yol else "Yazı")
+        ad = f" ({Path(yol).name})" if yol and not video_mu(yol) else ""
+        self.bekleme_dugmesi.setText(f"🖼  Bekleme ekranı: {tur}{ad}  ▾")
+
+    def _bekleme_menusu(self) -> None:
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.setStyleSheet(QSS)
+        menu.addAction("Resim ya da kısa video seç…", self._bekleme_sec)
+        kaldir = menu.addAction("Sadece yazı kullan", lambda: self._bekleme_uygula(""))
+        kaldir.setEnabled(bool(getattr(self.hat, "bekleme_gorseli", "")))
+        menu.addAction("Bekleme sahnesine geç", lambda: self._calistir(f"sahne.sec:{self._bekleme_sahnesi()}"))
+        menu.exec(self.bekleme_dugmesi.mapToGlobal(self.bekleme_dugmesi.rect().bottomLeft()))
+
+    def _bekleme_sahnesi(self) -> int:
+        for i, s in enumerate(self.hat.sahneler.sahneler):
+            if s.bekleme:
+                return i + 1
+        return len(self.hat.sahneler.sahneler)
+
+    def _bekleme_sec(self) -> None:
+        from ui.bekleme_secici import dosya_sec
+        yol = dosya_sec(self)
+        if yol:
+            self._bekleme_uygula(yol)
+
+    def _bekleme_uygula(self, yol: str) -> None:
+        if self.ayarlar is not None:
+            from ui.bekleme_secici import uygula
+            uygula(self.ayarlar, self.hat, yol)
+        else:
+            self.hat.bekleme_gorseli = yol
+        self._bekleme_dugmesini_yaz()
+
+    def kayit_klasorunu_ac(self) -> None:
+        from ui.klasor import kayit_klasorunu_ac
+        kayit_klasorunu_ac(self.ayarlar)
+
+    # ---------------- önizlemede kamerayı sürükleme
+
+    def _cikis_noktasi(self, nokta):
+        """Önizlemedeki fare noktası -> çıkış karesinde piksel (resmin dışındaysa None)."""
+        pm = self.onizleme.pixmap()
+        if pm is None or pm.isNull():
+            return None
+        pw, ph = pm.width() / pm.devicePixelRatio(), pm.height() / pm.devicePixelRatio()
+        ox, oy = (self.onizleme.width() - pw) / 2, (self.onizleme.height() - ph) / 2
+        x, y = (nokta.x() - ox) / pw, (nokta.y() - oy) / ph
+        if not (0 <= x <= 1 and 0 <= y <= 1):
+            return None
+        return x * self.hat.genislik, y * self.hat.yukseklik
+
+    def _kamera_gorunuyor(self) -> bool:
+        sahne = self.hat.sahneler.aktif
+        return sahne.kamera == "corner" and self.hat.kamera_istegi and not self.hat.panik
+
+    def _kamera_ustunde(self, nokta) -> bool:
+        p = self._cikis_noktasi(nokta)
+        if p is None or not self._kamera_gorunuyor():
+            return False
+        x, y, w, h = self.hat.kamera_yerlesimi.dikdortgen(self.hat.genislik, self.hat.yukseklik)
+        return x <= p[0] <= x + w and y <= p[1] <= y + h
+
+    def eventFilter(self, nesne, olay):
+        if nesne is not self.onizleme:
+            return super().eventFilter(nesne, olay)
+        tur = olay.type()
+        if tur == QEvent.MouseButtonPress and olay.button() == Qt.LeftButton and self._kamera_ustunde(olay.position()):
+            p = self._cikis_noktasi(olay.position())
+            x, y, w, h = self.hat.kamera_yerlesimi.dikdortgen(self.hat.genislik, self.hat.yukseklik)
+            self._kamera_surukle = (p[0] - (x + w / 2), p[1] - (y + h / 2))
+            self.onizleme.setCursor(Qt.ClosedHandCursor)
+            return True
+        if tur == QEvent.MouseMove:
+            if self._kamera_surukle is not None:
+                p = self._cikis_noktasi(olay.position())
+                if p is not None:
+                    from dataclasses import replace
+                    dx, dy = self._kamera_surukle
+                    W, H = self.hat.genislik, self.hat.yukseklik
+                    x, y, w, h = self.hat.kamera_yerlesimi.dikdortgen(W, H)
+                    # kutu çıkışın dışına taşmasın
+                    cx = min(max(p[0] - dx, w / 2), W - w / 2) / W
+                    cy = min(max(p[1] - dy, h / 2), H - h / 2) / H
+                    self.hat.kamera_yerlesimi = replace(self.hat.kamera_yerlesimi, konum=(cx, cy))
+                return True
+            self.onizleme.setCursor(Qt.OpenHandCursor if self._kamera_ustunde(olay.position()) else Qt.ArrowCursor)
+        if tur == QEvent.MouseButtonRelease and self._kamera_surukle is not None:
+            self._kamera_surukle = None
+            self.onizleme.setCursor(Qt.OpenHandCursor)
+            konum = self.hat.kamera_yerlesimi.konum
+            if self.ayarlar is not None and konum is not None:
+                self.ayarlar.ayarla("camera.position", [round(konum[0], 4), round(konum[1], 4)])
+            return True
+        return super().eventFilter(nesne, olay)
 
     def _calistir(self, komut: str) -> None:
         self.komutlar.calistir(komut)
