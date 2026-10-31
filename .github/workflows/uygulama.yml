@@ -29,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      # FFmpeg (LGPL sürümü; ücretli dağıtıma uygun, libx264 gibi GPL parçaları yok) — yerel kayıt için
+      # FFmpeg (LGPL sürümü; libx264 gibi GPL parçaları yok) — yerel kayıt için
       - name: FFmpeg indir (LGPL)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,7 +54,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Modüller Windows'ta yükleniyor mu?
-        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
+        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, ui.hakkinda, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
 
       - name: .exe derle
         run: |
@@ -66,10 +66,13 @@ jobs:
             --icon kurulum/uygulama.ico `
             main.py
 
-      - name: Zip paketi hazırla
+      - name: Zip paketi hazırla (lisanslar dahil)
         run: |
           Copy-Item README.md dist\YayinUygulamasi\BENIOKU.md
           Copy-Item -Recurse ffmpeg dist\YayinUygulamasi\ffmpeg
+          python kurulum/lisanslar.py dist\YayinUygulamasi
+          if ($LASTEXITCODE -ne 0) { throw "Lisanslar toplanamadı" }
+          Get-Content dist\YayinUygulamasi\lisanslar\UCUNCU_PARTI_LISANSLAR.txt
           Compress-Archive -Path dist\YayinUygulamasi -DestinationPath YayinUygulamasi.zip -Force
 
       # Kurulum programı: kurulum yerini sorar, Başlat menüsü + masaüstü kısayolu, kaldırıcı
@@ -107,6 +110,8 @@ jobs:
             Kurmak için: YayinUygulamasi-Kurulum.exe'yi indir ve çalıştır (kurulum yerini sorar,
             Başlat menüsüne ve istersen masaüstüne kısayol ekler; Ayarlar > Uygulamalar'dan kaldırılır).
             Kurmadan denemek için: YayinUygulamasi.zip'i bir klasöre çıkar, YayinUygulamasi.exe'yi çalıştır.
+            Lisans: GNU GPL sürüm 3 (özgür ve açık kaynak). Kaynak kod bu depoda; kullanılan
+            kütüphanelerin lisansları paketteki "lisanslar" klasöründe.
             (Derlenen commit: ${{ github.sha }})
           files: |
             YayinUygulamasi.zip

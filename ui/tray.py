@@ -29,12 +29,18 @@ class Tepsi(QSystemTrayIcon):
         menu.addAction("Kayıt klasörünü aç", lambda: komutlar.calistir("kayit.klasor"))
         menu.addAction("Pencereyi göster", pencereyi_goster)
         menu.addAction("Mini mod", lambda: komutlar.calistir("pencere.mini"))
+        menu.addAction("Hakkında", self._hakkinda)
         menu.addAction("Çıkış", cikis)
         self._menu = menu  # çöp toplayıcı silmesin
         self.setContextMenu(menu)
         self.activated.connect(lambda neden: pencereyi_goster()
                                if neden in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick) else None)
         self._canli = None
+
+    @staticmethod
+    def _hakkinda() -> None:
+        from ui.hakkinda import hakkinda_goster
+        hakkinda_goster()
 
     def durumu_goster(self, d) -> None:
         self.a_yayin.setText("Yayını durdur" if d.cikis_acik else "Yayını başlat")

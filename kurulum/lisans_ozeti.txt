@@ -1,0 +1,21 @@
+Yayın Uygulaması — Lisans
+Telif hakkı (C) 2026 Mustafa
+
+Bu program özgür ve açık kaynak bir yazılımdır. GNU Genel Kamu Lisansı
+sürüm 3 (GPLv3) ile dağıtılır. Kısaca:
+
+  • Programı ücretsiz kullanabilir, kopyalayabilir ve başkalarıyla
+    paylaşabilirsiniz.
+  • Kaynak kodu herkese açıktır:
+    https://github.com/MustafaCap/streaming
+  • Değiştirip dağıtırsanız, değiştirdiğiniz hali de GPLv3 ile ve kaynak
+    koduyla birlikte dağıtmanız gerekir.
+  • Program HİÇBİR GARANTİ olmadan, "olduğu gibi" sunulur.
+
+Program kendi lisanslarıyla gelen başka açık kaynak parçalar da kullanır
+(PySide6/Qt, OpenCV, FFmpeg, pyvirtualcam ve diğerleri). Listesi ve lisans
+metinleri kurulum klasöründeki "lisanslar" klasöründedir.
+
+Aşağıda GPLv3'ün resmi (İngilizce) tam metni var. Bağlayıcı olan bu metindir.
+
+────────────────────────────────────────────────────────────────────────

@@ -1,10 +1,12 @@
 ﻿; Yayın Uygulaması — Windows kurulum programı (Inno Setup 6)
 ;
 ; CI'da derlenir:  ISCC.exe /DSurum=1.3.0 kurulum\kurulum.iss
-; Girdi : dist\YayinUygulamasi\  (PyInstaller çıktısı + ffmpeg + BENIOKU.md)
+; Girdi : dist\YayinUygulamasi\  (PyInstaller çıktısı + ffmpeg + BENIOKU.md + lisanslar)
+;         build\kurulum_lisans.txt  (python kurulum\lisanslar.py dist\YayinUygulamasi üretir)
 ; Çıktı : Output\YayinUygulamasi-Kurulum.exe
 ;
 ; Ne yapar:
+;  - Lisansı gösterir (GPLv3, Türkçe özetle)
 ;  - Kurulum yerini sorar (varsayılan: Program Files\YayinUygulamasi)
 ;  - "Sadece benim için" seçilirse yönetici izni istemez (AppData\Local\Programs'a kurar)
 ;  - Başlat menüsüne ekler (Windows aramasında adıyla çıkar), isteğe bağlı masaüstü kısayolu
@@ -38,6 +40,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 SetupIconFile=uygulama.ico
+; Lisans sayfası: Türkçe özet + GPLv3 tam metni
+LicenseFile=..\build\kurulum_lisans.txt
 UninstallDisplayIcon={app}\{#ExeAdi}
 UninstallDisplayName={#UygulamaAdi}
 OutputDir=..\Output
