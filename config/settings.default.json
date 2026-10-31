@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "video": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "monitor": 0,
+    "capture_backend": "dxcam"
+  },
+  "ui": {
+    "preview_fps": 15
+  },
+  "hotkeys": {}
+}
