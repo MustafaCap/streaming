@@ -70,7 +70,8 @@
   },
   "record": {
     "folder": "",
-    "encoder": "auto"
+    "encoder": "auto",
+    "camera": false
   },
   "hotkeys": {
     "bolge.sec": "F6",

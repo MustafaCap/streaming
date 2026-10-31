@@ -60,6 +60,7 @@ class UygulamaKabugu(QObject):
         depo.dinle(lambda eski, yeni: self._durum_sinyali.emit(yeni))
         komutlar.kaydet("pencere.mini", "Mini moda geç", lambda _: self.mini_moda_gec())
         komutlar.kaydet("kayit.klasor", "Kayıt klasörünü aç", self._kayit_klasoru)
+        komutlar.kaydet("pencere.goster", "Ana pencereyi göster", lambda _: self.pencereyi_goster())
         self._durumu_goster(depo.durum)
 
     def _tus_haritasini_kur(self) -> None:
@@ -90,7 +91,16 @@ class UygulamaKabugu(QObject):
     def _komutu_calistir(self, ad: str) -> None:
         self.komutlar.calistir(ad)
 
+    def komut_gonder(self, ad: str) -> None:
+        """Herhangi bir iş parçacığından komut çalıştırmak için (Qt ana iş parçacığına taşınır)."""
+        self._komut_sinyali.emit(ad)
+
     def _komut_bitti(self, ad: str, mesaj) -> None:
+        if ad == "kayit.ac_kapat" and self.depo.durum.kayit == "açık":
+            # Kayıt kısayolla (başka bir uygulamadayken) başladıysa mini çubuk açılsın: kayıt
+            # sürüyor, süre ve durdur düğmesi görünsün. Ana penceredeki düğmeyle başladıysa dokunma.
+            if not (self.pencere.isVisible() and self.pencere.isActiveWindow()) and not self.mini.isVisible():
+                self.mini_moda_gec()
         if mesaj:
             self._bildirim_sinyali.emit(str(mesaj), self.tus_haritasi.get(ad, ""))
 
