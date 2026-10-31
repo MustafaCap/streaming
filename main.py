@@ -4,7 +4,9 @@
 """
 
 import logging
+import os
 import sys
+import threading
 
 from core import network_guard
 
@@ -16,6 +18,24 @@ from core.settings import Ayarlar  # noqa: E402
 from core.state import DurumDeposu  # noqa: E402
 
 log = logging.getLogger("main")
+
+KAPANIS_SURESI_SN = 15
+
+
+def _zorla_cik(kod: int) -> None:
+    logging.shutdown()   # log dosyasına yazılanlar kaybolmasın
+    os._exit(kod)
+
+
+def kapanis_bekcisi(sn: float = KAPANIS_SURESI_SN, cik=_zorla_cik) -> threading.Timer:
+    """Kapanış takılırsa (bir sürücü cevap vermezse) süreç arkada kalmasın: kamera ve mikrofon açık kalırdı."""
+    def zorla():
+        log.error("Kapanış %s saniyede bitmedi; uygulama zorla kapatılıyor", sn)
+        cik(1)
+    zamanlayici = threading.Timer(sn, zorla)
+    zamanlayici.daemon = True
+    zamanlayici.start()
+    return zamanlayici
 
 
 def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None, mikser=None,
@@ -225,9 +245,10 @@ def main() -> int:
     pencere.show()
     kod = app.exec()
     if kayitci.kayitta:
-        bitti = __import__("threading").Event()
+        bitti = threading.Event()
         kayitci.durdur(lambda d, h: bitti.set())
         bitti.wait(60)  # kapanırken kayıt yarım kalmasın
+    kapanis_bekcisi()
     bas_konus.durdur()
     kabuk.durdur()
     hat.durdur()
@@ -237,5 +258,32 @@ def main() -> int:
     return kod
 
 
+def acilis_hatasi_goster(hata: BaseException) -> None:
+    """Açılışta bir şey bozulursa exe sessizce kapanmasın: kullanıcıya söyle, log klasörünü aç."""
+    from core import paths
+    try:
+        klasor = paths.log_klasoru()
+    except Exception:
+        klasor = None
+    metin = (f"Yayın Uygulaması açılamadı.\n\n{type(hata).__name__}: {hata}\n\n"
+             "Ayrıntılar log dosyasında yazıyor"
+             + (f":\n{klasor}\n\nLog klasörü açılsın mı?" if klasor else "."))
+    if sys.platform != "win32":
+        print(metin, file=sys.stderr)
+        return
+    import ctypes
+    MB_YESNO, MB_OK, MB_ICONERROR, IDYES = 0x4, 0x0, 0x10, 6
+    cevap = ctypes.windll.user32.MessageBoxW(None, metin, "Yayın Uygulaması", (MB_YESNO if klasor else MB_OK) | MB_ICONERROR)
+    if klasor and cevap == IDYES:
+        os.startfile(klasor)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except SystemExit:
+        raise
+    except BaseException as e:   # açılışta ya da kapanışta beklenmedik hata
+        log.critical("Uygulama hatayla kapandı", exc_info=True)
+        acilis_hatasi_goster(e)
+        sys.exit(1)

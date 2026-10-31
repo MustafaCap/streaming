@@ -1,6 +1,6 @@
 """Ana pencere (brifteki tasarım).
 
-  üst   : uygulama adı, durum rozetleri (sanal kamera, sanal mikrofon, kayıt), Mini mod, Ayarlar
+  üst   : uygulama adı, durum rozetleri (sanal kamera, sanal mikrofon, kayıt), Kayıtlar, Mini mod, Ayarlar, Çıkış
   sol   : Sahneler (Ctrl+1..4) ve Kaynaklar (ekran, webcam, mikrofon, bilgisayar sesi)
   orta  : 16:9 önizleme = karşı tarafın gördüğü (ses kapalı / kalem açık uyarılarıyla)
   sağ   : ses mikseri
@@ -63,6 +63,7 @@ class AnaPencere(QMainWindow):
         self.depo, self.komutlar, self.hat, self.ayarlar = depo, komutlar, hat, ayarlar
         self.tepsiye_kucul = False       # UygulamaKabugu ayarlar
         self.tepsiye_kuculdu = None      # ilk küçülmede bilgi vermek için geri çağrı
+        self.uygulamadan_cik = None      # Çıkış düğmesi (UygulamaKabugu ayarlar)
         self.mini_moda_gec = None        # UygulamaKabugu ayarlar
         self.ayarlari_ac = None
         from core.surum import SURUM
@@ -84,6 +85,9 @@ class AnaPencere(QMainWindow):
         kayitlar = QPushButton("📁  Kayıtlar", objectName="sahne")
         kayitlar.setToolTip("Kayıt klasörünü aç")
         kayitlar.clicked.connect(self.kayit_klasorunu_ac)
+        cikis = QPushButton("⏻  Çıkış", objectName="sahne")
+        cikis.setToolTip("Uygulamayı tamamen kapat (tepside çalışmaya devam etmez, kamera ve kısayollar kapanır)")
+        cikis.clicked.connect(lambda: self.uygulamadan_cik and self.uygulamadan_cik())
         ust = QHBoxLayout()
         ust.addWidget(QLabel("Yayın Uygulaması", objectName="baslik"))
         ust.addSpacing(12)
@@ -94,6 +98,7 @@ class AnaPencere(QMainWindow):
         ust.addWidget(kayitlar)
         ust.addWidget(mini)
         ust.addWidget(ayar)
+        ust.addWidget(cikis)
 
         # ---------------- sol: sahneler + kaynaklar
         sol = QFrame(objectName="panel")

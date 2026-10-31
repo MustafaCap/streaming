@@ -45,6 +45,8 @@ class VideoHatti:
         # Ana pencerenin önizlemesi ekranda mı? Değilse ve yayın/kayıt da yoksa webcam'e
         # dokunulmaz (uygulama arka planda beklerken kamera ışığı yanmasın).
         self.onizleme_gorunur = True
+        from core.logging_setup import SeyrekHata
+        self._seyrek_hata = SeyrekHata(log)
         from overlay.cursor import ImlecVurgusu
         self._vurgu = ImlecVurgusu()
         self.sahneler = sahneler or SahneYoneticisi([Sahne("Sadece ekran", ekran=True)])
@@ -223,8 +225,8 @@ class VideoHatti:
                 with self._kilit:
                     self._son_kare = kare
             except Exception:
-                # Hiçbir hata hattı durdurmamalı; logla ve devam et.
-                log.exception("Video hattında hata")
+                # Hiçbir hata hattı durdurmamalı; logla ve devam et (her karede değil, seyrek).
+                self._seyrek_hata.yaz("Video hattında hata")
             is_suresi += time.perf_counter() - t0
             sayac += 1
 

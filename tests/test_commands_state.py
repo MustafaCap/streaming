@@ -73,3 +73,13 @@ def test_kayit_yayin_kapaliyken_kamerasiz_baslar_bitince_kamera_geri_gelir():
     hat.cikis_istegi = True                       # yayındayken karşı tarafın görüntüsü değişmez
     k.calistir("kayit.ac_kapat")
     assert hat.kamera_istegi is True
+
+
+def test_kapanis_takilirsa_surec_zorla_kapanir():
+    import threading as th
+
+    import main
+    cagrildi = th.Event()
+    zamanlayici = main.kapanis_bekcisi(0.05, cik=lambda kod: cagrildi.set())
+    assert cagrildi.wait(2), "kapanış bekçisi süre dolunca süreci kapatmalı"
+    zamanlayici.cancel()
