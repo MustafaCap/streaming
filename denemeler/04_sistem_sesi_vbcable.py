@@ -140,6 +140,17 @@ def main():
             print("       Windows ses ayarlarından varsayılan çıkışı gerçek hoparlör/kulaklık yap.")
             return
 
+    if not args.ton and args.mik > 0:
+        mik_adi = p.get_default_input_device_info()["name"]
+        if "CABLE" in mik_adi:
+            print(f"[HATA] Windows'ta varsayılan giriş (mikrofon) '{mik_adi}' olarak ayarlı.")
+            print("       Bu durumda CABLE'ın sesi tekrar CABLE'a gönderilir: ya sessizlik ya da")
+            print("       yüksek geri besleme gürültüsü olur. Ayarlar > Sistem > Ses > Giriş'te")
+            print("       varsayılanı gerçek mikrofonun (kulaklık veya laptop mikrofonu) yap.")
+            print("       CABLE Output'u sadece Discord/Zoom/Ses Kaydedici içinde mikrofon olarak seç.")
+            return
+        print(f"Mikrofon       : {mik_adi}")
+
     mik_tampon = Tampon()
     sistem_tampon = Tampon(giris_hizi=int(loopback["defaultSampleRate"]) if loopback else ORNEKLEME)
     kayit_parcalari, kayit_sinir = [], args.kayit * ORNEKLEME
@@ -193,7 +204,8 @@ def main():
     if args.ton:
         print("TEST TONU modu: CABLE'a temiz bir 'biiip' (440 Hz) gönderiliyor.")
     else:
-        print(f"Mikrofon       : {'kapalı' if args.mik <= 0 else 'varsayılan mikrofon'}")
+        if args.mik <= 0:
+            print("Mikrofon       : kapalı")
         print(f"Bilgisayar sesi: {loopback['name'] + ' (' + str(int(loopback['defaultSampleRate'])) + ' Hz)' if loopback else 'kapalı'}")
     print(f"Çıkış          : {kablo['name']}")
     print("Dinlemek için: Windows Ses Kaydedici'de mikrofonu 'CABLE Output' seçip kayıt al.")
