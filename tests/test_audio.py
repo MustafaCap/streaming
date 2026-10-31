@@ -209,9 +209,11 @@ def test_cihaz_koparsa_cokmez_yeniden_baglanir(motor_kur):
     assert _bekle(lambda: depo.durum.mikrofon == "açık", 3)
     acilma = len(mod.acilanlar)
     kopma.set()                                    # bütün cihazlar sustu
-    time.sleep(2.0)
-    kopma.clear()
-    assert _bekle(lambda: len(mod.acilanlar) > acilma and depo.durum.mikrofon == "açık", 5)
+    # Denetçi saniyede bir bakar, 1,5 sn sessizliği kopma sayar: en geç ~2,5 sn'de yeniden açmalı.
+    # (Önceden sabit 2 sn bekleniyordu; denetçinin bakış anına göre yarış oluyordu.)
+    assert _bekle(lambda: len(mod.acilanlar) > acilma, 4)
+    kopma.clear()                                  # cihaz geri geldi
+    assert _bekle(lambda: depo.durum.mikrofon == "açık" and mikser.seviyeler()["mikrofon"] > 0.2, 5)
 
 
 class _AcilmayanSurecSesi:
