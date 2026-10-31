@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "video": {
     "width": 1280,
     "height": 720,
@@ -22,6 +22,7 @@
     "corner": "bottom-right",
     "size": 0.25,
     "margin": 24,
+    "position": null,
     "blur": false
   },
   "scenes": [
@@ -78,7 +79,7 @@
     "ses.sistem": "F9",
     "kamera.ac_kapat": "F10",
     "anlik_kayit.kaydet": "F11",
-    "panik": "F12",
+    "panik": "Ctrl+Alt+P",
     "sahne.sec:1": "Ctrl+1",
     "sahne.sec:2": "Ctrl+2",
     "sahne.sec:3": "Ctrl+3",

@@ -19,12 +19,12 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 
 | Tuş | İşlev |
 | --- | --- |
-| F6 | Kare seç (fareyle çiz; **Enter** yakınlaştır, **V** vurgula, **Esc** iptal); tekrar F6 tam ekrana döner |
+| F6 | Kare seç (fareyle çiz; **Enter** yakınlaştır, **V** vurgula, **Esc** iptal); tekrar F6 tam ekrana döner. Yakınlaştırınca seçilen yer ekranında ince mavi kesik çizgiyle gösterilir (sadece sen görürsün) |
 | F7 | Kalemi aç/kapat |
 | 1–6 | Kalem türü: kalem, fosforlu, ok, kare, yazı, lazer (sadece kalem açıkken) |
 | Ctrl+Z / Del | Son çizimi geri al / hepsini sil (sadece kalem açıkken; sağ tık da geri alır) |
 | F8 / F9 / F10 | Mikrofon / bilgisayar sesi / kamera aç-kapat |
-| F12 | Panik: anında bekleme ekranı, ses kesilir; tekrar basınca geri döner |
+| Ctrl+Alt+P | Panik: anında bekleme ekranı, ses kesilir; tekrar basınca geri döner |
 | Ctrl+1 … Ctrl+4 | Sahne: Ekran + Kamera, Sadece ekran, Sadece kamera, Bekleme |
 | Ctrl+Shift+R | Yerel MP4 kaydı başlat/durdur |
 | (ayarlanabilir) | Bas-konuş: basılıyken mikrofon açık |
@@ -33,15 +33,15 @@ Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · 
 
 ### Özellikler
 
-- **Sahneler** ve 0,3 sn yumuşak geçiş; webcam köşede (köşe, boyut, ayna, **arka plan bulanıklaştırma** Ayarlar > Kamera).
-- **Ses mikseri**: mikrofon ve bilgisayar sesi ayrı seviyeler (%0–200), seviye göstergeleri, mikrofon seçimi. Bilgisayar sesinde Zoom/Discord/Teams **otomatik hariç tutulur**, böylece karşı taraf kendi sesini yankı olarak duymaz. (Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da Ayarlar > Ses'te `msedge.exe`'yi hariç listesine ekle.)
+- **Sahneler** ve 0,3 sn yumuşak geçiş; webcam köşede. Kamerayı **önizlemede fareyle sürükleyerek** istediğin yere koyabilirsin (boyut, ayna, **arka plan bulanıklaştırma** Ayarlar > Kamera).
+- **Ses mikseri**: mikrofon ve bilgisayar sesi ayrı seviyeler (%0–200), seviye göstergeleri, mikrofon seçimi. Bilgisayar sesinde ses çıkaran her uygulama ayrı yakalanır; Zoom/Discord/Teams ve uygulamanın kendi sesi **hiç alınmaz**, böylece yankı oluşmaz. Hangi uygulamaların alındığı soldaki *Bilgisayar sesi* satırında yazar. (Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da Ayarlar > Ses'te `msedge.exe`'yi hariç listesine ekle.)
 - **Otomatik ses kısma** (konuşunca oyun sesi kısılır) ve **bas-konuş** (Ayarlar).
 - **Kare seçme**: animasyonlu yakınlaştırma ya da vurgulama (geri kalan kararır).
 - **Kalem**: kalem, fosforlu, ok, kare, yazı (Türkçe), lazer; 4 renk. Çizimler yayına ayrıca eklenir, tam ekran oyunda katman görünmese bile karşı taraf görür.
-- **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*).
-- **Bekleme ekranı**: yazı ya da görsel (Ayarlar > Genel).
+- **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil.
+- **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
 - **İmleç vurgulama**: halka + tıklama dalgası (Ayarlar > Genel).
-- **Yerel kayıt**: `Videolar\YayinUygulamasi\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı.
+- **Yerel kayıt**: `Videolar\YayinUygulamasi\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Klasörü sağ üstteki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar.
 - Uygulamanın kendi pencereleri (önizleme, kalem çubuğu, kare seçme, bildirimler, mini mod) **ekran yakalamaya girmez**; karşı taraf görmez.
 - Bir kaynak koparsa (kamera çıkarılır, mikrofon değişir) uygulama çökmez; o kaynak kırmızı görünür ve birkaç saniyede bir yeniden denenir.
 
@@ -57,7 +57,8 @@ Windows'ta başka bir uygulamanın bildirimini ekran yakalamadan çıkarmanın r
 | "Sanal mikrofon: Yok" | VB-Cable kurulu değil ya da bilgisayar yeniden başlatılmadı (Kurulum 2). |
 | Karşı taraf sadece gürültü duyuyor | Windows varsayılan girişi CABLE olmuş; gerçek mikrofona çevir (Kurulum 3). |
 | Ses kısık | Mikserde Mikrofon kaydırıcısını %100'ün üstüne çıkar. |
-| Kısayol çalışmıyor | Başka bir program kullanıyor olabilir; Ayarlar > Kısayollar'dan değiştir. Oyun yönetici olarak çalışıyorsa uygulamayı da yönetici olarak aç. |
+| Yankı var | Hoparlörden çıkan sesi mikrofon da duyuyor olabilir: kulaklık kullan. Meet gibi tarayıcıdan katılıyorsan tarayıcıyı (`msedge.exe`) Ayarlar > Ses'te hariç listesine ekle. |
+| Kısayol çalışmıyor | Başka bir program kullanıyor olabilir; Ayarlar > Kısayollar'dan değiştir. Tek başına F12 kullanılamaz (Windows'a ayrılmış). Oyun yönetici olarak çalışıyorsa uygulamayı da yönetici olarak aç. |
 | Zoom "kamera başka uygulamada" diyor | Birkaç saniye bekle ya da Zoom'da kamerayı kapatıp aç. |
 
 Ayarlar `%APPDATA%\YayinUygulamasi\settings.json`, loglar `%APPDATA%\YayinUygulamasi\logs\uygulama.log`. Bir sorun olursa bu log dosyasını gönder.

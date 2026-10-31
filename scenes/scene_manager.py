@@ -59,6 +59,7 @@ class KameraYerlesimi:
     kose: str = "bottom-right"   # top-left | top-right | bottom-left | bottom-right
     boyut: float = 0.25          # çıkış genişliğine oranı
     bosluk: int = 24             # kenardan uzaklık (piksel)
+    konum: tuple[float, float] | None = None   # önizlemede sürüklenince: kutunun merkezi (0..1)
 
     @classmethod
     def ayarlardan(cls, d: dict) -> "KameraYerlesimi":
@@ -66,14 +67,25 @@ class KameraYerlesimi:
         if kose not in ("top-left", "top-right", "bottom-left", "bottom-right"):
             kose = "bottom-right"
         boyut = min(0.6, max(0.1, float(d.get("size", 0.25))))
-        return cls(kose=kose, boyut=boyut, bosluk=max(0, int(d.get("margin", 24))))
+        konum = d.get("position")
+        try:
+            konum = (min(1.0, max(0.0, float(konum[0]))), min(1.0, max(0.0, float(konum[1])))) if konum else None
+        except (TypeError, ValueError, IndexError):
+            konum = None
+        return cls(kose=kose, boyut=boyut, bosluk=max(0, int(d.get("margin", 24))), konum=konum)
 
     def dikdortgen(self, genislik: int, yukseklik: int, oran: float = 16 / 9) -> tuple[int, int, int, int]:
-        """Köşe kamerasının (x, y, w, h) yeri."""
+        """Kamera kutusunun (x, y, w, h) yeri; her zaman çıkışın içinde kalır."""
         w = max(16, round(genislik * self.boyut))
         h = max(9, round(w / oran))
-        x = self.bosluk if "left" in self.kose else genislik - w - self.bosluk
-        y = self.bosluk if "top" in self.kose else yukseklik - h - self.bosluk
+        if self.konum is not None:
+            x = round(self.konum[0] * genislik - w / 2)
+            y = round(self.konum[1] * yukseklik - h / 2)
+        else:
+            x = self.bosluk if "left" in self.kose else genislik - w - self.bosluk
+            y = self.bosluk if "top" in self.kose else yukseklik - h - self.bosluk
+        x = min(max(0, x), max(0, genislik - w))
+        y = min(max(0, y), max(0, yukseklik - h))
         return x, y, w, h
 
 

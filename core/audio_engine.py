@@ -14,6 +14,7 @@ Denetçi iş parçacığı saniyede bir her şeyin çalıştığını kontrol ed
 """
 
 import logging
+import sys
 import threading
 import time
 
@@ -86,7 +87,11 @@ class SesMotoru:
         self._surec = None              # SurecSesi ("auto"/"app" modu)
         self._surec_hedef = None        # (pid, haric)
         self._surec_kontrol = 0.0
-        self._mik_denendi = False       # mikrofon yoksa sürekli yeniden başlatıp sesi kesmeyelim
+        self._mik_son_deneme = 0.0      # mikrofon açılamadıysa 5 sn'de bir yeniden denenir
+        self._surecler: dict = {}       # "auto" modda: pid -> SurecSesi (her uygulama ayrı)
+        self._basarisiz_pidler: set = set()
+        self._oturum_kontrol = 0.0
+        self._coklu_kullanilamaz = False
         self._yeniden_baslat = threading.Event()
         self._yayin_istek = False
         self._kayit_istek = False
@@ -131,7 +136,7 @@ class SesMotoru:
 
     def mikrofon_sec(self, ad: str) -> None:
         self.mikrofon_adi = ad
-        self._mik_denendi = False
+        self._mik_son_deneme = 0.0
         self._yeniden_baslat.set()
 
     def sistem_ayarla(self, modu: str, dahil_uygulama: str | None = None) -> None:
@@ -142,7 +147,7 @@ class SesMotoru:
 
     def yenile(self) -> None:
         """Cihaz listesini yeniden tara (yeni takılan mikrofon için)."""
-        self._mik_denendi = False
+        self._mik_son_deneme = 0.0
         self._yeniden_baslat.set()
 
     def mikrofonlar(self) -> list[str]:
@@ -153,6 +158,12 @@ class SesMotoru:
     # ---------------- denetçi iş parçacığı
 
     def _denetci(self) -> None:
+        if sys.platform == "win32":
+            try:
+                import comtypes
+                comtypes.CoInitializeEx(0)  # ses oturumlarını listelemek için (MTA)
+            except Exception:
+                log.debug("COM başlatılamadı", exc_info=True)
         while self._calis.is_set():
             try:
                 if self._yeniden_baslat.is_set():
@@ -197,7 +208,6 @@ class SesMotoru:
         # Kopan akış varsa hepsini kapatıp Windows'un cihaz listesini baştan oku
         if (self._kablo.acik and not self._kablo.saglikli()) or (self._mik.acik and not self._mik.saglikli()):
             log.warning("Ses cihazı koptu; yeniden bağlanılıyor")
-            self._mik_denendi = False
             self._hepsini_kapat()
         # Hoparlör sessizken Windows hiç veri vermeyebilir; sadece akışın kendisi durduysa kopmuş say.
         if self._hoparlor.acik and not self._hoparlor.saglikli(zaman_asimi=float("inf")):
@@ -213,7 +223,7 @@ class SesMotoru:
                 self._hepsini_kapat()
                 time.sleep(4.0)  # VB-Cable kurulana kadar çok sık deneme
                 return
-        if not self._mik.acik and not self._mik_denendi:
+        if not self._mik.acik and time.monotonic() - self._mik_son_deneme >= 5.0:
             self._mikrofonu_ac()
         self._sistem_sesini_ayarla()
 
@@ -271,7 +281,7 @@ class SesMotoru:
 
     def _mikrofonu_ac(self) -> None:
         import pyaudiowpatch as pyaudio
-        self._mik_denendi = True
+        self._mik_son_deneme = time.monotonic()
         kanal = self.mikser.kanallar["mikrofon"]
         d, hata = self._mikrofon_cihazi()
         if d is None:
@@ -306,7 +316,7 @@ class SesMotoru:
         self.depo.guncelle(sistem_sesi=durum, sistem_kaynagi=aciklama)
 
     def _istenen_surec_hedefi(self):
-        """(pid, haric, açıklama) ya da None."""
+        """(pid, haric, açıklama) ya da None. "app" modu ve "auto" modun yedeği için."""
         from capture.app_audio import kendi_pid, surec_bul
         if self.sistem_modu == "app":
             if not self.dahil_uygulama:
@@ -315,23 +325,34 @@ class SesMotoru:
             if pid is None:
                 return None, f"{self.dahil_uygulama} çalışmıyor"
             return (pid, False), f"Sadece {self.dahil_uygulama}"
-        for ad in self.haric_uygulamalar:
-            pid = surec_bul(ad)
-            if pid is not None:
-                return (pid, True), f"Tüm sesler ({ad} hariç)"
+        # Kendimizi hariç tutarız: VB-Cable'a giden sesimiz geri gelmesin (geri besleme = yankı).
         return (kendi_pid(), True), "Tüm bilgisayar sesi"
+
+    def _tekli_durdur(self) -> None:
+        if self._surec is not None:
+            self._surec.durdur()
+        self._surec, self._surec_hedef = None, None
+
+    def _coklu_durdur(self) -> None:
+        kanal = self.mikser.kanallar["sistem"]
+        for pid, s in list(self._surecler.items()):
+            s.durdur()
+            kanal.alt_tampon_sil(pid)
+        self._surecler = {}
 
     def _sistem_sesini_ayarla(self) -> None:
         kanal = self.mikser.kanallar["sistem"]
         if self.sistem_modu == "all":
-            if self._surec is not None:
-                self._surec.durdur()
-                self._surec, self._surec_hedef = None, None
+            self._tekli_durdur()
+            self._coklu_durdur()
             if not self._hoparlor.acik:
                 self._hoparlor_loopback_ac()
             return
         if self._hoparlor.acik:
             self._hoparlor.kapat()
+        if self.sistem_modu == "auto" and self._coklu_ayarla():
+            return
+        self._coklu_durdur()
 
         simdi = time.monotonic()
         if self._surec is not None and simdi - self._surec_kontrol < 3.0:
@@ -340,9 +361,7 @@ class SesMotoru:
         hedef, aciklama = self._istenen_surec_hedefi()
         if hedef == self._surec_hedef and self._surec is not None:
             return
-        if self._surec is not None:
-            self._surec.durdur()
-            self._surec, self._surec_hedef = None, None
+        self._tekli_durdur()
         if hedef is None:
             kanal.bagli = False
             self._sistem_durumu("yok", aciklama)
@@ -361,6 +380,52 @@ class SesMotoru:
             log.warning("%s; hoparlör loopback kullanılacak", surec.hata)
             self.sistem_modu = "all"
             self._hoparlor_loopback_ac()
+
+    def _coklu_ayarla(self) -> bool:
+        """"auto" mod: ses çıkaran her uygulamayı ayrı yakala (Zoom/Discord ve kendimiz hariç).
+
+        Windows ses oturumları listelenemezse False döner; o zaman tek yakalama
+        (kendimiz hariç her şey) kullanılır.
+        """
+        from capture import app_audio
+        kanal = self.mikser.kanallar["sistem"]
+        simdi = time.monotonic()
+        if self._coklu_kullanilamaz:
+            return False
+        if simdi - self._oturum_kontrol < 2.0:
+            return True
+        self._oturum_kontrol = simdi
+        try:
+            tablo = app_audio.surec_tablosu()
+            pidler = app_audio.ses_oturumu_pidleri()
+            hedefler = app_audio.yakalanacak_surecler(pidler, self.haric_uygulamalar, app_audio.kendi_pid(), tablo)
+        except Exception as e:
+            log.warning("Ses çıkaran uygulamalar listelenemedi (%s); tek yakalama kullanılacak", e)
+            self._coklu_kullanilamaz = True  # yeniden başlatılana kadar tekrar deneme
+            return False
+        self._tekli_durdur()
+        # bitenleri ve kapananları bırak
+        for pid in list(self._surecler):
+            if pid not in hedefler or not self._surecler[pid].calisiyor:
+                self._surecler.pop(pid).durdur()
+                kanal.alt_tampon_sil(pid)
+        # yeni ses çıkaranları ekle
+        for pid in sorted(hedefler - set(self._surecler) - self._basarisiz_pidler):
+            tampon = kanal.alt_tampon_ekle(pid)
+            s = app_audio.SurecSesi(pid, False, tampon.yaz)
+            if s.baslat():
+                self._surecler[pid] = s
+            else:
+                kanal.alt_tampon_sil(pid)
+                self._basarisiz_pidler.add(pid)
+        kanal.bagli = True
+        adlar = sorted({tablo.get(p, (0, "?"))[1].removesuffix(".exe") for p in self._surecler})
+        calisan_haric = sorted({ad for _, ad in tablo.values() if ad in {h.lower() for h in self.haric_uygulamalar}})
+        aciklama = ", ".join(adlar) if adlar else "Ses çıkaran uygulama yok"
+        if calisan_haric:
+            aciklama += f" ({', '.join(a.removesuffix('.exe') for a in calisan_haric)} hariç)"
+        self._sistem_durumu("açık", aciklama)
+        return True
 
     def _hoparlor_loopback_ac(self) -> None:
         import pyaudiowpatch as pyaudio
@@ -400,9 +465,12 @@ class SesMotoru:
     def _hepsini_kapat(self) -> None:
         for a in (self._kablo, self._mik, self._hoparlor):
             a.kapat()
-        if self._surec is not None:
-            self._surec.durdur()
-        self._surec, self._surec_hedef = None, None
+        self._tekli_durdur()
+        self._coklu_durdur()
+        self._basarisiz_pidler = set()
+        self._oturum_kontrol = 0.0
+        self._coklu_kullanilamaz = False
+        self._mik_son_deneme = 0.0   # tekrar açılınca mikrofon hemen denensin (1.0.0'daki "ses gitmiyor" hatası)
         for k in self.mikser.kanallar.values():
             k.bagli = False
         self.mikser.sifirla()

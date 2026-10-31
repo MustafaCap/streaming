@@ -91,7 +91,7 @@ class AyarlarPenceresi(QDialog):
         self.tepsi.setChecked(self._al("ui.minimize_to_tray", True))
         self.bekleme = QLineEdit(self._al("standby_text", "Birazdan döneceğim"))
         self.bekleme_gorseli = QLineEdit(self._al("standby_image", ""))
-        self.bekleme_gorseli.setPlaceholderText("İsteğe bağlı: bir resim (PNG/JPG)")
+        self.bekleme_gorseli.setPlaceholderText("İsteğe bağlı: resim (PNG/JPG) ya da kısa video (MP4/GIF)")
         gozat = QPushButton("Seç…", objectName="sahne")
         gozat.clicked.connect(self._gorsel_sec)
         gorsel_satiri = QHBoxLayout()
@@ -110,7 +110,7 @@ class AyarlarPenceresi(QDialog):
         f.addRow("", self.imlec)
         f.addRow("", self.vurgu)
         f.addRow("Bekleme ekranı yazısı", self.bekleme)
-        f.addRow("Bekleme ekranı görseli", gorsel_satiri)
+        f.addRow("Bekleme ekranı resmi/videosu", gorsel_satiri)
         f.addRow("Sahne geçiş süresi", self.gecis)
         from core.recorder import KODLAYICILAR, varsayilan_klasor
         self.kayit_klasoru = QLineEdit(self._al("record.folder", "") or "")
@@ -120,6 +120,10 @@ class AyarlarPenceresi(QDialog):
         klasor_satiri = QHBoxLayout()
         klasor_satiri.addWidget(self.kayit_klasoru, 1)
         klasor_satiri.addWidget(klasor_sec)
+        klasor_ac = QPushButton("Aç", objectName="sahne")
+        klasor_ac.setToolTip("Kayıt klasörünü Gezgin'de aç")
+        klasor_ac.clicked.connect(self._klasoru_ac)
+        klasor_satiri.addWidget(klasor_ac)
         self.kodlayici = QComboBox()
         self.kodlayici.addItem("Otomatik (ekran kartına göre)", "auto")
         for k in KODLAYICILAR:
@@ -133,8 +137,8 @@ class AyarlarPenceresi(QDialog):
         return w
 
     def _gorsel_sec(self) -> None:
-        from PySide6.QtWidgets import QFileDialog
-        yol, _ = QFileDialog.getOpenFileName(self, "Bekleme ekranı görseli", "", "Resimler (*.png *.jpg *.jpeg *.bmp)")
+        from ui.bekleme_secici import dosya_sec
+        yol = dosya_sec(self)
         if yol:
             self.bekleme_gorseli.setText(yol)
 
@@ -143,6 +147,19 @@ class AyarlarPenceresi(QDialog):
         yol = QFileDialog.getExistingDirectory(self, "Kayıt klasörü", self.kayit_klasoru.text())
         if yol:
             self.kayit_klasoru.setText(yol)
+
+    def _klasoru_ac(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from core.recorder import varsayilan_klasor
+        from pathlib import Path
+        klasor = Path(self.kayit_klasoru.text().strip() or varsayilan_klasor())
+        try:
+            klasor.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(klasor)))
 
     def _kamera(self) -> QWidget:
         w = QWidget()
@@ -272,7 +289,15 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("ui.minimize_to_tray", self.tepsi.isChecked())
         a.ayarla("ui.dnd_reminder", self.dnd.isChecked())
         a.ayarla("standby_text", self.bekleme.text().strip() or "Birazdan döneceğim")
-        a.ayarla("standby_image", self.bekleme_gorseli.text().strip())
+        gorsel = self.bekleme_gorseli.text().strip()
+        if gorsel != a.al("standby_image", ""):
+            from core.standby import uygulamaya_kopyala, video_mu
+            if video_mu(gorsel):   # elle yazılan video yolu da kopyalansın (Türkçe karakter sorunu)
+                try:
+                    gorsel = uygulamaya_kopyala(gorsel)
+                except OSError:
+                    log.warning("Bekleme videosu kopyalanamadı: %s", gorsel)
+        a.ayarla("standby_image", gorsel)
         a.ayarla("record.folder", self.kayit_klasoru.text().strip())
         a.ayarla("record.encoder", self.kodlayici.currentData())
         a.ayarla("video.cursor_highlight", self.vurgu.isChecked())
@@ -280,6 +305,8 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("transition_ms", self.gecis.value())
         a.ayarla("camera.device", self.kamera_no.value())
         a.ayarla("camera.mirror", self.ayna.isChecked())
+        if self.kose.currentData() != a.al("camera.corner", "bottom-right"):
+            a.ayarla("camera.position", None)   # köşe seçilince sürükleyerek verilen yer unutulur
         a.ayarla("camera.corner", self.kose.currentData())
         a.ayarla("camera.size", self.boyut.value() / 100)
         a.ayarla("camera.blur", self.bulanik.isChecked())

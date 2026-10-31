@@ -37,8 +37,10 @@ class VideoHatti:
         self.bolge = bolge or BolgeSecimi()  # F6 kare seçme / yakınlaştırma / vurgulama
         self.cizimler = cizimler             # overlay.drawing.CizimDeposu ya da None
         self.imlec_vurgusu = imlec_vurgusu   # imlecin etrafında halka + tıklama dalgası
-        self.bekleme_gorseli = bekleme_gorseli
-        self.panik = False                   # F12: anında bekleme ekranı
+        self.bekleme_gorseli = bekleme_gorseli   # resim ya da kısa video
+        from core.standby import BeklemeVideosu
+        self._bekleme_videosu = BeklemeVideosu()
+        self.panik = False                   # Panik tuşu: anında bekleme ekranı
         self.kayitci = None                  # core.recorder.Kayitci (yerel MP4 kayıt)
         from overlay.cursor import ImlecVurgusu
         self._vurgu = ImlecVurgusu()
@@ -173,6 +175,14 @@ class VideoHatti:
         return kare
 
     def _bekleme(self):
+        from core.standby import video_mu
+        if video_mu(self.bekleme_gorseli):
+            kare = self._bekleme_videosu.kare(self.bekleme_gorseli, self.genislik, self.yukseklik)
+            if kare is not None:
+                return kare
+            return frames.bilgi_karesi(self.genislik, self.yukseklik, self.bekleme_metni)
+        if self._bekleme_videosu._cap is not None:
+            self._bekleme_videosu.kapat()
         return frames.bekleme_karesi(self.genislik, self.yukseklik, self.bekleme_metni, self.bekleme_gorseli)
 
     def _kare_uret(self):

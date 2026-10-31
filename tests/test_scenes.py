@@ -95,3 +95,14 @@ def test_hat_kamerayi_sadece_gerektiginde_acar():
         assert _bekle(lambda: not kamera.acik and depo.durum.webcam == "kapalı")
     finally:
         hat.durdur()
+
+
+def test_kamera_suruklenen_yere_konur_ve_disari_tasmaz():
+    from scenes.scene_manager import KameraYerlesimi
+    yer = KameraYerlesimi.ayarlardan({"size": 0.25, "position": [0.5, 0.5]})
+    x, y, w, h = yer.dikdortgen(1280, 720)
+    assert (w, h) == (320, 180) and (x + w / 2, y + h / 2) == (640, 360)
+    x, y, w, h = KameraYerlesimi.ayarlardan({"position": [1.0, 0.0]}).dikdortgen(1280, 720)
+    assert (x, y) == (1280 - w, 0)                       # köşeden taşmaz
+    assert KameraYerlesimi.ayarlardan({"position": "bozuk"}).konum is None
+    assert KameraYerlesimi.ayarlardan({"position": None, "corner": "top-left"}).dikdortgen(1280, 720)[:2] == (24, 24)

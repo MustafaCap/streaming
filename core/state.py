@@ -39,7 +39,7 @@ class Durum:
     kalem_turu: str = "kalem"
     bas_konus: bool = False           # bas-konuş modu açık mı (tuş ayarlıysa)
     konusuyor: bool = False           # bas-konuş tuşu basılı mı
-    panik: bool = False               # F12: bekleme ekranı + sesler kapalı
+    panik: bool = False               # Panik: bekleme ekranı + sesler kapalı
     kayit: str = "kapalı"             # kapalı | açık | hata (yerel MP4 kayıt)
     kayit_suresi: int = 0             # saniye
 

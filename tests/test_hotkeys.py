@@ -6,7 +6,7 @@ from core.hotkeys import (MOD_CONTROL, MOD_SHIFT, VARSAYILAN_KISAYOLLAR, Gecersi
 
 
 @pytest.mark.parametrize("metin,beklenen", [
-    ("F6", (0, 0x75)), ("f12", (0, 0x7B)), ("Ctrl+1", (MOD_CONTROL, 0x31)),
+    ("F6", (0, 0x75)), ("Ctrl+F12", (MOD_CONTROL, 0x7B)), ("Ctrl+1", (MOD_CONTROL, 0x31)),
     ("Ctrl+Shift+R", (MOD_CONTROL | MOD_SHIFT, 0x52)), ("ctrl + z", (MOD_CONTROL, 0x5A)),
     ("Del", (0, 0x2E)), ("1", (0, 0x31)), ("Num5", (0, 0x65)),
 ])
@@ -14,7 +14,7 @@ def test_tus_coz(metin, beklenen):
     assert tus_coz(metin) == beklenen
 
 
-@pytest.mark.parametrize("metin", ["", "Ctrl+", "Hyper+A", "F25", "Ğ", "Ctrl+Bilinmeyen"])
+@pytest.mark.parametrize("metin", ["", "Ctrl+", "Hyper+A", "F25", "Ğ", "Ctrl+Bilinmeyen", "F12"])
 def test_gecersiz_tuslar(metin):
     with pytest.raises(GecersizTus):
         tus_coz(metin)
