@@ -23,6 +23,9 @@ class Durum:
     fps: float = 0.0
     kare_suresi_ms: float = 0.0
     son_hata: str = ""
+    aktif_sahne: int = 0              # 0 tabanlı sahne numarası
+    sahne_adi: str = ""
+    webcam: str = "kapalı"            # kapalı | açık | yok (açık ama cihaz bulunamadı)
 
 
 Dinleyici = Callable[[Durum, Durum], None]  # (eski, yeni)

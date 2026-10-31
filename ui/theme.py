@@ -12,6 +12,12 @@ RENK = {
     "panik": "#F5A524",
 }
 
+def saydam(renk: str, alfa: float) -> str:
+    """'#RRGGBB' -> 'rgba(r, g, b, a)'. (Qt'de 8 haneli hex #AARRGGBB demektir, karışmasın.)"""
+    r, g, b = (int(renk[i:i + 2], 16) for i in (1, 3, 5))
+    return f"rgba({r}, {g}, {b}, {round(alfa * 255)})"
+
+
 QSS = f"""
 QWidget {{ background: {RENK['zemin']}; color: {RENK['yazi']};
           font-family: "Inter", "Segoe UI", sans-serif; font-size: 14px; }}
@@ -24,6 +30,10 @@ QLabel#rozet {{ border-radius: 10px; padding: 3px 10px; font-size: 12px; font-we
 QPushButton#buyuk {{ background: {RENK['panel']}; border: 1px solid {RENK['kenarlik']};
                     border-radius: 10px; padding: 14px 28px; font-size: 16px; font-weight: 600; }}
 QPushButton#buyuk:hover {{ border-color: {RENK['vurgu']}; }}
+QPushButton#sahne {{ background: {RENK['panel']}; border: 1px solid {RENK['kenarlik']};
+                    border-radius: 8px; padding: 8px 14px; }}
+QPushButton#sahne:hover {{ border-color: {RENK['vurgu']}; }}
+QPushButton#sahne:checked {{ border-color: {RENK['vurgu']}; color: {RENK['vurgu']}; background: {saydam(RENK['vurgu'], 0.12)}; }}
 QPushButton#buyuk[acik="true"] {{ border-color: {RENK['acik']}; color: {RENK['acik']}; }}
 """
 
@@ -31,4 +41,4 @@ QPushButton#buyuk[acik="true"] {{ border-color: {RENK['acik']}; color: {RENK['ac
 def rozet_stili(durum: str) -> str:
     renk = {"açık": RENK["acik"], "çalışıyor": RENK["acik"],
             "yok": RENK["kapali"], "hata": RENK["kapali"], "koptu": RENK["kapali"]}.get(durum, RENK["yazi2"])
-    return f"background: {renk}22; color: {renk}; border: 1px solid {renk};"
+    return f"background: {saydam(renk, 0.13)}; color: {renk}; border: 1px solid {renk};"

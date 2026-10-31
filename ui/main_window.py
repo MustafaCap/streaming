@@ -1,4 +1,4 @@
-"""Ana pencere (Aşama 1 sürümü): durum rozetleri, önizleme, büyük Başlat/Durdur düğmesi.
+"""Ana pencere: durum rozetleri, sahne düğmeleri, önizleme, büyük Başlat/Durdur düğmesi.
 
 Aşama 7'de brifteki tam tasarıma (sahneler, mikser, mini mod) genişleyecek.
 """
@@ -34,11 +34,30 @@ class AnaPencere(QMainWindow):
         # --- üst çubuk: ad + durum rozetleri
         self.rozet_kamera = QLabel(objectName="rozet")
         self.rozet_ekran = QLabel(objectName="rozet")
+        self.rozet_webcam = QLabel(objectName="rozet")
         ust = QHBoxLayout()
         ust.addWidget(QLabel("Yayın Uygulaması", objectName="baslik"))
         ust.addStretch()
         ust.addWidget(self.rozet_ekran)
+        ust.addWidget(self.rozet_webcam)
         ust.addWidget(self.rozet_kamera)
+
+        # --- sahne düğmeleri (Ctrl+1..4) + kamera aç/kapat (F10)
+        sahne_satiri = QHBoxLayout()
+        self.sahne_dugmeleri = []
+        for i, sahne in enumerate(hat.sahneler.sahneler):
+            d = QPushButton(f"{i + 1}  {sahne.ad}", objectName="sahne")
+            d.setCheckable(True)
+            d.setToolTip(f"Ctrl+{i + 1}" if i < 9 else "")
+            d.clicked.connect(lambda _=False, n=i + 1: self._sahne_tiklandi(n))
+            sahne_satiri.addWidget(d)
+            self.sahne_dugmeleri.append(d)
+        sahne_satiri.addStretch()
+        self.kamera_dugmesi = QPushButton(objectName="sahne")
+        self.kamera_dugmesi.setCheckable(True)
+        self.kamera_dugmesi.setToolTip("F10")
+        self.kamera_dugmesi.clicked.connect(lambda: self.komutlar.calistir("kamera.ac_kapat"))
+        sahne_satiri.addWidget(self.kamera_dugmesi)
 
         # --- önizleme (karşı tarafın gördüğü)
         self.onizleme = QLabel(objectName="onizleme")
@@ -65,6 +84,7 @@ class AnaPencere(QMainWindow):
         kok = QVBoxLayout()
         kok.setContentsMargins(16, 12, 16, 16)
         kok.addLayout(ust)
+        kok.addLayout(sahne_satiri)
         kok.addWidget(self.onizleme, 1)
         kok.addWidget(alt_panel)
         orta = QWidget()
@@ -87,7 +107,20 @@ class AnaPencere(QMainWindow):
         # Önizleme kendini yakalamasın (sonsuz ayna) ve karşı tarafa gitmesin.
         yakalamadan_gizle(int(self.winId()))
 
+    def _sahne_tiklandi(self, numara: int) -> None:
+        self.komutlar.calistir(f"sahne.sec:{numara}")
+        self._durumu_goster(self.depo.durum)  # düğme hemen doğru görünsün
+
     def _durumu_goster(self, d: Durum) -> None:
+        secili = self.hat.sahneler.indeks
+        for i, dugme in enumerate(self.sahne_dugmeleri):
+            dugme.setChecked(i == secili)
+        kamera_acik = self.hat.kamera_istegi
+        self.kamera_dugmesi.setChecked(kamera_acik)
+        self.kamera_dugmesi.setText("Kamera: Açık" if kamera_acik else "Kamera: Kapalı")
+        self.rozet_webcam.setText(f"Webcam: {d.webcam.capitalize()}")
+        self.rozet_webcam.setStyleSheet(rozet_stili(d.webcam))
+
         self.rozet_kamera.setText(f"Sanal kamera: {d.sanal_kamera.capitalize()}")
         self.rozet_kamera.setStyleSheet(rozet_stili(d.sanal_kamera))
         ekran = d.ekran_kaynagi + (f" ({d.yakalama_yontemi})" if d.yakalama_yontemi else "")
