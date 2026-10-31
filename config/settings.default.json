@@ -9,7 +9,9 @@
     "show_cursor": true
   },
   "ui": {
-    "preview_fps": 15
+    "preview_fps": 15,
+    "toasts": true,
+    "minimize_to_tray": true
   },
   "camera": {
     "enabled": true,
@@ -56,5 +58,29 @@
     ],
     "include_app": ""
   },
-  "hotkeys": {}
+  "hotkeys": {
+    "bolge.sec": "F6",
+    "kalem.ac_kapat": "F7",
+    "ses.mikrofon": "F8",
+    "ses.sistem": "F9",
+    "kamera.ac_kapat": "F10",
+    "anlik_kayit.kaydet": "F11",
+    "panik": "F12",
+    "sahne.sec:1": "Ctrl+1",
+    "sahne.sec:2": "Ctrl+2",
+    "sahne.sec:3": "Ctrl+3",
+    "sahne.sec:4": "Ctrl+4",
+    "kayit.ac_kapat": "Ctrl+Shift+R",
+    "bas_konus": ""
+  },
+  "pen_hotkeys": {
+    "kalem.tur:1": "1",
+    "kalem.tur:2": "2",
+    "kalem.tur:3": "3",
+    "kalem.tur:4": "4",
+    "kalem.tur:5": "5",
+    "kalem.tur:6": "6",
+    "kalem.geri_al": "Ctrl+Z",
+    "kalem.temizle": "Del"
+  }
 }

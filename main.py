@@ -81,10 +81,14 @@ def main() -> int:
     from scenes.scene_manager import KameraYerlesimi, SahneYoneticisi, sahneleri_oku
     from core.video_pipeline import VideoHatti
     from outputs.virtualcam import SanalKameraCikisi
+    from ui.icons import uygulama_ikonu
     from ui.main_window import AnaPencere
+    from ui.shell import UygulamaKabugu
 
     app = QApplication(sys.argv)
     app.setApplicationName("Yayın Uygulaması")
+    app.setWindowIcon(uygulama_ikonu())
+    app.setQuitOnLastWindowClosed(False)  # pencere kapanınca tepside çalışmaya devam
 
     w, h, fps = ayarlar.al("video.width"), ayarlar.al("video.height"), ayarlar.al("video.fps")
     depo = DurumDeposu()
@@ -116,10 +120,15 @@ def main() -> int:
 
     pencere = AnaPencere(depo, komutlar, hat, onizleme_fps=ayarlar.al("ui.preview_fps", 15),
                          ses=ses, mikser=mikser, ayarlar=ayarlar)
+    kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar)
+    app.setQuitOnLastWindowClosed(not pencere.tepsiye_kucul)
     hat.baslat()
     ses.baslat()
+    kabuk.baslat()
     pencere.show()
     kod = app.exec()
+    kabuk.durdur()
+    hat.durdur()
     ses.durdur()
     log.info("Uygulama kapandı")
     return kod

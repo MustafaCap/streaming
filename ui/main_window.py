@@ -28,6 +28,8 @@ class AnaPencere(QMainWindow):
                  ses=None, mikser=None, ayarlar=None):
         super().__init__()
         self.depo, self.komutlar, self.hat = depo, komutlar, hat
+        self.tepsiye_kucul = False       # UygulamaKabugu ayarlar
+        self.tepsiye_kuculdu = None      # ilk küçülmede bilgi vermek için geri çağrı
         self.setWindowTitle("Yayın Uygulaması")
         self.setStyleSheet(QSS)
         self.resize(1240, 720)
@@ -174,6 +176,12 @@ class AnaPencere(QMainWindow):
             hedef, Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
     def closeEvent(self, olay):
+        if self.tepsiye_kucul:
+            # Kapat düğmesi uygulamayı kapatmaz; saatin yanına (sistem tepsisine) küçülür.
+            olay.ignore()
+            self.hide()
+            if self.tepsiye_kuculdu is not None:
+                self.tepsiye_kuculdu()
+            return
         self._zamanlayici.stop()
-        self.hat.durdur()
         super().closeEvent(olay)

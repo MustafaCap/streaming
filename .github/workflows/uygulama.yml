@@ -33,7 +33,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Modüller Windows'ta yükleniyor mu?
-        run: python -c "import ui.main_window, ui.mixer_panel, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
+        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
 
       - name: .exe derle
         run: |
