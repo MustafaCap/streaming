@@ -75,11 +75,11 @@ Konsolda iki seviye çubuğu oynamalı. Discord'da (veya Windows Ses Kaydedici'd
 ### Deneme 5 — Sadece tek uygulamanın sesi (en deneysel olan)
 
 ```powershell
-python 05_uygulama_sesi.py --surec chrome.exe
-python 05_uygulama_sesi.py --surec chrome.exe --haric
+python 05_uygulama_sesi.py --surec msedge.exe
+python 05_uygulama_sesi.py --surec msedge.exe --haric
 ```
 
-Chrome'da YouTube videosu, aynı anda Spotify'da müzik çal. İlk komutun oluşturduğu `kayit_chrome.wav`'da sadece video sesi, ikincisinin oluşturduğu `kayit_chrome_haric.wav`'da sadece müzik olmalı.
+Edge'de YouTube videosu, aynı anda Spotify'da müzik çal. İlk komutun oluşturduğu `kayit_msedge.wav`'da sadece video sesi, ikincisinin oluşturduğu `kayit_msedge_haric.wav`'da sadece müzik olmalı.
 
 Hata verirse konsol çıktısının **tamamını** kopyalayıp bana gönder. Bu dosya Windows'un ses arayüzünü doğrudan çağırdığı için ilk denemede bir düzeltme gerekebilir.
 

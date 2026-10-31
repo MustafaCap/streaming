@@ -15,5 +15,5 @@ Python sürümü (`python --version`):
 | 3. Yönetici olarak gerekti mi? |  |  |
 | 4. Mikrofon + sistem sesi CABLE'a |  |  |
 | 4. Yankı duyuldu mu? |  |  |
-| 5. Sadece Chrome sesi |  |  |
-| 5. Chrome hariç her şey |  |  |
+| 5. Sadece Edge sesi |  |  |
+| 5. Edge hariç her şey |  |  |
