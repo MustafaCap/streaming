@@ -40,5 +40,21 @@
   ],
   "transition_ms": 300,
   "standby_text": "Birazdan döneceğim",
+  "audio": {
+    "mic_device": "",
+    "mic_gain": 1.0,
+    "mic_muted": false,
+    "system_gain": 0.7,
+    "system_muted": false,
+    "system_mode": "auto",
+    "exclude_apps": [
+      "Zoom.exe",
+      "Discord.exe",
+      "ms-teams.exe",
+      "Teams.exe",
+      "Skype.exe"
+    ],
+    "include_app": ""
+  },
   "hotkeys": {}
 }

@@ -26,6 +26,14 @@ class Durum:
     aktif_sahne: int = 0              # 0 tabanlı sahne numarası
     sahne_adi: str = ""
     webcam: str = "kapalı"            # kapalı | açık | yok (açık ama cihaz bulunamadı)
+    sanal_mikrofon: str = "kapalı"    # kapalı | açık | yok (VB-Cable kurulu değil) | hata
+    mikrofon: str = "kapalı"          # kapalı | açık | yok
+    mikrofon_adi: str = ""
+    mikrofon_sessiz: bool = False     # F8 ile susturuldu mu
+    sistem_sesi: str = "kapalı"       # kapalı | açık | yok
+    sistem_kaynagi: str = ""          # ör. "Tüm sesler (Zoom.exe hariç)"
+    sistem_sessiz: bool = False       # F9 ile susturuldu mu
+    ses_hatasi: str = ""
 
 
 Dinleyici = Callable[[Durum, Durum], None]  # (eski, yeni)
