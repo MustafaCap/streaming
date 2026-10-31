@@ -91,6 +91,10 @@ class UygulamaKabugu(QObject):
         if mesaj:
             self._bildirim_sinyali.emit(str(mesaj), self.tus_haritasi.get(ad, ""))
 
+    def bildir(self, mesaj: str, tus: str = "") -> None:
+        """Herhangi bir iş parçacığından bildirim göstermek için."""
+        self._bildirim_sinyali.emit(mesaj, tus)
+
     @Slot(str, str)
     def _bildirim_goster(self, mesaj: str, tus: str) -> None:
         if self.ayarlar.al("ui.toasts", True):

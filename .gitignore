@@ -10,3 +10,6 @@ dist/
 *.spec
 .vscode/
 .idea/
+ffmpeg/
+ffmpeg_tmp/
+ffmpeg.zip

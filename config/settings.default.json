@@ -67,6 +67,10 @@
   "pen": {
     "clear_on_close": true
   },
+  "record": {
+    "folder": "",
+    "encoder": "auto"
+  },
   "hotkeys": {
     "bolge.sec": "F6",
     "kalem.ac_kapat": "F7",

@@ -29,22 +29,46 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # FFmpeg (LGPL sürümü; ücretli dağıtıma uygun, libx264 gibi GPL parçaları yok) — yerel kayıt için
+      - name: FFmpeg indir (LGPL)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $rel = Invoke-RestMethod -Headers @{Authorization = "Bearer $env:GH_TOKEN"} `
+            https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest
+          $asset = $rel.assets | Where-Object { $_.name -match '^ffmpeg-n(\d+)\.(\d+)-latest-win64-lgpl-\d+\.\d+\.zip$' } |
+            Sort-Object { [int]($_.name -replace '^ffmpeg-n(\d+)\.(\d+).*', '$1') * 100 + [int]($_.name -replace '^ffmpeg-n\d+\.(\d+).*', '$1') } |
+            Select-Object -Last 1
+          if (-not $asset) { $asset = $rel.assets | Where-Object { $_.name -eq 'ffmpeg-master-latest-win64-lgpl.zip' } }
+          Write-Host "FFmpeg: $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
+          $kok = Get-ChildItem ffmpeg_tmp | Select-Object -First 1
+          New-Item -ItemType Directory -Force ffmpeg | Out-Null
+          Copy-Item "$($kok.FullName)\bin\ffmpeg.exe" ffmpeg\
+          Copy-Item "$($kok.FullName)\LICENSE.txt" ffmpeg\LICENSE.txt
+          "FFmpeg $($asset.name) - https://github.com/BtbN/FFmpeg-Builds (LGPL)" | Out-File ffmpeg\KAYNAK.txt
+          .\ffmpeg\ffmpeg.exe -hide_banner -version | Select-Object -First 1
+
       - name: Birim testleri
         run: python -m pytest -q
 
       - name: Modüller Windows'ta yükleniyor mu?
-        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, overlay.cursor, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
+        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
 
       - name: .exe derle
         run: |
           pyinstaller --noconfirm --windowed --name YayinUygulamasi `
             --add-data "config/settings.default.json;config" `
+            --add-data "models/selfie_segmentation_landscape.tflite;models" `
+            --add-data "models/LICENSE-mediapipe-Apache-2.0.txt;models" `
             --collect-all pyvirtualcam --collect-all dxcam --hidden-import mss `
             main.py
 
       - name: Zip paketi hazırla
         run: |
           Copy-Item README.md dist\YayinUygulamasi\BENIOKU.md
+          Copy-Item -Recurse ffmpeg dist\YayinUygulamasi\ffmpeg
           Compress-Archive -Path dist\YayinUygulamasi -DestinationPath YayinUygulamasi.zip -Force
 
       - uses: actions/upload-artifact@v4

@@ -19,7 +19,7 @@ log = logging.getLogger("main")
 
 
 def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None, mikser=None,
-                     ayarlar=None) -> None:
+                     ayarlar=None, kayitci=None, bildir=None) -> None:
     hatirlatildi = [False]
 
     def cikis_ac_kapat(_):
@@ -66,6 +66,38 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
         return "Panik: bekleme ekranı, ses kapalı" if hat.panik else "Panik kapandı"
 
     komutlar.kaydet("panik", "Panik: bekleme ekranına geç", panik)
+
+    if kayitci is not None:
+        def kayit_bitti(dosya, hata):
+            depo.guncelle(kayit="hata" if hata and dosya is None else "kapalı")
+            if ses is not None:
+                ses.kayit_icin_ac(False)
+            if bildir is not None:
+                bildir(f"Kayıt kaydedildi: {dosya.name}" if dosya else f"Kayıt kaydedilemedi: {hata}")
+
+        def kayit_ac_kapat(_):
+            if kayitci.kayitta:
+                if mikser is not None:
+                    mikser.kayit_dinleyici = None
+                kayitci.durdur(kayit_bitti)
+                return "Kayıt durdu, dosya hazırlanıyor"
+            if ayarlar is not None:
+                from pathlib import Path
+                klasor = ayarlar.al("record.folder", "")
+                if klasor:
+                    kayitci.klasor = Path(klasor)
+                kayitci.kodlayici_tercihi = ayarlar.al("record.encoder", "auto")
+            if not kayitci.baslat():
+                depo.guncelle(kayit="hata")
+                return f"Kayıt başlamadı: {kayitci.son_hata}"
+            if mikser is not None:
+                mikser.kayit_dinleyici = kayitci.ses_yaz
+            if ses is not None:
+                ses.kayit_icin_ac(True)
+            depo.guncelle(kayit="açık")
+            return f"Kayıt başladı · {kayitci.klasor}"
+
+        komutlar.kaydet("kayit.ac_kapat", "Yerel kaydı başlat/durdur", kayit_ac_kapat)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -119,7 +151,8 @@ def main() -> int:
                      genislik=w, yukseklik=h, fps=fps,
                      imlec_goster=ayarlar.al("video.show_cursor", True),
                      kamera=WebcamKaynagi(ayarlar.al("camera.device", 0), w, h, fps,
-                                          ayna=ayarlar.al("camera.mirror", False)),
+                                          ayna=ayarlar.al("camera.mirror", False),
+                                          bulaniklastir=ayarlar.al("camera.blur", False)),
                      sahneler=SahneYoneticisi(sahneleri_oku(ayarlar.al("scenes", [])),
                                               ayarlar.al("transition_ms", 300)),
                      kamera_yerlesimi=KameraYerlesimi.ayarlardan(ayarlar.al("camera", {})),
@@ -139,12 +172,23 @@ def main() -> int:
                     sistem_modu=ayarlar.al("audio.system_mode", "auto"),
                     haric_uygulamalar=ayarlar.al("audio.exclude_apps", None),
                     dahil_uygulama=ayarlar.al("audio.include_app", ""))
-    komutlari_kaydet(komutlar, depo, hat, ses, mikser, ayarlar)
+    from core.recorder import Kayitci
+    kayitci = Kayitci(w, h, fps, ayarlar.al("record.folder", "") or None, ayarlar.al("record.encoder", "auto"))
+    hat.kayitci = kayitci
+    kabuk_ref = []
+
+    def bildir(mesaj):
+        log.info(mesaj)
+        if kabuk_ref:
+            kabuk_ref[0].bildir(mesaj)
+
+    komutlari_kaydet(komutlar, depo, hat, ses, mikser, ayarlar, kayitci, bildir)
     komutlar.dinle(lambda ad, mesaj: log.info("Komut: %s%s", ad, f" ({mesaj})" if mesaj else ""))
 
     pencere = AnaPencere(depo, komutlar, hat, onizleme_fps=ayarlar.al("ui.preview_fps", 15),
                          ses=ses, mikser=mikser, ayarlar=ayarlar)
     kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar, cizimler, ses)
+    kabuk_ref.append(kabuk)
     app.setQuitOnLastWindowClosed(not pencere.tepsiye_kucul)
 
     from core.hotkeys import BasKonus
@@ -160,6 +204,10 @@ def main() -> int:
     kabuk.baslat()
     pencere.show()
     kod = app.exec()
+    if kayitci.kayitta:
+        bitti = __import__("threading").Event()
+        kayitci.durdur(lambda d, h: bitti.set())
+        bitti.wait(60)  # kapanırken kayıt yarım kalmasın
     bas_konus.durdur()
     kabuk.durdur()
     hat.durdur()
