@@ -63,6 +63,7 @@ jobs:
             --add-data "models/selfie_segmentation_landscape.tflite;models" `
             --add-data "models/LICENSE-mediapipe-Apache-2.0.txt;models" `
             --collect-all pyvirtualcam --collect-all dxcam --hidden-import mss `
+            --icon kurulum/uygulama.ico `
             main.py
 
       - name: Zip paketi hazırla
@@ -71,10 +72,27 @@ jobs:
           Copy-Item -Recurse ffmpeg dist\YayinUygulamasi\ffmpeg
           Compress-Archive -Path dist\YayinUygulamasi -DestinationPath YayinUygulamasi.zip -Force
 
+      # Kurulum programı: kurulum yerini sorar, Başlat menüsü + masaüstü kısayolu, kaldırıcı
+      - name: Kurulum programı derle (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+          }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup bulunamadı" }
+          $surum = (Select-String -Path core\surum.py -Pattern 'SURUM = "(.+)"').Matches[0].Groups[1].Value
+          Write-Host "Sürüm: $surum"
+          & $iscc /Q "/DSurum=$surum" kurulum\kurulum.iss
+          if ($LASTEXITCODE -ne 0) { throw "Kurulum programı derlenemedi" }
+          Move-Item Output\YayinUygulamasi-Kurulum.exe YayinUygulamasi-Kurulum.exe
+          Get-Item YayinUygulamasi-Kurulum.exe | Select-Object Name, Length
+
       - uses: actions/upload-artifact@v4
         with:
           name: YayinUygulamasi
-          path: YayinUygulamasi.zip
+          path: |
+            YayinUygulamasi.zip
+            YayinUygulamasi-Kurulum.exe
 
       # Sadece main'e birleşen kod indirme sayfasına gider; dallar sadece test edilir.
       - name: İndirme sayfasına koy (Releases)
@@ -86,7 +104,10 @@ jobs:
           prerelease: true
           target_commitish: ${{ github.sha }}
           body: |
-            YayinUygulamasi.zip dosyasını indir, bir klasöre çıkar,
-            YayinUygulamasi klasöründeki YayinUygulamasi.exe'yi çalıştır.
+            Kurmak için: YayinUygulamasi-Kurulum.exe'yi indir ve çalıştır (kurulum yerini sorar,
+            Başlat menüsüne ve istersen masaüstüne kısayol ekler; Ayarlar > Uygulamalar'dan kaldırılır).
+            Kurmadan denemek için: YayinUygulamasi.zip'i bir klasöre çıkar, YayinUygulamasi.exe'yi çalıştır.
             (Derlenen commit: ${{ github.sha }})
-          files: YayinUygulamasi.zip
+          files: |
+            YayinUygulamasi.zip
+            YayinUygulamasi-Kurulum.exe

@@ -39,7 +39,9 @@ class ArkaPlanBulaniklastirici:
             return False
         yol = paths.uygulama_klasoru() / "models" / MODEL
         try:
-            self._ag = cv2.dnn.readNetFromTFLite(str(yol))
+            # Dosyayı kendimiz okuyup bellekten veriyoruz: OpenCV, Windows'ta Türkçe karakterli
+            # kurulum yollarını (ör. "D:\\Programlar\\Yayın") açamıyor.
+            self._ag = cv2.dnn.readNetFromTFLite(np.fromfile(str(yol), np.uint8))
             return True
         except Exception as e:
             self._yuklenemedi = True

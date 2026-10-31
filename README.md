@@ -7,7 +7,8 @@ Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sana
 1. **OBS Studio** kur (https://obsproject.com/), aç, *Sanal Kamerayı Başlat*'a bir kez bas ve kapat. Uygulama OBS'nin sanal kamera sürücüsünü kullanır; OBS'nin açık olması gerekmez.
 2. **VB-Cable** kur (https://vb-audio.com/Cable/ → zip'i çıkar → `VBCABLE_Setup_x64.exe`'ye sağ tık → *Yönetici olarak çalıştır* → *Install Driver*), sonra bilgisayarı yeniden başlat.
 3. Windows ses ayarlarında **varsayılan giriş = gerçek mikrofonun**, **varsayılan çıkış = gerçek hoparlör/kulaklık** olsun. CABLE'ı Windows'ta varsayılan yapma; sadece Zoom/Discord içinde seçilir. CABLE Output için *Bu cihazı dinle*'yi açma (geri besleme gürültüsü yapar).
-4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından `YayinUygulamasi.zip`'i indir (ya da `D:\streaming\guncelle.bat`), bir klasöre çıkar, `YayinUygulamasi\YayinUygulamasi.exe`'yi çalıştır. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır*.
+4. [Releases → uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sayfasından **`YayinUygulamasi-Kurulum.exe`**'yi indir ve çalıştır. Kurulum yerini sorar, Başlat menüsüne ekler (Windows aramasına "Yayın" yazınca çıkar) ve istersen masaüstüne kısayol koyar. "Windows bilgisayarınızı korudu" çıkarsa: *Ek bilgi → Yine de çalıştır* (kurulum programı imzalı değil). Kaldırmak için: *Ayarlar → Uygulamalar → Yayın Uygulaması → Kaldır* (ayarların ve kayıtların silinmez).
+   - Kurmadan denemek istersen aynı sayfadaki `YayinUygulamasi.zip`'i bir klasöre çıkarıp `YayinUygulamasi\YayinUygulamasi.exe`'yi çalıştırabilirsin (`D:\streaming\guncelle.bat` bunu indirir).
 
 ## Kullanım
 
@@ -73,7 +74,7 @@ python main.py          # uygulamayı çalıştır
 python -m pytest -q     # testler
 ```
 
-Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır.
+Yerel kayıt için `ffmpeg\ffmpeg.exe` (LGPL derlemesi) gerekir; paketlenmiş sürümde hazır gelir, geliştirirken PATH'teki ffmpeg de kullanılır. `main` dalına her birleşmede GitHub Actions Windows'ta testleri çalıştırır, PyInstaller ile paketler ve [uygulama](https://github.com/MustafaCap/streaming/releases/tag/uygulama) sürümünü günceller. Aynı adımda `kurulum/kurulum.iss` Inno Setup ile `YayinUygulamasi-Kurulum.exe`'ye çevrilir. Paket tek bir .exe yerine klasördür (`--onedir`): tek .exe her açılışta 100+ MB'ı geçici klasöre açtığı için yavaş başlar ve antivirüslere daha çok takılır.
 
 ## Klasör yapısı
 
@@ -90,6 +91,7 @@ outputs/             sanal kamera çıkışı
 ui/                  ana pencere, mikser, mini mod, ayarlar, kare seçme ve kalem katmanları,
                      bildirimler, sistem tepsisi
 models/              arka plan bulanıklaştırma modeli (Apache 2.0)
+kurulum/             Windows kurulum programı (Inno Setup betiği) ve uygulama simgesi
 tests/               birim testleri (pytest)
 denemeler/           Aşama 0 risk denemeleri
 ```
