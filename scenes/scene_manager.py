@@ -103,19 +103,25 @@ def kamera_kutusu_ciz(tuval: np.ndarray, kamera, yer: KameraYerlesimi) -> None:
 
 
 def sahne_karesi(sahne: Sahne, genislik: int, yukseklik: int, ekran, kamera,
-                 kamera_acik: bool, yer: KameraYerlesimi, bekleme_metni: str) -> np.ndarray:
+                 kamera_acik: bool, yer: KameraYerlesimi, bekleme_metni: str, bekleme=None) -> np.ndarray:
     """Sahneye göre yeni (yazılabilir) bir çıkış karesi kurar.
 
     ekran: zaten çıkış boyutuna sığdırılmış ekran karesi ya da None (kaynak yok).
     kamera: kameranın son karesi ya da None (kamera yok/kapalı).
     kamera_acik: kullanıcı kamerayı açık mı tuttu (F10).
+    bekleme: bekleme ekranını veren fonksiyon (yazı ya da görsel); yoksa düz yazı.
     """
-    if sahne.bekleme:
+    def bekleme_karesi():
+        if bekleme is not None:
+            return bekleme().copy()
         return frames.bilgi_karesi(genislik, yukseklik, bekleme_metni).copy()
+
+    if sahne.bekleme:
+        return bekleme_karesi()
 
     if sahne.kamera == "full":
         if not kamera_acik:
-            return frames.bilgi_karesi(genislik, yukseklik, "Kamera kapalı").copy()
+            return bekleme_karesi()  # kamera kapalıyken siyah yerine bekleme ekranı
         if kamera is None:
             return frames.bilgi_karesi(genislik, yukseklik, "Kamera bağlı değil").copy()
         return _kirp_doldur(kamera, genislik, yukseklik)

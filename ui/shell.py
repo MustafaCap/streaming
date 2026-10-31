@@ -148,8 +148,22 @@ class UygulamaKabugu(QObject):
         from ui.settings_dialog import AyarlarPenceresi
         AyarlarPenceresi(self.ayarlar, self.hat, self.ses, self._ayarlar_degisti, self.pencere).exec()
 
+    def bas_konus_kur(self, bas_konus, degisti) -> None:
+        self.bas_konus, self._bas_konus_degisti = bas_konus, degisti
+        self._bas_konusu_uygula()
+
+    def _bas_konusu_uygula(self) -> None:
+        bk = getattr(self, "bas_konus", None)
+        if bk is None:
+            return
+        tus = (self.ayarlar.al("hotkeys", {}) or {}).get("bas_konus", "")
+        if not bk.ayarla(tus):
+            self.bildirim.goster(f"Bas-konuş tuşu geçersiz: {tus}", "", bildirim_rengi("kapalı"))
+        self._bas_konus_degisti(bk.basili)  # tuş yoksa mikrofon kapısı açılır
+
     def _ayarlar_degisti(self) -> None:
         self._tus_haritasini_kur()
+        self._bas_konusu_uygula()
         self.kisayollar.grup_ayarla("genel", gruplara_ayir(self.ayarlar.al("hotkeys", {}), self.komutlar))
         if self.kalem is not None and self.kalem.acik:
             self.kalem._kalem_tuslari(True)

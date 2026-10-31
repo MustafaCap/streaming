@@ -86,7 +86,8 @@ class Kanal:
         self.sessiz = sessiz
         self.bagli = False       # cihaz/kaynak şu an açık mı
         self.seviye = 0.0        # son bloğun tepe değeri (kazanç sonrası, 0..1+)
-        self.carpan = 1.0        # otomatik ses kısma gibi geçici etkiler için (Aşama 8)
+        self.carpan = 1.0        # otomatik ses kısma gibi geçici etkiler için
+        self.kapi = True         # bas-konuş: tuş basılı değilken False (mikrofon susar)
 
     @property
     def kazanc(self) -> float:
@@ -98,31 +99,65 @@ class Kanal:
 
 
 class SesKaristirici:
-    """Kanalları toplar, sınırlar ve VB-Cable'a gidecek bloğu üretir."""
+    """Kanalları toplar, sınırlar ve VB-Cable'a gidecek bloğu üretir.
+
+    Ek özellikler:
+      ana_sessiz : panik tuşu; hiçbir ses gitmez
+      kisma_acik : otomatik ses kısma; mikrofonda konuşma varken bilgisayar sesi kısılır
+    """
+
+    KISMA_ESIK = 0.06          # bu tepe değerinin üstü "konuşuyor" sayılır
+    KISMA_BIRAKMA_SN = 0.6     # konuşma bittikten bu kadar sonra ses geri açılmaya başlar
 
     def __init__(self):
         self.kanallar: dict[str, Kanal] = {}
         self.cikis_seviyesi = 0.0
-        self._ham_seviyeler: dict[str, float] = {}
+        self.ana_sessiz = False
+        self.kisma_acik = False
+        self.kisma_seviyesi = 0.3
+        self._kisma = 1.0
+        self._sessizlik_sn = 99.0
+        self.konusuyor = False
 
     def kanal_ekle(self, anahtar: str, ad: str, kazanc: float = 1.0, sessiz: bool = False) -> Kanal:
         k = Kanal(ad, kazanc, sessiz)
         self.kanallar[anahtar] = k
         return k
 
+    def _kisma_guncelle(self, n: int) -> None:
+        mik = self.kanallar.get("mikrofon")
+        self.konusuyor = mik is not None and mik.seviye > self.KISMA_ESIK
+        self._sessizlik_sn = 0.0 if self.konusuyor else self._sessizlik_sn + n / ORNEKLEME
+        hedef = self.kisma_seviyesi if (self.kisma_acik and self._sessizlik_sn < self.KISMA_BIRAKMA_SN) else 1.0
+        adim = n / ORNEKLEME
+        if hedef < self._kisma:
+            self._kisma = max(hedef, self._kisma - adim / 0.08)   # ~80 ms'de kıs
+        else:
+            self._kisma = min(hedef, self._kisma + adim / 0.5)    # ~0,5 sn'de geri aç
+        sistem = self.kanallar.get("sistem")
+        if sistem is not None:
+            sistem.carpan = self._kisma
+
     def karistir(self, n: int) -> np.ndarray:
         """n örneklik stereo float32 blok döndürür (çıkış geri çağrısında çalışır, hızlı olmalı)."""
         toplam = np.zeros((n, KANAL), np.float32)
-        for k in self.kanallar.values():
+        # mikrofon önce: ses kısma kararı ona göre verilir
+        sirali = sorted(self.kanallar.items(), key=lambda kv: kv[0] != "mikrofon")
+        for anahtar, k in sirali:
             blok = k.tampon.oku(n)  # sessizken de oku ki tampon dolup eski ses birikmesin
-            if k.sessiz or not k.bagli:
+            if k.sessiz or not k.bagli or not k.kapi:
                 k.seviye = 0.0
-                continue
-            carpan = k.kazanc * k.carpan
-            if carpan != 1.0:
-                blok = blok * carpan
-            k.seviye = float(np.abs(blok).max()) if n else 0.0
-            toplam += blok
+            else:
+                carpan = k.kazanc * k.carpan
+                if carpan != 1.0:
+                    blok = blok * carpan
+                k.seviye = float(np.abs(blok).max()) if n else 0.0
+                toplam += blok
+            if anahtar == "mikrofon":
+                self._kisma_guncelle(n)
+        if self.ana_sessiz:
+            self.cikis_seviyesi = 0.0
+            return np.zeros((n, KANAL), np.float32)
         tepe = float(np.abs(toplam).max()) if n else 0.0
         if tepe > 1.0:
             np.clip(toplam, -1.0, 1.0, out=toplam)  # basit sınırlayıcı: patlama yerine kırpma

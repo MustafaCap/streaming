@@ -90,6 +90,15 @@ class AyarlarPenceresi(QDialog):
         self.tepsi = QCheckBox("Pencereyi kapatınca sistem tepsisinde çalışmaya devam et")
         self.tepsi.setChecked(self._al("ui.minimize_to_tray", True))
         self.bekleme = QLineEdit(self._al("standby_text", "Birazdan döneceğim"))
+        self.bekleme_gorseli = QLineEdit(self._al("standby_image", ""))
+        self.bekleme_gorseli.setPlaceholderText("İsteğe bağlı: bir resim (PNG/JPG)")
+        gozat = QPushButton("Seç…", objectName="sahne")
+        gozat.clicked.connect(self._gorsel_sec)
+        gorsel_satiri = QHBoxLayout()
+        gorsel_satiri.addWidget(self.bekleme_gorseli, 1)
+        gorsel_satiri.addWidget(gozat)
+        self.vurgu = QCheckBox("İmlecin etrafında halka, tıklayınca dalga efekti")
+        self.vurgu.setChecked(self._al("video.cursor_highlight", False))
         self.gecis = QSpinBox()
         self.gecis.setRange(0, 2000)
         self.gecis.setSingleStep(50)
@@ -99,12 +108,20 @@ class AyarlarPenceresi(QDialog):
         self.dnd.setChecked(self._al("ui.dnd_reminder", True))
         f.addRow("Yakalanan ekran", self.monitor)
         f.addRow("", self.imlec)
+        f.addRow("", self.vurgu)
         f.addRow("Bekleme ekranı yazısı", self.bekleme)
+        f.addRow("Bekleme ekranı görseli", gorsel_satiri)
         f.addRow("Sahne geçiş süresi", self.gecis)
         f.addRow("", self.bildirim)
         f.addRow("", self.tepsi)
         f.addRow("", self.dnd)
         return w
+
+    def _gorsel_sec(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+        yol, _ = QFileDialog.getOpenFileName(self, "Bekleme ekranı görseli", "", "Resimler (*.png *.jpg *.jpeg *.bmp)")
+        if yol:
+            self.bekleme_gorseli.setText(yol)
 
     def _kamera(self) -> QWidget:
         w = QWidget()
@@ -150,7 +167,16 @@ class AyarlarPenceresi(QDialog):
         f.addRow("Bilgisayar sesi", self.ses_modu)
         f.addRow("Sadece bu uygulama", self.dahil)
         f.addRow("Hariç tutulanlar", self.haric)
+        self.kisma_seviye = QSlider(Qt.Horizontal)
+        self.kisma_seviye.setRange(5, 80)
+        self.kisma_seviye.setValue(round(self._al("audio.ducking_level", 0.3) * 100))
+        kisma_etiket = QLabel(f"%{self.kisma_seviye.value()}")
+        self.kisma_seviye.valueChanged.connect(lambda v: kisma_etiket.setText(f"%{v}"))
+        kisma_satiri = QHBoxLayout()
+        kisma_satiri.addWidget(self.kisma_seviye, 1)
+        kisma_satiri.addWidget(kisma_etiket)
         f.addRow("", self.kisma)
+        f.addRow("Kısınca kalan ses", kisma_satiri)
         aciklama = QLabel("Hariç tutulanlar listesinden çalışan ilk uygulamanın sesi gönderilmez; "
                           "böylece toplantıdaki kişiler kendi seslerini yankı olarak duymaz. "
                           "Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da msedge.exe'yi ekle.",
@@ -225,6 +251,9 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("ui.minimize_to_tray", self.tepsi.isChecked())
         a.ayarla("ui.dnd_reminder", self.dnd.isChecked())
         a.ayarla("standby_text", self.bekleme.text().strip() or "Birazdan döneceğim")
+        a.ayarla("standby_image", self.bekleme_gorseli.text().strip())
+        a.ayarla("video.cursor_highlight", self.vurgu.isChecked())
+        a.ayarla("audio.ducking_level", self.kisma_seviye.value() / 100)
         a.ayarla("transition_ms", self.gecis.value())
         a.ayarla("camera.device", self.kamera_no.value())
         a.ayarla("camera.mirror", self.ayna.isChecked())
@@ -256,6 +285,8 @@ class AyarlarPenceresi(QDialog):
             from scenes.scene_manager import KameraYerlesimi
             hat.imlec_goster = a.al("video.show_cursor", True)
             hat.bekleme_metni = a.al("standby_text", "Birazdan döneceğim")
+            hat.bekleme_gorseli = a.al("standby_image", "")
+            hat.imlec_vurgusu = a.al("video.cursor_highlight", False)
             hat.kamera_yerlesimi = KameraYerlesimi.ayarlardan(a.al("camera", {}))
             hat.sahneler.gecis_sn = max(0, a.al("transition_ms", 300)) / 1000
             if hat.kamera is not None:
@@ -263,6 +294,8 @@ class AyarlarPenceresi(QDialog):
                 if hasattr(hat.kamera, "bulaniklastir"):
                     hat.kamera.bulaniklastir = a.al("camera.blur", False)
         if self.ses is not None:
+            self.ses.mikser.kisma_acik = a.al("audio.ducking", False)
+            self.ses.mikser.kisma_seviyesi = a.al("audio.ducking_level", 0.3)
             self.ses.haric_uygulamalar = a.al("audio.exclude_apps", [])
             self.ses.sistem_ayarla(a.al("audio.system_mode", "auto"), a.al("audio.include_app", ""))
 

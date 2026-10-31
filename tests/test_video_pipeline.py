@@ -105,3 +105,17 @@ def test_imlec_cizilir_ama_kaynak_karesi_bozulmaz():
     kare = hat._kare_uret()
     assert kare[110, 103].min() > 200
     assert kaynak.kare.max() == 0
+
+
+def test_panik_aninda_bekleme_ekrani_ve_imlec_vurgusu_cokmez():
+    depo, cikis = DurumDeposu(), SahteCikis()
+    hat = VideoHatti(depo, SahteKaynak(), cikis, fps=60, imlec_vurgusu=True)
+    hat.baslat()
+    try:
+        assert _bekle(lambda: depo.durum.ekran_kaynagi == "çalışıyor")
+        hat.panik = True
+        assert _bekle(lambda: hat.son_kare()[360, 640].tolist() != [100, 100, 100])
+        hat.panik = False
+        assert _bekle(lambda: hat.son_kare()[5, 5].tolist() == [100, 100, 100])
+    finally:
+        hat.durdur()

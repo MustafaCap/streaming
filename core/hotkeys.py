@@ -214,3 +214,83 @@ def gruplara_ayir(ayar: dict, komutlar) -> dict[str, str]:
             continue
         sonuc[anahtar] = komut
     return sonuc
+
+
+class BasKonus:
+    """Bas-konuş: ayarlanan tuş basılıyken mikrofon açık, bırakınca kapalı.
+
+    RegisterHotKey sadece "basıldı" haberi verir, "bırakıldı"yı vermez; bu yüzden
+    tuşun durumu saniyede 50 kez GetAsyncKeyState ile okunur (tuş oyuna da gider).
+    degisti(basili: bool) değişince çağrılır (bu iş parçacığından).
+    """
+
+    ARALIK = 0.02
+
+    def __init__(self, degisti, tus_okuyucu=None):
+        self.degisti = degisti
+        self._tus_okuyucu = tus_okuyucu
+        self._tus: tuple[int, int] | None = None
+        self._calis = threading.Event()
+        self._is: threading.Thread | None = None
+        self.basili = False
+
+    @property
+    def aktif(self) -> bool:
+        return self._tus is not None
+
+    def ayarla(self, tus: str) -> bool:
+        """Boş tuş bas-konuşu kapatır. Geçersiz tuşta False."""
+        if not tus:
+            self._tus = None
+            self.durdur()
+            return True
+        try:
+            self._tus = tus_coz(tus)
+        except GecersizTus:
+            self._tus = None
+            self.durdur()
+            return False
+        self.baslat()
+        return True
+
+    def baslat(self) -> None:
+        if self._is is not None or self._tus is None:
+            return
+        if self._tus_okuyucu is None and sys.platform != "win32":
+            return
+        self._calis.set()
+        self._is = threading.Thread(target=self._dongu, name="bas-konus", daemon=True)
+        self._is.start()
+
+    def durdur(self) -> None:
+        self._calis.clear()
+        if self._is is not None and self._is is not threading.current_thread():
+            self._is.join(timeout=1)
+        self._is = None
+        if self.basili:
+            self.basili = False
+            self.degisti(False)
+
+    def _basili_mi(self, vk: int) -> bool:
+        if self._tus_okuyucu is not None:
+            return self._tus_okuyucu(vk)
+        import ctypes
+        return bool(ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000)
+
+    def _dongu(self) -> None:
+        import time
+        while self._calis.is_set():
+            tus = self._tus
+            if tus is None:
+                break
+            mod, vk = tus
+            gerekli = [v for m, v in ((MOD_CONTROL, 0x11), (MOD_SHIFT, 0x10), (MOD_ALT, 0x12), (MOD_WIN, 0x5B))
+                       if mod & m]
+            basili = self._basili_mi(vk) and all(self._basili_mi(v) for v in gerekli)
+            if basili != self.basili:
+                self.basili = basili
+                try:
+                    self.degisti(basili)
+                except Exception:
+                    log.exception("Bas-konuş geri çağrısında hata")
+            time.sleep(self.ARALIK)
