@@ -147,17 +147,27 @@ def test_ses_modlari_ve_kaydet_baglantisi(uygulama, tmp_path):
     assert ayarlar.al("audio.modes")["sesim"] == [90, 45] and panel.modlar.secili == 0
 
 
-def test_mini_cubukta_duraklat_sadece_kayitta(uygulama):
+def test_mini_bar_genis_acilir_kayitta_kuculur(uygulama):
     from ui.mini_bar import MiniCubuk
     depo = DurumDeposu()
-    m = MiniCubuk(_komutlar(), _hat(), None)
-    m.show()
+    hat = _hat()
+    m = MiniCubuk(_komutlar(), hat, None)
     m.durumu_goster(depo.durum)
-    assert m.dugmeler["kayit.duraklat"].isHidden()
-    depo.guncelle(kayit="açık", kayit_duraklatildi=True)
+    m.goster()
+    assert m.genis and not m._araclar.isHidden() and not m.kayit.isHidden() and m.kayit_grubu.isHidden()
+    assert hat.mini_gorunur
+    depo.guncelle(kayit="açık", kayit_suresi=261, mikrofon_sessiz=True)
     m.durumu_goster(depo.durum)
-    assert not m.dugmeler["kayit.duraklat"].isHidden() and m.dugmeler["kayit.duraklat"].text() == "▶"
+    assert not m.genis and m._araclar.isHidden() and not m.kayit_grubu.isHidden()
+    assert m.kayit_grubu.sure.text() == "04:21" and m.kayit_grubu.bitir.isHidden()
+    m.genislet(True)
+    assert not m._araclar.isHidden() and not m.kayit_grubu.bitir.isHidden()
+    assert m.dugmeler["ses.mikrofon"].kapali and m.dugmeler["ses.mikrofon"].accessibleName() == "Mikrofon kapalı, aç"
+    depo.guncelle(kayit_duraklatildi=True)
+    m.durumu_goster(depo.durum)
+    assert m.kayit_grubu.duraklat.accessibleName() == "Kayda devam et"
     m.close()
+    assert not hat.mini_gorunur
 
 
 def test_kaynak_secici_ilk_satir_tum_ekran(uygulama):

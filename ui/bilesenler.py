@@ -27,6 +27,20 @@ class _Dugme(QAbstractButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.TabFocus)
         self._uzerinde = False
+        self._klavye_odagi = False   # odak halkası sadece Tab ile gelinince çizilir
+
+    def focusInEvent(self, e):
+        self._klavye_odagi = e.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason, Qt.ShortcutFocusReason)
+        super().focusInEvent(e)
+        self.update()
+
+    def focusOutEvent(self, e):
+        self._klavye_odagi = False
+        super().focusOutEvent(e)
+        self.update()
+
+    def odak_halkasi(self) -> bool:
+        return self.hasFocus() and self._klavye_odagi
 
     def enterEvent(self, e):
         self._uzerinde = True
@@ -52,7 +66,7 @@ class _Dugme(QAbstractButton):
             p.setPen(Qt.NoPen)
             p.setBrush(qrenk("beyaz", alfa))
             p.drawRoundedRect(r, yaricap, yaricap)
-        if self.hasFocus():
+        if self.odak_halkasi():
             p.setPen(qrenk("beyaz", 0.5))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(r.adjusted(1, 1, -1, -1), yaricap, yaricap)
@@ -130,7 +144,7 @@ class SimgeDugme(_Dugme):
             self.update()
 
     def paintEvent(self, _):
-        if self.gizli and not self.hasFocus() and not self._uzerinde:
+        if self.gizli and not self.odak_halkasi() and not self._uzerinde:
             return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -180,7 +194,7 @@ class Anahtar(_Dugme):
         p.setBrush(qrenk("zemin") if acik else qrenk("soluk"))
         x = r.x() + (19 if acik else 3)
         p.drawEllipse(QRectF(x + 0.5, r.y() + 4, 12, 12) if acik else QRectF(x, r.y() + 4, 12, 12))
-        if self.hasFocus():
+        if self.odak_halkasi():
             p.setPen(qrenk("beyaz", 0.5))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 12, 12)

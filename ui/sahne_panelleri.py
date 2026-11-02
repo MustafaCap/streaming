@@ -49,6 +49,12 @@ class _Satir(QWidget):
         self.setAttribute(Qt.WA_Hover)
         self.setFocusPolicy(Qt.TabFocus)
         self.secili = False
+        self._klavye_odagi = False
+
+    def focusInEvent(self, e):
+        self._klavye_odagi = e.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason)
+        super().focusInEvent(e)
+        self.update()
 
     def event(self, e):
         if e.type() in (e.Type.HoverEnter, e.Type.HoverLeave):
@@ -69,7 +75,7 @@ class _Satir(QWidget):
             p.setPen(Qt.NoPen)
             p.setBrush(qrenk("beyaz", alfa))
             p.drawRoundedRect(QRectF(self.rect()), 8, 8)
-        if self.hasFocus():
+        if self.hasFocus() and self._klavye_odagi:
             p.setPen(qrenk("beyaz", 0.5))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
