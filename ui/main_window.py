@@ -630,7 +630,12 @@ class AnaPencere(QMainWindow):
         k.panik.setToolTip(ipucu("Panik: tüm çıkışı anında durdurur, bekleme ekranına geçer", self._tus("panik")))
         k.kayit_grubu.duraklat.ad_ayarla(k.kayit_grubu.duraklat.accessibleName(), self._tus("kayit.duraklat"))
         k.kayit_grubu.bitir.ad_ayarla("Kaydı bitir", self._tus("kayit.ac_kapat"))
-        self.baslik.tekrar.setToolTip(ipucu("Son 2 dakikayı MP4 olarak kaydet", self._tus("anlik_kayit.kaydet")))
+        from core.anlik_tekrar import sure_etiketi
+        etiket = sure_etiketi(self.ayarlar.al("record.replay_seconds", 120) if self.ayarlar is not None else 120)
+        self.baslik.tekrar.setText(f"{etiket}'yı kaydet" if etiket.endswith("dk") else f"{etiket}'yi kaydet")
+        self.baslik.tekrar.setVisible(self.ayarlar is None or bool(self.ayarlar.al("record.replay", True)))
+        self.baslik.tekrar.setToolTip(ipucu(f"{etiket} MP4 olarak kaydedilir (bellekte tutulur, diske sürekli "
+                                            "yazılmaz)", self._tus("anlik_kayit.kaydet")))
         self._ipucu_durumu = None
 
     def ayarlar_degisti(self) -> None:

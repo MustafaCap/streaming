@@ -50,9 +50,11 @@ class UygulamaKabugu(QObject):
         self.tepsi = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             from ui.tray import Tepsi
-            self.tepsi = Tepsi(komutlar, hat, depo, self.pencereyi_goster, self.cikmayi_onayla)
+            self.tepsi = Tepsi(komutlar, hat, depo, self.pencereyi_goster, self.cikmayi_onayla,
+                               sorun_goster=self.yardimi_goster)
             self.tepsi.show()
         self._son_hata = ""
+        self._cikis_sorunu = ""
         self.pencere.tepsiye_kucul = self.tepsi is not None and ayarlar.al("ui.minimize_to_tray", True)
         self.pencere.tepsiye_kuculdu = self._tepsiye_kuculdu
         self._ilk_kuculme = True
@@ -135,13 +137,26 @@ class UygulamaKabugu(QObject):
             # Tüm ekrana kendiliğinden dönülmez: yayında başka bir şey görünmesin
             self.bildirim.goster("Seçilen pencere kapandı · Göster menüsünden yenisini seç")
         self._pencere_koptu = koptu
-        if d.son_hata and d.son_hata != self._son_hata:
+        from ui.yardim import cikis_sorunu
+        sorun = cikis_sorunu(d)
+        if sorun != self._cikis_sorunu:
+            self._cikis_sorunu = sorun
+            if sorun:
+                self.bildirim.goster(sorun, eylem=("Nasıl düzeltilir?", self.yardimi_goster))
+            if self.tepsi is not None:
+                self.tepsi.sorun_ayarla(sorun)
+        # Sanal çıkış hataları yukarıdaki uyarıyla gösterildi; aynısı ikinci kez çıkmasın
+        if d.son_hata and d.son_hata != self._son_hata and not (sorun and d.son_hata.startswith(("Sanal", "OBS"))):
             self.bildirim.goster(d.son_hata)
         self._son_hata = d.son_hata
         if self.tepsi is not None:
             self.tepsi.durumu_goster(d)
         if self.mini.isVisible():
             self.mini.durumu_goster(d)
+
+    def yardimi_goster(self) -> None:
+        from ui.yardim import yardim_goster
+        yardim_goster(self._cikis_sorunu, self.pencere if self.pencere.isVisible() else None)
 
     # ---- F6 kare seçme
 
@@ -220,7 +235,8 @@ class UygulamaKabugu(QObject):
     def ayarlari_ac(self, sekme: str | None = None) -> None:
         from ui.settings_dialog import AyarlarPenceresi
         ebeveyn = self.pencere if self.pencere.isVisible() else None
-        AyarlarPenceresi(self.ayarlar, self.hat, self.ses, self._ayarlar_degisti, ebeveyn, sekme=sekme).exec()
+        AyarlarPenceresi(self.ayarlar, self.hat, self.ses, self._ayarlar_degisti, ebeveyn, sekme=sekme,
+                         cikis=self.cikmayi_onayla, basarisiz=list(self.kisayollar.basarisiz)).exec()
 
     # ---- kaynak ekleme yardımcıları (Kaynaklar paneli)
 
@@ -283,6 +299,7 @@ class UygulamaKabugu(QObject):
         if hasattr(self.pencere, "ayarlar_degisti"):
             self.pencere.ayarlar_degisti()
         self.kisayollar.grup_ayarla("genel", gruplara_ayir(self.ayarlar.al("hotkeys", {}), self.komutlar))
+        QTimer.singleShot(800, self._basarisizlari_bildir)   # yeni tuş başka programdaysa söyle
         if self.kalem is not None and self.kalem.acik:
             self.kalem._kalem_tuslari(True)
         self.pencere.tepsiye_kucul = self.tepsi is not None and self.ayarlar.al("ui.minimize_to_tray", True)

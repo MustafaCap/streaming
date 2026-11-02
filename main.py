@@ -204,9 +204,8 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             if bildir is None:
                 return
             if dosya:
-                sure = tekrar.sure_sn
-                metin = f"Son {sure // 60} dk kaydedildi" if sure % 60 == 0 else f"Son {sure} sn kaydedildi"
-                bildir(metin, eylem=("Aç", lambda: dosyayi_ac(dosya)))
+                from core.anlik_tekrar import sure_etiketi
+                bildir(f"{sure_etiketi(tekrar.sure_sn)} kaydedildi", eylem=("Aç", lambda: dosyayi_ac(dosya)))
             else:
                 bildir(f"Tekrar kaydedilemedi: {hata}")
 

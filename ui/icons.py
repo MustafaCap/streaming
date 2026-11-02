@@ -9,7 +9,7 @@ gri olduğu için simgeler de gridir. Kapalı durumda simgenin üstüne çapraz 
 from functools import lru_cache
 
 from PySide6.QtCore import QByteArray, QRectF, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QIcon, QPainter, QPixmap
 
 from ui.theme import RENK
 

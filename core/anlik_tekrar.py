@@ -42,6 +42,12 @@ def sureyi_sinirla(sn) -> int:
     return max(EN_KISA, min(EN_UZUN, sn))
 
 
+def sure_etiketi(sn) -> str:
+    """120 -> "Son 2 dk", 90 -> "Son 90 sn" (düğme ve bildirim metinleri için)."""
+    sn = sureyi_sinirla(sn)
+    return f"Son {sn // 60} dk" if sn % 60 == 0 else f"Son {sn} sn"
+
+
 def dosya_adi(zaman: datetime | None = None) -> str:
     return (zaman or datetime.now()).strftime("Tekrar_%Y-%m-%d_%H-%M-%S.mp4")
 

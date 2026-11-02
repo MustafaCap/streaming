@@ -89,7 +89,6 @@
   "record": {
     "folder": "",
     "encoder": "auto",
-    "camera": false,
     "replay": true,
     "replay_seconds": 120
   },
