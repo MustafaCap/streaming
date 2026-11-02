@@ -25,9 +25,8 @@ class UygulamaKabugu(QObject):
         super().__init__()
         self.app, self.pencere, self.komutlar, self.depo, self.ayarlar = app, pencere, komutlar, depo, ayarlar
         self.hat, self.ses = hat, ses
-        self._katman = None
-        self._iz = None   # yakınlaştırılan karenin ekrandaki yerini gösteren çerçeve
-        komutlar.kaydet("bolge.sec", "Kare seç / tam ekrana dön", self._bolge_sec)
+        self._katman = None   # kaynak eklerken açılan basit bölge seçici
+        komutlar.kaydet("bolge.sec", "Bölge seç / tam ekrana dön", self._bolge_sec)
         komutlar.kaydet("kaynak.sec", "Ne gösterilsin: tüm ekran ya da bir pencere", self._kaynak_sec)
         komutlar.kaydet("kaynak.ekran", "Tüm ekranı yakala", self._ekrana_don)
         komutlar.kaydet("kaynak.monitor", "Bir monitörün tamamını göster", self._monitor_sec)
@@ -45,7 +44,8 @@ class UygulamaKabugu(QObject):
         self.kalem = None
         if cizimler is not None:
             from ui.drawing_overlay import KalemDenetleyici
-            self.kalem = KalemDenetleyici(komutlar, depo, hat, cizimler, self.kisayollar, ayarlar)
+            self.kalem = KalemDenetleyici(komutlar, depo, hat, cizimler, self.kisayollar, ayarlar,
+                                          bildir=lambda m: self.bildir(m))
 
         self.tepsi = None
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -189,56 +189,21 @@ class UygulamaKabugu(QObject):
         return f"Ekran {int(self.ayarlar.al('video.monitor', 0)) + 1} gösteriliyor"
 
     def _tam_ekrana_hazirla(self) -> None:
-        """Pencereye geçerken kare seçme ve kalem kapanır (ikisi de monitörün üstünde çalışır)."""
-        if self._katman is not None:
-            self._katman.close()
-        if self.hat.bolge.aktif:
+        """Pencereye geçerken bölge ve kalem kapanır (ikisi de monitörün üstünde çalışır)."""
+        if self.kalem is not None:
+            self.kalem.hepsini_kapat()
+        elif self.hat.bolge.aktif:
             self.hat.bolge.temizle()
             self.depo.guncelle(bolge="")
-        self._izi_gizle()
-        if self.kalem is not None and self.kalem.acik:
-            self.kalem.kapat()
 
     def _bolge_sec(self, _):
-        from ui.region_overlay import BolgeKatmani, ekrani_bul
-        if self.depo.durum.kaynak_turu == "pencere" and self._katman is None and not self.hat.bolge.aktif:
-            return "Bölge tüm ekranda çalışır · Göster menüsünden bir ekran seç"
-        if self._katman is not None:
-            self._katman.close()
-            return "Kare seçme iptal edildi"
-        if self.hat.bolge.aktif:
-            self.hat.bolge.temizle()
-            self.depo.guncelle(bolge="")
-            self._izi_gizle()
-            return "Tam ekrana dönüldü"
-        self._izi_gizle()
-        ekran = ekrani_bul(getattr(self.hat.kaynak, "dikdortgen", None))
-        self._katman = BolgeKatmani(ekran, self.hat.bolge.bolge)
-        self._katman.secildi.connect(self._bolge_secildi)
-        self._katman.destroyed.connect(self._katman_kapandi)
-        self._katman.baslat()
-        return None
-
-    @Slot(tuple, str)
-    def _bolge_secildi(self, bolge, mod) -> None:
-        self.hat.bolge.sec(bolge, mod)
-        self.depo.guncelle(bolge=mod)
-        if mod == "yakinlastir":
-            from ui.region_marker import YakinlastirmaIzi
-            from ui.region_overlay import ekrani_bul
-            if self._iz is None:
-                self._iz = YakinlastirmaIzi()
-            self._iz.goster(ekrani_bul(getattr(self.hat.kaynak, "dikdortgen", None)), self.hat.bolge.bolge or bolge)
-        metin = "Kare yayında" if mod == "yakinlastir" else "Vurgulama açık"
-        self._bildirim_goster(f"{metin} · tam ekran için tekrar", self.tus_haritasi.get("bolge.sec", ""))
+        if self.kalem is None:
+            return None
+        return self.kalem.bolge_ac_kapat()
 
     def _izi_gizle(self) -> None:
-        if self._iz is not None:
-            self._iz.hide()
-
-    @Slot()
-    def _katman_kapandi(self, *_):
-        self._katman = None
+        if self.kalem is not None and self.kalem._iz is not None:
+            self.kalem._iz.hide()
 
     def _kayit_klasoru(self, _):
         from ui.klasor import kayit_klasorunu_ac
