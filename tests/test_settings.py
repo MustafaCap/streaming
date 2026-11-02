@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from core import paths
 from core.settings import SURUM, Ayarlar
@@ -135,3 +136,14 @@ def test_2_0_1_gelismis_gorunum_bir_kez_acik_gelir():
     a.ayarla("ui.advanced", False)
     a.kaydet()
     assert Ayarlar().al("ui.advanced") is False            # kapatınca hatırlanır, tekrar açılmaz
+
+
+def test_surum5_tekrar_suresi_15_sn_olur_ama_degistirilmis_kalir(tmp_path):
+    import json
+
+    from core.settings import Ayarlar
+    varsayilan = Path(__file__).resolve().parent.parent / "config" / "settings.default.json"
+    for eski, beklenen in ((120, 15), (60, 60)):
+        dosya = tmp_path / f"s{eski}.json"
+        dosya.write_text(json.dumps({"version": 4, "record": {"replay_seconds": eski}}), encoding="utf-8")
+        assert Ayarlar(dosya, varsayilan).al("record.replay_seconds") == beklenen

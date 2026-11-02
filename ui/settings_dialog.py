@@ -185,10 +185,10 @@ class AyarlarPenceresi(QDialog):
         self.tekrar = QCheckBox("Son dakikaları bellekte tut (diske yazmaz)")
         self.tekrar.setChecked(self._al("record.replay", True))
         self.tekrar_suresi = QSpinBox()
-        self.tekrar_suresi.setRange(30, 300)
-        self.tekrar_suresi.setSingleStep(30)
+        self.tekrar_suresi.setRange(15, 300)
+        self.tekrar_suresi.setSingleStep(15)
         self.tekrar_suresi.setSuffix(" sn")
-        self.tekrar_suresi.setValue(self._al("record.replay_seconds", 120))
+        self.tekrar_suresi.setValue(self._al("record.replay_seconds", 15))
         self.tekrar_suresi.setEnabled(self.tekrar.isChecked())
         self.tekrar.toggled.connect(self.tekrar_suresi.setEnabled)
         tekrar_satiri = QHBoxLayout()
@@ -464,7 +464,7 @@ class AyarlarPenceresi(QDialog):
             hat.sahneler.gecis_sn = max(0, a.al("transition_ms", 300)) / 1000
             tekrar = getattr(hat, "tekrar", None)
             if tekrar is not None:
-                tekrar.sure_ayarla(a.al("record.replay_seconds", 120))
+                tekrar.sure_ayarla(a.al("record.replay_seconds", 15))
                 acik = a.al("record.replay", True)
                 if acik != tekrar.acik:
                     import threading

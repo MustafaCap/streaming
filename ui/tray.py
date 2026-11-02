@@ -29,7 +29,7 @@ class Tepsi(QSystemTrayIcon):
         self.sahneler.aboutToShow.connect(self._sahneleri_doldur)
         menu.addSeparator()
         self.a_kayit = menu.addAction("Kaydı başlat", lambda: komutlar.calistir("kayit.ac_kapat"))
-        self.a_tekrar = menu.addAction("Son 2 dk'yı kaydet", lambda: komutlar.calistir("anlik_kayit.kaydet"))
+        self.a_tekrar = menu.addAction("Son 15 sn'yi kaydet", lambda: komutlar.calistir("anlik_kayit.kaydet"))
         menu.addAction("Kayıt klasörünü aç", lambda: komutlar.calistir("kayit.klasor"))
         menu.addSeparator()
         self.a_cikis = menu.addAction("Sanal çıkışı duraklat", lambda: komutlar.calistir("cikis.ac_kapat"))
@@ -81,4 +81,9 @@ class Tepsi(QSystemTrayIcon):
         self.a_kayit.setText("Kaydı bitir" if d.kayit == "açık" else "Kaydı başlat")
         self.a_kayit.setEnabled(self.komutlar.var_mi("kayit.ac_kapat"))
         self.a_tekrar.setEnabled(self.komutlar.var_mi("anlik_kayit.kaydet"))
+        tekrar = getattr(self.hat, "tekrar", None)
+        if tekrar is not None:
+            from core.anlik_tekrar import sure_etiketi
+            etiket = sure_etiketi(tekrar.sure_sn)
+            self.a_tekrar.setText(f"{etiket}'yı kaydet" if etiket.endswith("dk") else f"{etiket}'yi kaydet")
         self.a_cikis.setText("Sanal çıkışı duraklat" if self.hat.cikis_istegi else "Sanal çıkışı sürdür")

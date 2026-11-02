@@ -17,7 +17,7 @@ from core.gurultu import CERCEVE, GurultuAzaltici
 # ---- anlık tekrar
 
 def test_tekrar_suresi_sinirlari_ve_dosya_adi():
-    assert sureyi_sinirla(10) == 30 and sureyi_sinirla(999) == 300 and sureyi_sinirla("x") == 120
+    assert sureyi_sinirla(10) == 15 and sureyi_sinirla(999) == 300 and sureyi_sinirla("x") == 15
     assert dosya_adi(datetime(2026, 11, 2, 9, 5, 7)) == "Tekrar_2026-11-02_09-05-07.mp4"
 
 
@@ -196,7 +196,7 @@ def test_ayarlar_yeni_secenekler(tmp_path):
     ses = Ses()
     p = AyarlarPenceresi(a, ses=ses,
                          basarisiz=["genel:" + (a.al("hotkeys", {}).get("panik") or "Ctrl+Alt+P")])
-    assert p.tekrar.isChecked() and p.tekrar_suresi.value() == 120
+    assert p.tekrar.isChecked() and p.tekrar_suresi.value() == 15
     assert p.mikrofon.count() == 2
     isaretli = [p.tablo.item(i, 0).text() for i in range(p.tablo.rowCount())
                 if p.tablo.item(i, 0).text().startswith("⚠")]

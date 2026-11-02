@@ -28,7 +28,10 @@ class Tampon:
     """
 
     ON_TAMPON_SN = 0.04
-    EN_FAZLA_SN = 0.25
+    # 2.0.3: 0,25 -> 0,12. Görüntü sanal kameraya neredeyse anında gidiyor; ses tamponunda biriken her
+    # milisaniye Zoom'da sesi görüntünün gerisine düşürür. 0,12 sn ses kartlarının düzensiz blok
+    # gönderimine (ör. 20-30 ms'lik patlamalar) yetecek kadar pay bırakır.
+    EN_FAZLA_SN = 0.12
 
     def __init__(self, giris_hizi: int = ORNEKLEME):
         self.giris_hizi = giris_hizi

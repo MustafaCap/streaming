@@ -219,7 +219,7 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
                 return tekrar.son_hata
             return None
 
-        komutlar.kaydet("anlik_kayit.kaydet", "Son 2 dakikayı kaydet", tekrar_kaydet)
+        komutlar.kaydet("anlik_kayit.kaydet", "Anlık tekrarı kaydet (son 15 sn)", tekrar_kaydet)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -314,7 +314,7 @@ def main() -> int:
     kayitci = Kayitci(w, h, fps, ayarlar.al("record.folder", "") or None, ayarlar.al("record.encoder", "auto"))
     hat.kayitci = kayitci
     from core.anlik_tekrar import AnlikTekrar
-    tekrar = AnlikTekrar(w, h, fps, ayarlar.al("record.replay_seconds", 120), ayarlar.al("record.encoder", "auto"))
+    tekrar = AnlikTekrar(w, h, fps, ayarlar.al("record.replay_seconds", 15), ayarlar.al("record.encoder", "auto"))
     hat.tekrar = tekrar
     mikser.dinleyici_ekle(tekrar.ses_yaz)
     # Sahne ve kaynak değişiklikleri hemen kaydedilir (uygulama çökse de kaybolmaz)

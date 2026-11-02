@@ -26,7 +26,7 @@ def test_tampon_on_tampon_ve_alt_tasma():
 
 def test_tampon_eski_sesi_atar_ve_hiz_donusturur():
     t = Tampon()
-    t.yaz(np.zeros((ORNEKLEME, 2), np.float32))  # 1 sn yaz, en fazla 0,25 sn tutulur
+    t.yaz(np.zeros((ORNEKLEME, 2), np.float32))  # 1 sn yaz, en fazla EN_FAZLA_SN tutulur
     assert len(t._veri) == int(ORNEKLEME * Tampon.EN_FAZLA_SN)
     t2 = Tampon(giris_hizi=44100)
     t2.yaz(np.zeros((441, 2), np.float32))
@@ -251,7 +251,7 @@ def test_otomatik_ses_kisma_ve_bas_konus_ve_panik():
     m.kisma_acik, m.kisma_seviyesi = True, 0.3
     _dolu(sis, 0.5, n=48000)
     _dolu(mik, 0.2, n=48000)
-    for _ in range(20):            # 200 ms konuşma
+    for _ in range(10):            # 100 ms konuşma (tampon en fazla EN_FAZLA_SN tutar)
         m.karistir(480)
     assert m.konusuyor and sis.carpan == pytest.approx(0.3)
     mik.kapi = False               # bas-konuş tuşu bırakıldı -> mikrofon susar, ses geri açılır

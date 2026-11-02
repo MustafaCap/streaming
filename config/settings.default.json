@@ -90,7 +90,7 @@
     "folder": "",
     "encoder": "auto",
     "replay": true,
-    "replay_seconds": 120
+    "replay_seconds": 15
   },
   "screenshot": {
     "folder": ""
