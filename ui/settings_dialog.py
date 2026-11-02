@@ -133,8 +133,6 @@ class AyarlarPenceresi(QDialog):
         self.gecis.setSingleStep(50)
         self.gecis.setSuffix(" ms")
         self.gecis.setValue(self._al("transition_ms", 300))
-        self.dnd = QCheckBox("Yayın başlarken 'Rahatsız Etme'yi açmayı hatırlat")
-        self.dnd.setChecked(self._al("ui.dnd_reminder", True))
         f.addRow("Yakalanan ekran", self.monitor)
         f.addRow("", self.imlec)
         f.addRow("", self.vurgu)
@@ -183,7 +181,6 @@ class AyarlarPenceresi(QDialog):
         f.addRow("Ekran görüntüsü klasörü", goruntu_satiri)
         f.addRow("", self.bildirim)
         f.addRow("", self.tepsi)
-        f.addRow("", self.dnd)
         return w
 
     def _gorsel_sec(self) -> None:
@@ -380,7 +377,6 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("video.show_cursor", self.imlec.isChecked())
         a.ayarla("ui.toasts", self.bildirim.isChecked())
         a.ayarla("ui.minimize_to_tray", self.tepsi.isChecked())
-        a.ayarla("ui.dnd_reminder", self.dnd.isChecked())
         a.ayarla("standby_text", self.bekleme.text().strip() or "Birazdan döneceğim")
         gorsel = self.bekleme_gorseli.text().strip()
         if gorsel != a.al("standby_image", ""):

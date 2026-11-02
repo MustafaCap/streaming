@@ -72,7 +72,10 @@ class YardimPenceresi(QDialog):
         kok.setContentsMargins(20, 16, 20, 16)
         kok.addWidget(yazi)
         kok.addWidget(dugmeler)
-        self.resize(480, 0)
+        # Kaydırılan metnin yüksekliği genişliğe bağlı: genişliği sabitleyince pencere metne göre boylanır
+        yazi.setFixedWidth(440)
+        yazi.setMinimumHeight(yazi.heightForWidth(440))
+        self.adjustSize()
 
     def showEvent(self, olay):
         super().showEvent(olay)

@@ -415,7 +415,7 @@ DUMAN_MODULLERI = (
     "capture.region", "core.hotkeys", "capture.screen", "capture.webcam", "capture.app_audio",
     "core.audio_engine", "scenes.scene_manager", "core.platform_win", "capture.window", "ui.pencere_secici",
     "ui.gizlilik", "ui.icons", "PySide6.QtSvg", "ui.bilesenler", "ui.sahne_panelleri", "scenes.kaynaklar",
-    "core.sistem_olcer", "core.ses_modlari",
+    "core.sistem_olcer", "core.ses_modlari", "core.gurultu", "core.anlik_tekrar", "ui.yardim", "ui.logo_veri",
 )
 
 
@@ -434,7 +434,11 @@ def duman_testi(sonuc_yolu: str) -> int:
         ffmpeg = ffmpeg_bul()
         if ffmpeg is None:
             raise RuntimeError("ffmpeg\\ffmpeg.exe bulunamadı")
-        sonuc, kod = f"tamam · sürüm {SURUM} · {len(DUMAN_MODULLERI)} modül · ffmpeg: {ffmpeg}\n", 0
+        from core.gurultu import GurultuAzaltici, dll_yolu
+        if getattr(sys, "frozen", False) and not GurultuAzaltici(True).acik:
+            raise RuntimeError(f"RNNoise yüklenemedi: {dll_yolu()}")
+        sonuc, kod = (f"tamam · sürüm {SURUM} · {len(DUMAN_MODULLERI)} modül · ffmpeg: {ffmpeg} · "
+                      f"rnnoise: {dll_yolu()}\n", 0)
     except BaseException:
         sonuc, kod = traceback.format_exc(), 1
     with open(sonuc_yolu, "w", encoding="utf-8") as f:

@@ -73,3 +73,26 @@ def test_gosterilen_her_pencere_yakalamadan_gizlenir(uygulama):
         w.close()
     finally:
         uygulama.removeEventFilter(g)
+
+
+def test_yeni_pencereler_de_yakalamadan_gizlenir(uygulama, tmp_path, monkeypatch):
+    """Yardım, Ayarlar ve Hakkında pencereleri de (gösterildiği an) ekran yakalamaya girmez."""
+    from core import paths
+    from core.settings import Ayarlar
+    from ui.gizlilik import PencereGizleyici
+    from ui.hakkinda import HakkindaPenceresi
+    from ui.settings_dialog import AyarlarPenceresi
+    from ui.yardim import YardimPenceresi
+    monkeypatch.setattr(paths, "ayar_dosyasi", lambda: tmp_path / "settings.json")
+    gizlenen = []
+    g = PencereGizleyici(gizle=gizlenen.append)
+    uygulama.installEventFilter(g)
+    try:
+        for pencere in (YardimPenceresi("Sanal mikrofon bulunamadı"), AyarlarPenceresi(Ayarlar()),
+                        HakkindaPenceresi()):
+            pencere.show()
+            uygulama.processEvents()
+            assert int(pencere.winId()) in gizlenen, type(pencere).__name__
+            pencere.close()
+    finally:
+        uygulama.removeEventFilter(g)
