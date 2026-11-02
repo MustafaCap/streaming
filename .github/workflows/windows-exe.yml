@@ -60,7 +60,7 @@ jobs:
           path: denemeler/Asama0-Denemeler.zip
 
       - name: İndirme sayfasına koy (Releases)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2: sabit commit, yazma izinli üçüncü taraf eylemi sessizce değişemez
         with:
           tag_name: asama-0
           name: Aşama 0 denemeleri

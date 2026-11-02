@@ -52,6 +52,36 @@ def dosya_adi(zaman: datetime | None = None) -> str:
     return (zaman or datetime.now()).strftime("Tekrar_%Y-%m-%d_%H-%M-%S.mp4")
 
 
+def bos_hedef(klasor: Path, ad: str) -> Path:
+    """Aynı saniyede ikinci tekrar kaydedilirse öncekinin üstüne yazılmasın: Tekrar_..~2.mp4"""
+    hedef = Path(klasor) / ad
+    sira = 2
+    while hedef.exists():
+        hedef = hedef.with_name(f"{Path(ad).stem}~{sira}{Path(ad).suffix}")
+        sira += 1
+    return hedef
+
+
+def artik_dosyalari_sil(klasor, en_az_yas_sn: float = 120) -> int:
+    """Kaydederken uygulama kapanırsa kalan gizli geçici dosyaları (.Tekrar_*.ts / .pcm) siler.
+    Bunlar kurtarılamaz (tekrar zaten bellekteydi); sadece yer kaplarlar."""
+    klasor = Path(klasor)
+    if not klasor.is_dir():
+        return 0
+    silinen = 0
+    simdi = time.time()
+    for f in klasor.glob(".Tekrar_*"):
+        if f.suffix not in (".ts", ".pcm") or not f.is_file():
+            continue
+        try:
+            if simdi - f.stat().st_mtime >= en_az_yas_sn:
+                f.unlink()
+                silinen += 1
+        except OSError:
+            pass
+    return silinen
+
+
 def _pts(paket: bytes, bas: int) -> int | None:
     """PES başlığındaki PTS (90 kHz). bas: yük başlangıcı."""
     pes = paket[bas:]
@@ -337,7 +367,7 @@ class AnlikTekrar:
         return True
 
     def _kaydet(self, klasor: Path, baslik: bytes, parcalar, sesler, baslangic: float, bitti) -> None:
-        hedef = klasor / dosya_adi()
+        hedef = bos_hedef(klasor, dosya_adi())
         video = klasor / f".{hedef.stem}.ts"
         ses = klasor / f".{hedef.stem}.pcm"
         hata = ""
