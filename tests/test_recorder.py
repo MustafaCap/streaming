@@ -246,3 +246,22 @@ def test_ayni_saniyede_ikinci_kayit_ustune_yazmaz(tmp_path):
     (tmp_path / "Kayit_2026-11-02_20-00-00.mp4").write_bytes(b"x")
     assert k._bos_ad("Kayit_2026-11-02_20-00-00") == "Kayit_2026-11-02_20-00-00~2"
     assert _GECICI_AD.match(".Kayit_2026-11-02_20-00-00~2.video.mkv").group(1) == "Kayit_2026-11-02_20-00-00~2"
+
+
+def test_ses_goruntu_saatine_gore_yazilir_bosluk_sessizlikle_dolar(tmp_path):
+    import io
+
+    from core.recorder import SES_HIZI
+    k = Kayitci(320, 240, 30, klasor=tmp_path)
+    k._ses_dosyasi = io.BytesIO()
+    k._baslangic, k._toplam_duraklama = 100.0, 0.0
+    k._ses_dosyasi.close = lambda: None
+    blok = np.full((480, 2), 0.1, np.float32)
+    # 0-10 ms, sonra 500 ms boşluk (bloklar atlandı), sonra 10 ms daha; sonra saatten çok önde giden bir blok
+    for t in (100.01, 100.52, 100.53):
+        k._sesler.put((t, blok))
+    k._sesler.put((100.0, blok))   # 0. saniyeye ait geç gelen blok: ses önde, atlanır
+    k._sesler.put(None)
+    k._ses_dongu()
+    ornek = len(k._ses_dosyasi.getvalue()) // 4
+    assert abs(ornek - int(0.53 * SES_HIZI)) <= 480

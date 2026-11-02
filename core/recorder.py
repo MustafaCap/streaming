@@ -51,9 +51,24 @@ KODLAYICI_AYARLARI = {
 _PENCERESIZ = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW: siyah konsol açılmasın
 SES_HIZI, SES_KANALI = 48000, 2
 GECICI_VIDEO, GECICI_SES = ".video.mkv", ".ses.pcm"
+SES_KAYMA = SES_HIZI // 10   # ses ile görüntü arasında 100 ms'den fazla fark düzeltilir
 # İlk parça ".Kayit_....video.mkv", duraklatıp devam edince ".Kayit_....video.2.mkv", ".3" ...
 # Aynı saniyede ikinci kayıt başlarsa adın sonuna ~2, ~3 ... eklenir.
 _GECICI_AD = re.compile(r"^\.(Kayit_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:~\d+)?)\.video(?:\.(\d+))?\.mkv$")
+
+
+def ffmpeg_girdi_bicimi(genislik: int, yukseklik: int) -> str:
+    """FFmpeg'e gönderilen ham karenin biçimi. YUV 4:2:0, RGB'nin yarısı kadar veri (1080p'de 186 yerine
+    93 MB/sn); çevirme OpenCV ile kayıt iş parçacığında yapılır. Tek sayılı boyutlarda RGB kalır."""
+    return "yuv420p" if genislik % 2 == 0 and yukseklik % 2 == 0 else "rgb24"
+
+
+def ffmpeg_karesi(kare: np.ndarray, bicim: str):
+    """Kareyi FFmpeg'in stdin'ine yazılacak hale getirir (fazladan kopya yapmadan)."""
+    if bicim == "yuv420p":
+        import cv2
+        return memoryview(cv2.cvtColor(np.ascontiguousarray(kare[:, :, :3]), cv2.COLOR_RGB2YUV_I420)).cast("B")
+    return memoryview(np.ascontiguousarray(kare)).cast("B")
 
 
 def parca_yolu(klasor: Path, ad: str, sira: int) -> Path:
@@ -329,8 +344,9 @@ class Kayitci:
         """Yeni bir görüntü parçası için FFmpeg'i başlatır (kilit tutulurken çağrılır)."""
         yol = parca_yolu(self.klasor, self._ad, len(self._parcalar) + 1)
         kod = self._kod
+        self._girdi_bicimi = ffmpeg_girdi_bicimi(self.genislik, self.yukseklik)
         komut = [self.ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
-                 "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{self.genislik}x{self.yukseklik}",
+                 "-f", "rawvideo", "-pix_fmt", self._girdi_bicimi, "-s", f"{self.genislik}x{self.yukseklik}",
                  "-framerate", str(self.fps), "-use_wallclock_as_timestamps", "1", "-i", "-",
                  "-fps_mode", "cfr", "-r", str(self.fps),
                  "-pix_fmt", "nv12" if kod != "mpeg4" else "yuv420p", "-c:v", kod,
@@ -351,7 +367,8 @@ class Kayitci:
         # FFmpeg'in hata çıktısı sürekli okunur (okunmazsa boru dolup FFmpeg tıkanabilir)
         threading.Thread(target=self._ffmpeg_ciktisini_oku, args=(surec,), name="kayit-ffmpeg",
                          daemon=True).start()
-        self._video_is = threading.Thread(target=self._video_dongu, args=(surec, self._kareler, self._parca),
+        self._video_is = threading.Thread(target=self._video_dongu,
+                                          args=(surec, self._kareler, self._parca, self._girdi_bicimi),
                                           name="kayit-video", daemon=True)
         self._video_is.start()
         return True
@@ -399,9 +416,9 @@ class Kayitci:
         if not self._kayitta or self._duraklatildi:
             return
         try:
-            self._sesler.put_nowait(blok)
+            self._sesler.put_nowait((time.monotonic(), blok))
         except queue.Full:
-            self.atlanan_ses += 1
+            self.atlanan_ses += 1   # boşluk _ses_dongu'da sessizlikle doldurulur
 
     def _ffmpeg_ciktisini_oku(self, surec) -> None:
         try:
@@ -426,13 +443,13 @@ class Kayitci:
             except Exception:
                 log.exception("Kayıt hata geri çağrısında hata")
 
-    def _video_dongu(self, surec, kareler, parca) -> None:
+    def _video_dongu(self, surec, kareler, parca, bicim="rgb24") -> None:
         while True:
             kare = kareler.get()
             if kare is None:
                 break
             try:
-                surec.stdin.write(np.ascontiguousarray(kare).tobytes())
+                surec.stdin.write(ffmpeg_karesi(kare, bicim))
                 parca["kare"] += 1
             except Exception as e:
                 time.sleep(0.2)   # FFmpeg'in son satırları okunsun
@@ -459,20 +476,40 @@ class Kayitci:
                 pass
 
     def _ses_dongu(self) -> None:
+        """Sesi görüntüyle aynı saate göre yazar. Görüntü duvar saatiyle zaman damgası alıyor; ses ise
+        örnek sayısıyla ilerliyor. Bir blok atlanırsa ya da ses kartının saati biraz farklı işlerse ses
+        yavaş yavaş kayardı. Bu yüzden her blokta "şu ana kadar kaç örnek yazılmış olmalıydı" hesaplanır:
+        SES_KAYMA_SN'den fazla eksikse sessizlik eklenir, fazlaysa blok atlanır."""
         dosya = self._ses_dosyasi
         yazilabilir = True
+        yazilan = 0
+        ornek_bayt = 2 * SES_KANALI
         while True:
-            blok = self._sesler.get()
-            if blok is None:
+            oge = self._sesler.get()
+            if oge is None:
                 break
             if not yazilabilir:
                 continue
+            zaman, blok = oge
+            veri = (np.clip(blok, -1.0, 1.0) * 32767).astype("<i2").reshape(-1, SES_KANALI)
+            beklenen = int(self._kayit_zamani(zaman) * SES_HIZI) - len(veri)   # bu blok burada başlamalıydı
+            fark = beklenen - yazilan
             try:
-                dosya.write((np.clip(blok, -1.0, 1.0) * 32767).astype("<i2").tobytes())
+                if fark > SES_KAYMA:
+                    dosya.write(bytes(fark * ornek_bayt))   # ses gelmemiş: sessizlik
+                    yazilan += fark
+                elif fark < -SES_KAYMA:
+                    continue                                 # ses önde: bu blok atlanır
+                dosya.write(veri.tobytes())
+                yazilan += len(veri)
                 self._ses_yazildi = True
             except OSError as e:
                 yazilabilir = False
                 self._yazma_hatasi(f"Kayıt sesi yazılamadı (disk dolu olabilir): {e}")
+
+    def _kayit_zamani(self, zaman: float) -> float:
+        """monotonic zamanı kaydın kendi süresine çevirir (duraklatılan süre sayılmaz)."""
+        return max(0.0, zaman - self._baslangic - self._toplam_duraklama)
 
     def durdur(self, bitti=None) -> None:
         """Kaydı bitirir; birleştirme arka planda yapılır, bitince bitti(dosya_yolu|None, hata) çağrılır."""

@@ -104,7 +104,7 @@ class BaslikCubugu(QWidget):
         self.gelismis.setAccessibleName("Gelişmiş görünüm")
         self.klasor = HapDugme("Kayıt klasörü",
                                "Kayıtların, son 2 dk kayıtlarının ve ekran görüntülerinin olduğu klasörü açar")
-        self.tekrar = HapDugme("Son 2 dk'yı kaydet")
+        self.tekrar = HapDugme("Son 15 sn'yi kaydet")
         self.mini = HapDugme("Mini bar", "Ana pencereyi gizle, her zaman üstte duran küçük bara geç")
         self.ayarlar = SimgeDugme("ayarlar", "Ayarlar", boyut=28, simge_boyu=16)
         for d in (self.gelismis, self.klasor, self.tekrar, self.mini):
@@ -643,7 +643,7 @@ class AnaPencere(QMainWindow):
         k.kayit_grubu.duraklat.ad_ayarla(k.kayit_grubu.duraklat.accessibleName(), self._tus("kayit.duraklat"))
         k.kayit_grubu.bitir.ad_ayarla("Kaydı bitir", self._tus("kayit.ac_kapat"))
         from core.anlik_tekrar import sure_etiketi
-        etiket = sure_etiketi(self.ayarlar.al("record.replay_seconds", 120) if self.ayarlar is not None else 120)
+        etiket = sure_etiketi(self.ayarlar.al("record.replay_seconds", 15) if self.ayarlar is not None else 15)
         self.baslik.tekrar.setText(f"{etiket}'yı kaydet" if etiket.endswith("dk") else f"{etiket}'yi kaydet")
         self.baslik.tekrar.setVisible(self.ayarlar is None or bool(self.ayarlar.al("record.replay", True)))
         self.baslik.tekrar.setToolTip(ipucu(f"{etiket} MP4 olarak kaydedilir (bellekte tutulur, diske sürekli "

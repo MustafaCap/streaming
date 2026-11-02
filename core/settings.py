@@ -18,7 +18,7 @@ from core import paths
 
 log = logging.getLogger(__name__)
 
-SURUM = 4
+SURUM = 5
 
 # 2.0.0: F tuşları oyunlarla ve dizüstü Fn tuşlarıyla çakıştığı için kısayollar Ctrl+Shift'e taşındı.
 # Sadece kullanıcının hiç değiştirmediği (eski varsayılanında duran) tuşlar taşınır.
@@ -106,6 +106,11 @@ def _tasi(veri: dict, eski_surum: int, kullanici: dict | None = None) -> None:
     if eski_surum < 4:
         # 2.0.1: Gelişmiş görünüm varsayılan oldu; eski kurulumlarda da bir kez açık gelir (kapatınca hatırlanır)
         veri.setdefault("ui", {})["advanced"] = True
+    if eski_surum < 5:
+        # 2.0.3: anlık tekrarın varsayılanı 2 dk -> 15 sn. Süreyi hiç değiştirmemiş olanlar da 15 sn'ye geçer.
+        kayit = veri.get("record")
+        if isinstance(kayit, dict) and kayit.get("replay_seconds") == 120:
+            kayit["replay_seconds"] = 15
 
 
 def _uygun_deger(varsayilan, deger, yol: str):

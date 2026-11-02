@@ -2,6 +2,13 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.3 — 2026-11-02
+
+- **Anlık tekrar varsayılanı 15 saniye** (önceden 2 dakika): bellekte çok daha az yer tutar. Düğme "Son 15 sn'yi kaydet" olur; süre Ayarlar > Genel'den 15 sn ile 5 dk arasında seçilir. Süreyi hiç değiştirmemiş olanlarda da 15 sn'ye geçer.
+- **Zoom'da ses-görüntü uyumu:** sanal mikrofonun ses tamponu en fazla 0,25 sn yerine 0,12 sn tutar; ses görüntünün gerisinde daha az kalır.
+- **Uzun kayıtlarda ses kayması giderildi:** ses, görüntüyle aynı saate göre yazılır. Bilgisayar yetişemeyip ses atlarsa boşluk sessizlikle doldurulur, ses önde giderse fazlası atılır.
+- **Kayıt ve anlık tekrar daha hafif:** FFmpeg'e kareler RGB yerine YUV olarak gider (yarı yarıya daha az veri) ve gereksiz bir kopya kaldırıldı.
+
 ## 2.0.2 — 2026-11-02
 
 - **Kayıt:** kaydı durdurup dosya hazırlanırken hemen yeni kayıt başlatılırsa iki kayıt birbirine karışabiliyordu (yeni kaydın sesi kesilebiliyor, eski kayıt "kaydedilemedi" diyebiliyordu). Artık önceki dosya hazır olana kadar yeni kayıt başlamaz ve "birkaç saniye sonra tekrar dene" der.

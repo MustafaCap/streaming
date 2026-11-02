@@ -1,4 +1,4 @@
-"""Anlık tekrar: son 2 dakika bellekte durur, Ctrl+Shift+B ile MP4 olarak kaydedilir.
+"""Anlık tekrar: son 15 saniye (ayarlardan 5 dakikaya kadar) bellekte durur, Ctrl+Shift+B ile MP4 olarak kaydedilir.
 
   görüntü: video hattı her kareyi kare_yaz() ile verir -> kuyruk -> FFmpeg (stdin)
            FFmpeg sıkıştırılmış görüntüyü MPEG-TS olarak stdout'a yazar; diske hiçbir şey yazılmaz.
@@ -24,12 +24,13 @@ from pathlib import Path
 import numpy as np
 
 from core.recorder import (KODLAYICI_AYARLARI, SES_HIZI, SES_KANALI, _PENCERESIZ, _gizle, ffmpeg_bul,
-                           kodlayici_sec, varsayilan_klasor)
+                           ffmpeg_girdi_bicimi, ffmpeg_karesi, kodlayici_sec, varsayilan_klasor)
 
 log = logging.getLogger(__name__)
 
-VARSAYILAN_SURE = 120
-EN_KISA, EN_UZUN = 30, 300
+# 2.0.3: varsayılan 2 dk -> 15 sn (daha az bellek; oyun oynarken bilgisayarı yormasın)
+VARSAYILAN_SURE = 15
+EN_KISA, EN_UZUN = 15, 300
 TS = 188
 PAT_PID = 0
 
@@ -209,8 +210,9 @@ class AnlikTekrar:
                 return False
             self.ffmpeg = ffmpeg
             kod = kodlayici_sec(ffmpeg, self.kodlayici_tercihi)
+            bicim = ffmpeg_girdi_bicimi(self.genislik, self.yukseklik)
             komut = [ffmpeg, "-hide_banner", "-loglevel", "error",
-                     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{self.genislik}x{self.yukseklik}",
+                     "-f", "rawvideo", "-pix_fmt", bicim, "-s", f"{self.genislik}x{self.yukseklik}",
                      "-framerate", str(self.fps), "-i", "-",
                      "-pix_fmt", "nv12" if kod != "mpeg4" else "yuv420p", "-c:v", kod,
                      *KODLAYICI_AYARLARI.get(kod, []),
@@ -227,7 +229,7 @@ class AnlikTekrar:
             self._acik = True
             self.son_hata = ""
             surec, kareler = self._surec, self._kareler
-        threading.Thread(target=self._yaz_dongu, args=(surec, kareler), name="tekrar-yaz", daemon=True).start()
+        threading.Thread(target=self._yaz_dongu, args=(surec, kareler, bicim), name="tekrar-yaz", daemon=True).start()
         threading.Thread(target=self._oku_dongu, args=(surec,), name="tekrar-oku", daemon=True).start()
         log.info("Anlık tekrar açık (%d sn, %s)", self.sure_sn, kod)
         return True
@@ -284,13 +286,13 @@ class AnlikTekrar:
 
     # ---- iş parçacıkları
 
-    def _yaz_dongu(self, surec, kareler) -> None:
+    def _yaz_dongu(self, surec, kareler, bicim="rgb24") -> None:
         while True:
             kare = kareler.get()
             if kare is None:
                 break
             try:
-                surec.stdin.write(np.ascontiguousarray(kare).tobytes())
+                surec.stdin.write(ffmpeg_karesi(kare, bicim))
             except Exception as e:
                 if self._acik:
                     self.son_hata = f"Anlık tekrar durdu: {e}"
