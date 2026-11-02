@@ -18,7 +18,7 @@ from core import paths
 
 log = logging.getLogger(__name__)
 
-SURUM = 3
+SURUM = 4
 
 # 2.0.0: F tuşları oyunlarla ve dizüstü Fn tuşlarıyla çakıştığı için kısayollar Ctrl+Shift'e taşındı.
 # Sadece kullanıcının hiç değiştirmediği (eski varsayılanında duran) tuşlar taşınır.
@@ -103,6 +103,9 @@ def _tasi(veri: dict, eski_surum: int, kullanici: dict | None = None) -> None:
         eski_kalem = kullanici.get("pen_hotkeys") if isinstance(kullanici.get("pen_hotkeys"), dict) else {}
         if isinstance(kalem, dict):
             kisayollari_tasi(kalem, eski_kalem, {}, YENI_KALEM_TUSLARI_3)
+    if eski_surum < 4:
+        # 2.0.1: Gelişmiş görünüm varsayılan oldu; eski kurulumlarda da bir kez açık gelir (kapatınca hatırlanır)
+        veri.setdefault("ui", {})["advanced"] = True
 
 
 def _uygun_deger(varsayilan, deger, yol: str):

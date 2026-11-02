@@ -141,3 +141,19 @@ def test_kamera_suruklenen_yere_konur_ve_disari_tasmaz():
     assert (x, y) == (1280 - w, 0)                       # köşeden taşmaz
     assert KameraYerlesimi.ayarlardan({"position": "bozuk"}).konum is None
     assert KameraYerlesimi.ayarlardan({"position": None, "corner": "top-left"}).dikdortgen(1280, 720)[:2] == (24, 24)
+
+
+def test_sahnede_kamera_yoksa_kamera_acik_gorunmez():
+    """2.0.1: mini barda kamera, sahnede kamera kaynağı yokken de 'açık' görünüyordu."""
+    depo, kamera = DurumDeposu(), SahteKamera()
+    hat = VideoHatti(depo, SahteKaynak(), SahteCikis(), fps=60, kamera=kamera,
+                     sahneler=SahneYoneticisi(sahneleri_oku([]), gecis_ms=0))
+    assert hat.kamera_istegi and hat.kamera_sahnede and hat.kamera_gorunur_acik
+    hat.sahne_sec(1)                                   # "Sadece ekran": kamera kaynağı yok
+    assert not hat.kamera_sahnede and not hat.kamera_gorunur_acik
+    assert hat.kamera_istegi                           # tercih durur, kameralı sahneye dönünce gelir
+    hat.sahne_sec(0)
+    assert hat.kamera_gorunur_acik
+    k = hat.sahneler.aktif._ilk("kamera")
+    k.gorunur = False                                  # gizlenmiş kamera da "yok" sayılır
+    assert not hat.sahneler.aktif.kamera_var

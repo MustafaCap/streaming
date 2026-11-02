@@ -9,6 +9,8 @@ Yakalanan monitörün üstüne saydam bir katman açılır. İki hâli var:
 
   kalem (Kalem düğmesi, Ctrl+Shift+D): üst ortada sürüklenebilir kalem barı: Kalem, Fosforlu,
       Ok, Kare, Yazı, Lazer, Silgi · beyaz/kırmızı/sarı/mavi · ince/orta/kalın · temizle · Bitti.
+      Yazı aracında: tıkla yaz (Enter kaydeder; boşken dışarı tık ya da Esc vazgeçer), var olan
+      yazıyı tutup sürükleyerek yerini değiştir (Ctrl+Z eski yerine döndürür).
       Altta ipucu satırı. Bölge seçiliyse çerçevesi görünür, tutamaklarından düzenlenebilir.
       Kalem açıkken 1-7 araç, Ctrl+Z geri al, Del hepsini sil, Esc çık (sadece kalem açıkken
       yakalanan "kalem" kısayol grubu; kalem kapalıyken tuşlar normal şekilde uygulamalara gider).
@@ -21,7 +23,7 @@ görünmese bile çizimler kayda ve sanal kameraya gider.
 import logging
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPolygonF
+from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QWidget
 
 from core.hotkeys import gruplara_ayir, tus_metni
@@ -198,6 +200,8 @@ class Katman(QWidget):
         self._ciziyor = False
         self._fare: QPointF | None = None
         self._yazi_kutusu: QLineEdit | None = None
+        self._tasinan = None          # sürüklenen yazı: (şekil, eski yer, tutma farkı)
+        self._tikla_kapatti = False   # yazı kutusu katmana tıklanınca kapandı: o tık yeni kutu açmasın
 
         # Bölgenin altındaki Yakınlaştır / Vurgula + boyut
         self.bolge_bilgisi = QWidget(self)
@@ -280,6 +284,12 @@ class Katman(QWidget):
                 self.bolge_bilgisi.hide()
                 self.update()
             return
+        if self._yazi_kutusu is not None or self._tikla_kapatti:
+            # Açık yazı kutusunun dışına tıklandı: yazılan varsa kaydedilir, boşsa vazgeçilir. Bu tık
+            # yeni kutu açmaz, böylece bir şey yazmadan da kutudan kurtulunur.
+            self._tikla_kapatti = False
+            self._yazi_bitir(True)
+            return
         if e.button() == Qt.RightButton:
             self.depo.geri_al()
             return
@@ -290,6 +300,13 @@ class Katman(QWidget):
             return
         x, y = self._oran(e.position())
         if self.denetci.tur == "yazi":
+            yazi = self._yazi_bul(e.position())
+            if yazi is not None:
+                # var olan yazıyı tutup sürükle
+                eski = tuple(yazi.noktalar[0])
+                self._tasinan = (yazi, eski, (x - eski[0], y - eski[1]))
+                self.setCursor(Qt.ClosedHandCursor)
+                return
             self._yazi_baslat(e.position())
             return
         self._ciziyor = True
@@ -312,6 +329,13 @@ class Katman(QWidget):
             else:
                 self.imleci_ayarla()
         x, y = self._oran(e.position())
+        if self._tasinan is not None:
+            yazi, _, (fx, fy) = self._tasinan
+            self.depo.yazi_tasi(yazi, x - fx, y - fy)
+            return
+        bolge_tutamagi = self.denetci.hat.bolge.aktif and self.duzenleyici.imlec(nokta, icinden_tasi=False)
+        if self.denetci.tur == "yazi" and self._yazi_kutusu is None and not bolge_tutamagi:
+            self.setCursor(Qt.OpenHandCursor if self._yazi_bul(e.position()) is not None else Qt.IBeamCursor)
         if self._ciziyor:
             self.depo.surukle(x, y)
         elif self.denetci.tur == "lazer":
@@ -323,6 +347,12 @@ class Katman(QWidget):
                 self.denetci.bolge_uygula(self.duzenleyici.oranlar())
             self.bilgiyi_yerlestir()
             self.update()
+            return
+        if self._tasinan is not None and e.button() == Qt.LeftButton:
+            yazi, eski, _ = self._tasinan
+            self._tasinan = None
+            self.depo.tasima_bitti(yazi, eski)
+            self.setCursor(Qt.OpenHandCursor)
             return
         if self._ciziyor and e.button() == Qt.LeftButton:
             self._ciziyor = False
@@ -340,7 +370,13 @@ class Katman(QWidget):
     def keyPressEvent(self, e):
         k = e.key()
         if k == Qt.Key_Escape:
-            if self.mod == "bolge":
+            if self._tasinan is not None:
+                # sürüklemeyi iptal et, yazı eski yerine dönsün
+                yazi, eski, _ = self._tasinan
+                self._tasinan = None
+                self.depo.yazi_tasi(yazi, *eski)
+                self.imleci_ayarla()
+            elif self.mod == "bolge":
                 self.denetci.bolge_vazgec()
             else:
                 self.denetci.kapat()
@@ -352,6 +388,21 @@ class Katman(QWidget):
             self.denetci.bolge_modu("yakinlastir")
 
     # ---- yazı aracı
+
+    def _yazi_alani(self, s) -> QRectF:
+        """Ekrandaki yazının kapladığı dikdörtgen (çizimdeki yazı tipiyle ölçülür)."""
+        kalin = max(1.0, s.kalinlik * self.height())
+        fm = QFontMetricsF(yazi_tipi(max(8, round(kalin))))
+        x, y = s.noktalar[0][0] * self.width(), s.noktalar[0][1] * self.height()
+        return QRectF(x, y, fm.horizontalAdvance(s.metin), max(fm.height(), kalin * 1.3))
+
+    def _yazi_bul(self, konum: QPointF):
+        """Tıklanan yerdeki en öndeki yazı (yoksa None)."""
+        sekiller, _ = self.depo.anlik()
+        for s in reversed(sekiller):
+            if s.tur == "yazi" and self._yazi_alani(s).adjusted(-6, -4, 6, 4).contains(konum):
+                return s
+        return None
 
     def _yazi_baslat(self, konum: QPointF) -> None:
         if self._yazi_kutusu is not None:
@@ -379,7 +430,16 @@ class Katman(QWidget):
         if nesne is self._yazi_kutusu and olay.type() == olay.Type.KeyPress and olay.key() == Qt.Key_Escape:
             self._yazi_bitir(False)
             return True
+        if nesne is self._yazi_kutusu and olay.type() == olay.Type.FocusOut and \
+                olay.reason() == Qt.MouseFocusReason:
+            # Odak, katmana yapılan tıkla gitti; kutu editingFinished ile kapanır, ardından gelen fare
+            # basışı yeni kutu açmasın. Bayrak bu olay turunun sonunda kendiliğinden düşer.
+            self._tikla_kapatti = True
+            QTimer.singleShot(0, self._tik_bayragini_dusur)
         return super().eventFilter(nesne, olay)
+
+    def _tik_bayragini_dusur(self) -> None:
+        self._tikla_kapatti = False
 
     def _yazi_bitir(self, kaydet: bool) -> None:
         kutu = self._yazi_kutusu

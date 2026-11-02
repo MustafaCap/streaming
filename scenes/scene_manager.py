@@ -137,6 +137,11 @@ class Sahne:
         return "full" if k.ayar.get("yer") == "tam" else "corner"
 
     @property
+    def kamera_var(self) -> bool:
+        """Sahnede görünür bir kamera (ana webcam ya da ikinci kamera) var mı? Yoksa Kamera düğmesi kapanır."""
+        return self._ilk("kamera") is not None
+
+    @property
     def bekleme(self) -> bool:
         return self._ilk("bekleme") is not None
 

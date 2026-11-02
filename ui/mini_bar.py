@@ -6,7 +6,8 @@
                       kayıt grubu (nokta + süre · duraklat · bitir) ya da Kayıt · küçült ‹
 
 Kayıt yokken genişletilmiş açılır; kayıt başlayınca kendiliğinden küçülür. Kapalı mikrofon ve
-kamera sönük gri zemin + çapraz çizgili simgeyle görünür. Panik ve "Son 2 dk" barda yok
+kamera sönük gri zemin + çapraz çizgili simgeyle görünür. Aktif sahnede kamera kaynağı yoksa
+Kamera düğmesi kapalı görünür ve basılamaz. Panik ve "Son 2 dk" barda yok
 (kısayolları var). Sağ tık: ana pencere, kaydı bitir. Tutma yerine çift tık: ana pencere.
 """
 
@@ -187,7 +188,8 @@ class MiniCubuk(QWidget):
             self._yerlesim()
         if kayitta:
             self.kayit_grubu.guncelle(d.kayit_suresi, d.kayit_duraklatildi, self._tus("kayit.duraklat"))
-        kamera = self.hat.kamera_istegi
+        kamera = self.hat.kamera_gorunur_acik
+        kamera_sahnede = self.hat.kamera_sahnede
         durumlar = {
             "ses.mikrofon": (d.mikrofon_sessiz, False),
             "ses.sistem": (d.sistem_sessiz, False),
@@ -200,6 +202,12 @@ class MiniCubuk(QWidget):
             kapali, secili = durumlar[komut]
             dugme = self.dugmeler[komut]
             dugme.durum(kapali=kapali, secili=secili)
-            dugme.ad_ayarla(ad_kapali if kapali else ad_acik, self._tus(komut))
-            dugme.setEnabled(self.komutlar.var_mi(komut))
+            kullanilabilir = self.komutlar.var_mi(komut)
+            if komut == "kamera.ac_kapat" and not kamera_sahnede:
+                # Sahnede kamera yokken "açık" görünmesin, basılamasın (seni çekiyor sanılmasın)
+                kullanilabilir = False
+                dugme.ad_ayarla("Bu sahnede kamera yok")
+            else:
+                dugme.ad_ayarla(ad_kapali if kapali else ad_acik, self._tus(komut))
+            dugme.setEnabled(kullanilabilir)
         self.kayit.setEnabled(self.komutlar.var_mi("kayit.ac_kapat"))

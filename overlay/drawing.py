@@ -96,7 +96,7 @@ class CizimDeposu:
         self._aktif: Sekil | None = None
         self._lazer: list[tuple[float, float, float]] = []
         self.lazer_rengi = RENKLER[VARSAYILAN_RENK]
-        self._gecmis: list[tuple] = []   # geri al için: ("ekle", şekil) | ("sil", [(sıra, şekil)])
+        self._gecmis: list[tuple] = []   # geri al: ("ekle", şekil) | ("sil", [(sıra, şekil)]) | ("tasi", (şekil, eski yer))
         self._siliyor: list | None = None
         self._saat = saat
         self.surum = 0  # her değişiklikte artar (katman yeniden çizsin diye)
@@ -174,6 +174,19 @@ class CizimDeposu:
                 self._gecmis.append(("ekle", s))
                 self.surum += 1
 
+    def yazi_tasi(self, s: Sekil, x: float, y: float) -> None:
+        """Yazıyı sürüklerken yeni yerine koyar (x, y monitöre oranla, 0..1 içinde tutulur)."""
+        with self._kilit:
+            if s.tur == "yazi" and any(x is s for x in self._sekiller):
+                s.noktalar[0] = (min(1.0, max(0.0, x)), min(1.0, max(0.0, y)))
+                self.surum += 1
+
+    def tasima_bitti(self, s: Sekil, eski: tuple[float, float]) -> None:
+        """Sürükleme bitince eski yeri geri al geçmişine yazılır (yer değişmediyse yazılmaz)."""
+        with self._kilit:
+            if any(x is s for x in self._sekiller) and tuple(s.noktalar[0]) != tuple(eski):
+                self._gecmis.append(("tasi", (s, tuple(eski))))
+
     @staticmethod
     def _anlamli(s: Sekil) -> bool:
         if s.tur in ("ok", "kare"):
@@ -191,6 +204,13 @@ class CizimDeposu:
                 if tur == "ekle":
                     if veri in self._sekiller:
                         self._sekiller.remove(veri)
+                        self.surum += 1
+                        return True
+                    continue
+                if tur == "tasi":
+                    sekil, eski = veri
+                    if any(x is sekil for x in self._sekiller):
+                        sekil.noktalar[0] = eski
                         self.surum += 1
                         return True
                     continue

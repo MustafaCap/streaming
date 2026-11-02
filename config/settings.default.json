@@ -14,7 +14,7 @@
     "toasts": true,
     "minimize_to_tray": true,
     "dnd_reminder": true,
-    "advanced": false
+    "advanced": true
   },
   "camera": {
     "enabled": true,

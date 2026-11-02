@@ -193,8 +193,8 @@ def test_ayarlar_yeni_secenekler(tmp_path):
 
     a = Ayarlar(tmp_path / "settings.json")
     a.ayarla("audio.modes", {"sesim": [10, 10], "dengeli": [80, 80], "oyun": [70, 100]})
-    ses, cikildi = Ses(), []
-    p = AyarlarPenceresi(a, ses=ses, cikis=lambda: cikildi.append(1),
+    ses = Ses()
+    p = AyarlarPenceresi(a, ses=ses,
                          basarisiz=["genel:" + (a.al("hotkeys", {}).get("panik") or "Ctrl+Alt+P")])
     assert p.tekrar.isChecked() and p.tekrar_suresi.value() == 120
     assert p.mikrofon.count() == 2
@@ -211,6 +211,5 @@ def test_ayarlar_yeni_secenekler(tmp_path):
     assert a.al("record.replay") is False and a.al("record.replay_seconds") == 60
     assert a.al("screenshot.folder") == str(tmp_path / "foto")
     assert a.al("audio.mic_device") == "USB Mikrofon" and ses.secilen == "USB Mikrofon"
-    p2 = AyarlarPenceresi(a, ses=ses, cikis=lambda: cikildi.append(1))
-    p2._cik()
-    assert cikildi == [1]
+    # 2.0.1: Çıkış düğmesi Ayarlar'dan ana pencerenin alt satırına taşındı
+    assert "Çıkış" not in [d.text() for d in p.findChildren(QtWidgets.QPushButton)]
