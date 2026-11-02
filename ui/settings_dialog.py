@@ -19,20 +19,23 @@ log = logging.getLogger(__name__)
 KOSELER = [("bottom-right", "Sağ alt"), ("bottom-left", "Sol alt"), ("top-right", "Sağ üst"), ("top-left", "Sol üst")]
 SES_MODLARI = [("auto", "Tüm ses (Zoom/Discord hariç, yankı yapmaz)"), ("all", "Hoparlörden çıkan her şey"),
                ("app", "Sadece bir uygulama")]
-VARSAYILAN_KALEM_TUSLARI = {"kalem.tur:1": "1", "kalem.tur:2": "2", "kalem.tur:3": "3", "kalem.tur:4": "4",
-                            "kalem.tur:5": "5", "kalem.tur:6": "6", "kalem.geri_al": "Ctrl+Z", "kalem.temizle": "Del"}
+VARSAYILAN_KALEM_TUSLARI = {**{f"kalem.tur:{n}": str(n) for n in range(1, 8)},
+                            "kalem.geri_al": "Ctrl+Z", "kalem.temizle": "Del", "kalem.kapat": "Esc"}
 KOMUT_ADLARI = {
-    "bolge.sec": "Kare seç / tam ekran", "kalem.ac_kapat": "Kalemi aç/kapat", "ses.mikrofon": "Mikrofon aç/kapat",
+    "bolge.sec": "Bölge seç / tam ekran", "kalem.ac_kapat": "Kalemi aç/kapat", "ses.mikrofon": "Mikrofon aç/kapat",
     "ses.sistem": "Bilgisayar sesi aç/kapat", "kamera.ac_kapat": "Kamera aç/kapat",
-    "anlik_kayit.kaydet": "Son 2 dakikayı kaydet", "panik": "Panik (bekleme ekranı)",
-    "sahne.sec:1": "Sahne 1", "sahne.sec:2": "Sahne 2", "sahne.sec:3": "Sahne 3", "sahne.sec:4": "Sahne 4",
+    "anlik_kayit.kaydet": "Son dakikaları kaydet (anlık tekrar)", "ekran.goruntusu": "Ekran görüntüsü al",
+    "kalem.temizle": "Çizimleri sil", "panik": "Panik (bekleme ekranı)",
+    **{f"sahne.sec:{n}": f"Sahne {n}" for n in range(1, 10)},
     "kayit.ac_kapat": "Yerel kaydı başlat/durdur", "kayit.duraklat": "Kaydı duraklat/devam et",
     "kaynak.sec": "Ne gösterilsin (tüm ekran / pencere)",
     "bas_konus": "Bas-konuş tuşu",
     "kalem.tur:1": "Kalem: kalem", "kalem.tur:2": "Kalem: fosforlu", "kalem.tur:3": "Kalem: ok",
     "kalem.tur:4": "Kalem: kare", "kalem.tur:5": "Kalem: yazı", "kalem.tur:6": "Kalem: lazer",
-    "kalem.geri_al": "Kalem: geri al", "kalem.temizle": "Kalem: hepsini sil",
+    "kalem.tur:7": "Kalem: silgi", "kalem.geri_al": "Kalem: geri al", "kalem.kapat": "Kalem: kapat",
 }
+# Kalem açıkken aynı komutun kalem grubundaki tuşu ayrı bir satırda görünür
+KALEM_KOMUT_ADLARI = {"kalem.temizle": "Kalem: hepsini sil"}
 
 
 def monitorler() -> list[str]:
@@ -325,7 +328,8 @@ class AyarlarPenceresi(QDialog):
         satirlar = [("hotkeys", k, v) for k, v in genel.items()] + [("pen_hotkeys", k, v) for k, v in kalem.items()]
         self.tablo.setRowCount(len(satirlar))
         for i, (grup, komut, tus) in enumerate(satirlar):
-            ad = QTableWidgetItem(KOMUT_ADLARI.get(komut, komut))
+            ad = QTableWidgetItem((KALEM_KOMUT_ADLARI.get(komut) if grup == "pen_hotkeys" else None)
+                                  or KOMUT_ADLARI.get(komut, komut))
             ad.setFlags(Qt.ItemIsEnabled)
             ad.setData(Qt.UserRole, (grup, komut))
             self.tablo.setItem(i, 0, ad)
