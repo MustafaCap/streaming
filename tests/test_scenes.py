@@ -106,10 +106,11 @@ def test_pencere_gizliyken_yayin_ve_kayit_yoksa_kamera_kapanir():
     try:
         assert _bekle(lambda: kamera.acik)
         hat.onizleme_gorunur = False                       # pencere tepsiye küçüldü
+        hat.cikisi_ayarla(True)                            # 2.0.0: sanal kamera hep açık, kamerayı açmaz
         assert _bekle(lambda: not kamera.acik and depo.durum.webcam == "beklemede")
-        hat.cikisi_ayarla(True)                            # yayın açılınca kamera gelir
+        hat.mini_gorunur = True                            # mini bar açılınca kamera gelir
         assert _bekle(lambda: kamera.acik)
-        hat.cikisi_ayarla(False)
+        hat.mini_gorunur = False
         assert _bekle(lambda: not kamera.acik)
 
         class Kayit:

@@ -18,7 +18,10 @@ class PencereGizleyici(QObject):
         self.gizlenenler = 0   # testler için
 
     def eventFilter(self, nesne, olay):
-        if olay.type() == QEvent.Show and nesne.isWidgetType() and nesne.isWindow():
+        tur = olay.type()
+        # WinIdChange: Qt pencereyi yeniden yaratırsa (ör. özellik değişince) yeni tutamaç da gizlenir
+        if (tur == QEvent.Show or (tur == QEvent.WinIdChange and nesne.isWidgetType() and nesne.isVisible())) \
+                and nesne.isWidgetType() and nesne.isWindow():
             try:
                 self._gizle(int(nesne.winId()))
                 self.gizlenenler += 1
