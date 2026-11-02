@@ -2,6 +2,14 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.1 — 2026-11-02
+
+- **Kamera:** aktif sahnede kamera kaynağı yoksa mini bardaki, ana penceredeki ve tepsideki Kamera düğmesi kapalı görünür ve basılamaz (kısayol da "Bu sahnede kamera yok" der). Böylece kamera seni çekmiyorken "açık" görünmez.
+- **Kalemdeki yazı aracı:** yazılan yazı tutulup sürüklenerek taşınır (Ctrl+Z / sağ tık eski yerine döndürür, sürüklerken Esc iptal eder). Yazı kutusu açıkken dışarı tıklamak artık yeni kutu açmaz: boşsa kutu kapanır, yazı varsa kaydedilir.
+- **Fare tuşları kısayol olabilir:** orta tuş ve yan tuşlar (Fare3, Fare4, Fare5), Ctrl/Alt/Shift ile birlikte de. Ayarlar > Kısayollar'da hücreye çift tıklayıp fare tuşuna basman yeterli. Bas-konuş için de çalışır.
+- İlk açılışta **Gelişmiş görünüm** açık gelir (eski kurulumlarda da bir kez açılır; kapatırsan hatırlanır).
+- **Çıkış** düğmesi Ayarlar'dan ana pencerenin en altına, CPU / GPU / FPS yazısının yanına taşındı.
+
 ## 2.0.0 — 2026-11-02
 
 - Arayüz baştan tasarlandı: tek renk gri tema, yeni logo, çerçevesiz ana pencere ve başlık çubuğu (Gelişmiş, Kayıt klasörü, Son 2 dk'yı kaydet, Mini bar, Ayarlar). Pencere daraldıkça sütunlar alt alta geçer; sade görünümde pencere daha küçük olabilir.

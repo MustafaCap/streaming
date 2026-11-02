@@ -102,3 +102,64 @@ def test_kalem_acikken_bolge_secip_kaleme_doner(uygulama, tmp_path):
     assert d.katman is not None and d.katman.mod == "kalem" and hat.bolge.aktif
     d.hepsini_kapat()
     assert d.katman is None and not hat.bolge.aktif
+
+
+def test_yazi_tasinir_ve_geri_al_eski_yerine_koyar():
+    c = CizimDeposu()
+    c.yazi_ekle("#FFFFFF", 0.1, 0.1, "Merhaba")
+    s = c.anlik()[0][0]
+    c.yazi_tasi(s, 0.5, 0.6)
+    c.tasima_bitti(s, (0.1, 0.1))
+    assert c.anlik()[0][0].noktalar[0] == (0.5, 0.6)
+    assert c.geri_al()                                  # önce taşıma geri alınır
+    assert c.anlik()[0][0].noktalar[0] == (0.1, 0.1)
+    assert c.geri_al() and not c.anlik()[0]             # sonra yazının kendisi
+    c.yazi_ekle("#FFFFFF", 0.1, 0.1, "x")
+    c.yazi_tasi(c.anlik()[0][0], 2.0, -1.0)             # ekran dışına çıkmaz
+    assert c.anlik()[0][0].noktalar[0] == (1.0, 0.0)
+
+
+def _fare(tur, x, y, dugme=None):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    dugme = Qt.LeftButton if dugme is None else dugme
+    basili = Qt.NoButton if tur == QMouseEvent.Type.MouseButtonRelease else dugme
+    return QMouseEvent(tur, QPointF(x, y), QPointF(x, y), dugme, basili, Qt.NoModifier)
+
+
+def test_bos_yazi_kutusu_disari_tiklayinca_kapanir_yeni_kutu_acilmaz(uygulama, tmp_path):
+    from PySide6.QtGui import QMouseEvent
+    d, k, depo, hat, cizimler, _ = _kur(tmp_path)
+    k.calistir("kalem.ac_kapat")
+    k.calistir("kalem.tur:5")
+    katman = d.katman
+    katman.mousePressEvent(_fare(QMouseEvent.Type.MouseButtonPress, 100, 100))
+    assert katman._yazi_kutusu is not None
+    katman.mousePressEvent(_fare(QMouseEvent.Type.MouseButtonPress, 400, 300))   # dışarı tık, hiç yazmadan
+    assert katman._yazi_kutusu is None and not cizimler.anlik()[0]
+    katman.mousePressEvent(_fare(QMouseEvent.Type.MouseButtonPress, 400, 300))   # sonraki tık yeni kutu açar
+    assert katman._yazi_kutusu is not None
+    katman._yazi_kutusu.setText("Selam")
+    katman.mousePressEvent(_fare(QMouseEvent.Type.MouseButtonPress, 10, 10))      # yazılan kaydedilir
+    assert katman._yazi_kutusu is None and cizimler.anlik()[0][0].metin == "Selam"
+    k.calistir("kalem.kapat")
+
+
+def test_yazi_suruklenerek_tasinir(uygulama, tmp_path):
+    from PySide6.QtGui import QMouseEvent
+    d, k, depo, hat, cizimler, _ = _kur(tmp_path)
+    k.calistir("kalem.ac_kapat")
+    k.calistir("kalem.tur:5")
+    katman = d.katman
+    W, H = katman.width(), katman.height()
+    cizimler.yazi_ekle("#FFFFFF", 100 / W, 100 / H, "Buraya bak")
+    katman.mousePressEvent(_fare(QMouseEvent.Type.MouseButtonPress, 110, 110))   # yazının üstüne bas
+    assert katman._yazi_kutusu is None and katman._tasinan is not None
+    katman.mouseMoveEvent(_fare(QMouseEvent.Type.MouseMove, 310, 210))
+    katman.mouseReleaseEvent(_fare(QMouseEvent.Type.MouseButtonRelease, 310, 210))
+    x, y = cizimler.anlik()[0][0].noktalar[0]
+    assert abs(x * W - 300) < 1.5 and abs(y * H - 200) < 1.5
+    assert cizimler.geri_al()
+    x, y = cizimler.anlik()[0][0].noktalar[0]
+    assert abs(x * W - 100) < 1.5 and abs(y * H - 100) < 1.5
+    k.calistir("kalem.kapat")

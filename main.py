@@ -120,6 +120,8 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
     def kamera_ac_kapat(_):
         if hat.kamera is None:
             return "Kamera yok"
+        if not hat.kamera_sahnede:
+            return "Bu sahnede kamera yok (Kaynaklar'dan ekleyebilirsin)"
         acilacak = not hat.kamera_istegi
         hat.kamerayi_ayarla(acilacak)
         return "Kamera açıldı" if acilacak else "Kamera kapatıldı"

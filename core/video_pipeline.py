@@ -129,6 +129,19 @@ class VideoHatti:
     def kamera_istegi(self) -> bool:
         return self._kamera_istegi
 
+    @property
+    def kamera_sahnede(self) -> bool:
+        """Aktif sahnede görünür bir kamera kaynağı var mı (yoksa Kamera düğmeleri devre dışı)."""
+        try:
+            return self.sahneler.aktif.kamera_var
+        except Exception:
+            return False
+
+    @property
+    def kamera_gorunur_acik(self) -> bool:
+        """Kullanıcıya "kamera açık" gösterilecek mi: açık istenmiş VE bu sahnede kamera var."""
+        return self._kamera_istegi and self.kamera_sahnede
+
     def sahne_sec(self, indeks: int) -> bool:
         return self.sahneler.sec(indeks)
 
@@ -235,8 +248,8 @@ class VideoHatti:
             self.depo.guncelle(webcam="kapalı")
             return None
         if not gerekli:
-            # açık ama şu an kullanılmıyor (bu sahnede yok ya da uygulama arka planda)
-            self.depo.guncelle(webcam="açık" if kullaniliyor else "beklemede")
+            # açık istendi ama şu an kullanılmıyor (bu sahnede yok ya da uygulama arka planda): cihaz kapalı
+            self.depo.guncelle(webcam="beklemede")
             return None
         kare = self.kamera.son_kare()
         if kare is not None:

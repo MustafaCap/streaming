@@ -236,7 +236,7 @@ class UygulamaKabugu(QObject):
         from ui.settings_dialog import AyarlarPenceresi
         ebeveyn = self.pencere if self.pencere.isVisible() else None
         AyarlarPenceresi(self.ayarlar, self.hat, self.ses, self._ayarlar_degisti, ebeveyn, sekme=sekme,
-                         cikis=self.cikmayi_onayla, basarisiz=list(self.kisayollar.basarisiz)).exec()
+                         basarisiz=list(self.kisayollar.basarisiz)).exec()
 
     # ---- kaynak ekleme yardımcıları (Kaynaklar paneli)
 

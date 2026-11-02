@@ -1,7 +1,7 @@
 import json
 
 from core import paths
-from core.settings import Ayarlar
+from core.settings import SURUM, Ayarlar
 
 
 def test_ilk_acilista_varsayilanlar_yazilir():
@@ -15,7 +15,7 @@ def test_eksik_alanlar_varsayilandan_tamamlanir():
     a = Ayarlar()
     assert a.al("video.fps") == 60          # kullanıcının değeri korunur
     assert a.al("video.width") == 1280      # eksik olan varsayılandan gelir
-    assert a.al("version") == 3
+    assert a.al("version") == SURUM
 
 
 def test_bozuk_dosya_uygulamayi_cokertmez():
@@ -41,7 +41,7 @@ def test_eski_f12_panik_tusu_tasinir():
     a = Ayarlar()
     assert a.al("hotkeys.panik") == "Ctrl+Shift+P"   # F12 -> Ctrl+Alt+P (1.x) -> Ctrl+Shift+P (2.0)
     assert a.al("hotkeys")["ses.mikrofon"] == "F2"
-    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == 3
+    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == SURUM
 
 
 def _v2_tuslari(**degisen):
@@ -83,7 +83,7 @@ def test_degistirilmemis_kisayollar_tasinir_degistirilenler_kalir():
     assert t["kalem.temizle"] == "Ctrl+Shift+X"
     assert a.al("pen_hotkeys")["kalem.tur:7"] == "7" and a.al("pen_hotkeys")["kalem.kapat"] == "Esc"
     assert a.al("audio.ptt") is False
-    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == 3
+    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == SURUM
 
 
 def test_cakisan_yeni_varsayilan_bos_kalir():
@@ -126,3 +126,12 @@ def test_kaydedilemezse_cokmez(monkeypatch):
     a.ayarla("video.monitor", 2)                          # hata fırlatmamalı
     assert a.al("video.monitor") == 2
     assert a.kaydet() is False
+
+
+def test_2_0_1_gelismis_gorunum_bir_kez_acik_gelir():
+    paths.ayar_dosyasi().write_text(json.dumps({"version": 3, "ui": {"advanced": False}}), encoding="utf-8")
+    a = Ayarlar()
+    assert a.al("ui.advanced") is True and a.al("version") == SURUM
+    a.ayarla("ui.advanced", False)
+    a.kaydet()
+    assert Ayarlar().al("ui.advanced") is False            # kapatınca hatırlanır, tekrar açılmaz

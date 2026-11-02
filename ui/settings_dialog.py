@@ -9,6 +9,7 @@ import logging
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QPushButton, QSlider, QSpinBox,
+                               QStyledItemDelegate,
                                QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
 from core.hotkeys import VARSAYILAN_KISAYOLLAR, GecersizTus, tus_coz, tus_metni
@@ -47,16 +48,47 @@ def monitorler() -> list[str]:
         return ["Monitör 1"]
 
 
+FARE_ADLARI = {Qt.MiddleButton: "Fare3", Qt.BackButton: "Fare4", Qt.ForwardButton: "Fare5"}
+
+
+def fare_kisayolu(dugme, degistiriciler) -> str:
+    """Basılan fare tuşu + Ctrl/Alt/Shift -> 'Ctrl+Fare4'. Atanamayan tuşta ''."""
+    ad = FARE_ADLARI.get(dugme)
+    if ad is None:
+        return ""
+    on = [m for bayrak, m in ((Qt.ControlModifier, "Ctrl"), (Qt.AltModifier, "Alt"), (Qt.ShiftModifier, "Shift"))
+          if degistiriciler & bayrak]
+    return "+".join(on + [ad])
+
+
+class TusAlani(QLineEdit):
+    """Kısayol hücresinin düzenleyicisi: yazılabilir; orta / yan fare tuşuna basınca o tuş yazılır."""
+
+    def mousePressEvent(self, e):
+        tus = fare_kisayolu(e.button(), e.modifiers())
+        if tus:
+            self.setText(tus)
+            e.accept()
+            return
+        super().mousePressEvent(e)
+
+
+class TusDuzenleyici(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        alan = TusAlani(parent)
+        alan.setPlaceholderText("Tuş yaz ya da fare yan tuşuna bas")
+        return alan
+
+
 class AyarlarPenceresi(QDialog):
     SEKMELER = ("genel", "kamera", "ses", "kisayollar")
 
     def __init__(self, ayarlar, hat=None, ses=None, uygula=None, parent=None, sekme: str | None = None,
-                 cikis=None, basarisiz=None, mikser=None):
+                 cikis=None, basarisiz=None, mikser=None):  # cikis: eski çağrılar için, kullanılmıyor
         """uygula(): kaydettikten sonra canlı uygulanacaklar için geri çağrı (kısayolları yeniden kaydetmek vb.).
-        cikis(): uygulamadan çık. basarisiz: alınamayan kısayollar ("grup:tuş")."""
+        basarisiz: alınamayan kısayollar ("grup:tuş")."""
         super().__init__(parent)
         self.ayarlar, self.hat, self.ses, self.uygula = ayarlar, hat, ses, uygula
-        self.cikis = cikis
         self.mikser = mikser if mikser is not None else getattr(ses, "mikser", None)
         self.basarisiz = {b.split(":", 1)[1] for b in (basarisiz or []) if ":" in b}
         self.setWindowTitle("Ayarlar")
@@ -79,10 +111,6 @@ class AyarlarPenceresi(QDialog):
         dugmeler.rejected.connect(self.reject)
         hakkinda = dugmeler.addButton("Hakkında", QDialogButtonBox.HelpRole)
         hakkinda.clicked.connect(self._hakkinda)
-        if cikis is not None:
-            cik = dugmeler.addButton("Çıkış", QDialogButtonBox.ResetRole)
-            cik.setToolTip("RizeOn'u tamamen kapat (tepside de kalmaz)")
-            cik.clicked.connect(self._cik)
         kok = QVBoxLayout(self)
         kok.addWidget(sekmeler, 1)
         kok.addWidget(self.uyari)
@@ -92,10 +120,6 @@ class AyarlarPenceresi(QDialog):
         super().showEvent(olay)
         from core.platform_win import yakalamadan_gizle
         yakalamadan_gizle(int(self.winId()))  # ayarlar karşı tarafa görünmesin
-
-    def _cik(self) -> None:
-        self.reject()
-        self.cikis()
 
     def _hakkinda(self) -> None:
         from ui.hakkinda import hakkinda_goster
@@ -308,11 +332,14 @@ class AyarlarPenceresi(QDialog):
         self.tablo.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.tablo.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tablo.verticalHeader().setVisible(False)
+        self.tablo.setItemDelegateForColumn(1, TusDuzenleyici(self.tablo))
         self._tabloyu_doldur(self._al("hotkeys", {}) or {}, self._al("pen_hotkeys", {}) or {})
         sifirla = QPushButton("Varsayılanlara dön", objectName="sahne")
         sifirla.clicked.connect(lambda: self._tabloyu_doldur(
             {**VARSAYILAN_KISAYOLLAR, "bas_konus": ""}, VARSAYILAN_KALEM_TUSLARI))
-        ipucu = QLabel("Örnek: Ctrl+Shift+M, Ctrl+1, F8, Alt+M, Del. Boş bırakırsan o kısayol kapanır. "
+        ipucu = QLabel("Örnek: Ctrl+Shift+M, Ctrl+1, F8, Alt+M, Del. Fare tuşu da olur: hücreye çift tıkla, "
+                       "farenin orta ya da yan tuşuna bas (Fare3, Fare4, Fare5; Ctrl/Alt/Shift ile de). "
+                       "Fare tıkı açık uygulamaya da gider. Boş bırakırsan o kısayol kapanır. "
                        "Kalem tuşları sadece kalem açıkken çalışır. ⚠ işaretli tuşları başka bir program "
                        "kullanıyor; başka bir tuş seç.", objectName="ikincil")
         ipucu.setWordWrap(True)

@@ -73,8 +73,11 @@ class Tepsi(QSystemTrayIcon):
         self.a_mik.setText(f"Mikrofon: {'kapalı' if d.mikrofon_sessiz else 'açık'}")
         self.a_sistem.setChecked(not d.sistem_sessiz)
         self.a_sistem.setText(f"Sistem sesi: {'kapalı' if d.sistem_sessiz else 'açık'}")
-        self.a_kamera.setChecked(self.hat.kamera_istegi)
-        self.a_kamera.setText(f"Kamera: {'açık' if self.hat.kamera_istegi else 'kapalı'}")
+        sahnede = self.hat.kamera_sahnede
+        self.a_kamera.setChecked(self.hat.kamera_gorunur_acik)
+        self.a_kamera.setEnabled(sahnede)
+        self.a_kamera.setText(f"Kamera: {'açık' if self.hat.kamera_gorunur_acik else 'kapalı'}" if sahnede
+                              else "Kamera: bu sahnede yok")
         self.a_kayit.setText("Kaydı bitir" if d.kayit == "açık" else "Kaydı başlat")
         self.a_kayit.setEnabled(self.komutlar.var_mi("kayit.ac_kapat"))
         self.a_tekrar.setEnabled(self.komutlar.var_mi("anlik_kayit.kaydet"))

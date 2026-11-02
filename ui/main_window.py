@@ -3,13 +3,13 @@
 Çerçevesiz pencere, kendi başlık çubuğuyla:
   RizeOn · ☰ Gelişmiş · Kayıt klasörü · Son 2 dk'yı kaydet · Mini bar · Ayarlar · _ □ ×
 
-Sade görünüm (varsayılan): önizleme, kontrol barı ve ses mikseri.
-Gelişmiş (☰, hatırlanır): solda Sahneler ve Kaynaklar, sağda mikserin altında anahtarlar.
+Sade görünüm: önizleme, kontrol barı ve ses mikseri.
+Gelişmiş (☰, ilk açılışta açık, sonra hatırlanır): solda Sahneler ve Kaynaklar, sağda mikserin altında anahtarlar.
 
   orta : "Göster: Ekran 1 ▾" (her monitör, Pencere seç…, Bölge seç…) · sahne adı, çözünürlük, FPS
          16:9 önizleme (kamera fareyle sürüklenir)
          kontrol barı: Mikrofon · Sistem sesi · Kamera | Bölge · Kalem | Kayıt | Panik
-  alt  : CPU · GPU · FPS
+  alt  : CPU · GPU · FPS · Çıkış
 
 Pencere daralınca sütunlar alt alta dizilir. Pencere hiçbir durumu kendi tutmaz; her şey
 DurumDeposu'ndan okunur, her işlem komut adıyla çalıştırılır (kısayol, mini bar ve tepsi ile aynı yol).
@@ -572,10 +572,21 @@ class AnaPencere(QMainWindow):
         self.alt_bilgi = QLabel()
         self.alt_bilgi.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.alt_bilgi.setObjectName("altBilgi")
-        self.alt_bilgi.setStyleSheet(f"QLabel#altBilgi {{ color: {RENK['soluk']}; font-size: 11px; padding: 8px 16px;"
-                                     f" border-top: 1px solid rgba(255, 255, 255, 15); }}")
+        self.alt_bilgi.setStyleSheet(f"QLabel#altBilgi {{ color: {RENK['soluk']}; font-size: 11px; padding: 8px 4px; }}")
         self.alt_bilgi.setAccessibleName("İşlemci, ekran kartı ve kare hızı")
-        dikey.addWidget(self.alt_bilgi)
+        # Çıkış (2.0.1'de Ayarlar'dan buraya taşındı): sakin köşede, basınca onay sorar
+        self.cikis_dugmesi = HapDugme("Çıkış", "RizeOn'u tamamen kapat (tepside de kalmaz)")
+        self.cikis_dugmesi.setAccessibleName("RizeOn'dan çık")
+        self.cikis_dugmesi.clicked.connect(self._cikis_istendi)
+        alt = QWidget(objectName="altSatir")
+        alt.setAttribute(Qt.WA_StyledBackground)
+        alt.setStyleSheet("QWidget#altSatir { border-top: 1px solid rgba(255, 255, 255, 15); }")
+        alt_kutu = QHBoxLayout(alt)
+        alt_kutu.setContentsMargins(12, 0, 12, 0)
+        alt_kutu.setSpacing(8)
+        alt_kutu.addWidget(self.alt_bilgi, 1)
+        alt_kutu.addWidget(self.cikis_dugmesi)
+        dikey.addWidget(alt)
         from core.sistem_olcer import SistemOlcer
         self.olcer = SistemOlcer()
         self.bilgi = self.alt_bilgi   # eski ad (testler)
@@ -583,7 +594,8 @@ class AnaPencere(QMainWindow):
         self._boyutlandirici = KenarBoyutlandirici(self)
         QApplication.instance().installEventFilter(self._boyutlandirici)
 
-        gelismis = bool(ayarlar.al("ui.advanced", False)) if ayarlar is not None else False
+        # İlk açılışta (ayar hiç kaydedilmemişken) Gelişmiş açık gelir; sonra son seçim hatırlanır
+        gelismis = bool(ayarlar.al("ui.advanced", True)) if ayarlar is not None else False
         self.baslik.gelismis.setChecked(gelismis)
         self._gelismis_goster(gelismis, kaydet=False)
 
@@ -800,15 +812,18 @@ class AnaPencere(QMainWindow):
         k.mikrofon.setAccessibleName("Mikrofon kapalı, aç" if d.mikrofon_sessiz else "Mikrofon açık, kapat")
         k.sistem.durum(kapali=d.sistem_sessiz)
         k.sistem.setAccessibleName("Sistem sesi kapalı, aç" if d.sistem_sessiz else "Sistem sesi açık, kapat")
-        kamera_acik = self.hat.kamera_istegi
+        kamera_acik = self.hat.kamera_gorunur_acik
+        kamera_sahnede = self.hat.kamera_sahnede
         k.kamera.durum(kapali=not kamera_acik)
-        k.kamera.setAccessibleName("Kamera açık, kapat" if kamera_acik else "Kamera kapalı, aç")
-        ipucu_durumu = (d.mikrofon_sessiz, d.sistem_sessiz, kamera_acik)
+        k.kamera.setAccessibleName(("Kamera açık, kapat" if kamera_acik else "Kamera kapalı, aç") if kamera_sahnede
+                                   else "Bu sahnede kamera yok")
+        ipucu_durumu = (d.mikrofon_sessiz, d.sistem_sessiz, kamera_acik, kamera_sahnede)
         if ipucu_durumu != getattr(self, "_ipucu_durumu", None):
             self._ipucu_durumu = ipucu_durumu
             k.mikrofon.setToolTip(ipucu("Mikrofonu " + ("aç" if d.mikrofon_sessiz else "kapat"), self._tus("ses.mikrofon")))
             k.sistem.setToolTip(ipucu("Sistem sesini " + ("aç" if d.sistem_sessiz else "kapat"), self._tus("ses.sistem")))
-            k.kamera.setToolTip(ipucu("Kamerayı " + ("kapat" if kamera_acik else "aç"), self._tus("kamera.ac_kapat")))
+            k.kamera.setToolTip(ipucu("Kamerayı " + ("kapat" if kamera_acik else "aç"), self._tus("kamera.ac_kapat"))
+                                if kamera_sahnede else "Bu sahnede kamera yok. Kaynaklar'dan Kamera ekleyebilirsin.")
         k.bolge.durum(secili=bool(d.bolge))
         k.kalem.durum(secili=d.kalem_acik)
         k.panik.durum(secili=d.panik, metin="Panik")
@@ -819,7 +834,7 @@ class AnaPencere(QMainWindow):
         if kayitta:
             k.kayit_grubu.guncelle(d.kayit_suresi, d.kayit_duraklatildi, self._tus("kayit.duraklat"))
         for komut, dugme in self.kontroller.items():
-            dugme.setEnabled(self.komutlar.var_mi(komut))
+            dugme.setEnabled(self.komutlar.var_mi(komut) and (komut != "kamera.ac_kapat" or kamera_sahnede))
         self.baslik.tekrar.setEnabled(self.komutlar.var_mi("anlik_kayit.kaydet"))
 
         self.goster.ayarla(self._goster_metni(d))
@@ -830,6 +845,12 @@ class AnaPencere(QMainWindow):
             self.kaynaklar_paneli.yenile()
         if self.mikser_paneli is not None:
             self.mikser_paneli.durumu_goster(d)
+
+    def _cikis_istendi(self) -> None:
+        if self.uygulamadan_cik is not None:
+            self.uygulamadan_cik()
+        else:
+            self.close()
 
     def _alt_bilgiyi_yaz(self) -> None:
         self.alt_bilgi.setText(self.olcer.metin(self.depo.durum.fps))

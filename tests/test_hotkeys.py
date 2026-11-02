@@ -50,3 +50,50 @@ def test_bas_konus_tus_durumunu_izler():
     time.sleep(0.1)
     assert olaylar == [True, False]
     assert not bk.ayarla("Hyper+X") and not bk.aktif
+
+
+def test_fare_tuslari_cozulur_sol_sag_tik_olmaz():
+    from core.hotkeys import FARE_TUSLARI, fare_tusu_mu, tus_coz, tus_metni
+    assert tus_coz("Fare4") == (0, FARE_TUSLARI["fare4"])
+    assert tus_coz("Ctrl+Shift+Fare5") == (MOD_CONTROL | MOD_SHIFT, FARE_TUSLARI["fare5"])
+    assert tus_metni("ctrl+fare3") == "Ctrl+Fare3"
+    assert fare_tusu_mu("Alt+Fare4") and not fare_tusu_mu("F4")
+    for tus in ("Fare1", "Ctrl+Fare2"):
+        with pytest.raises(GecersizTus):
+            tus_coz(tus)
+
+
+def test_fare_kisayolu_basinca_bir_kez_ve_degistiriciyle_tam_eslesir():
+    from core.hotkeys import KisayolYoneticisi
+    calisan = []
+    y = KisayolYoneticisi(calisan.append)
+    y.fare_grubu_ayarla("genel", {("genel", "Fare4"): (0, 0x05, "ses.mikrofon"),
+                                  ("genel", "Ctrl+Fare4"): (MOD_CONTROL, 0x05, "kamera.ac_kapat")})
+    basili = set()
+    oku = basili.__contains__
+    y.fare_yokla(oku)
+    assert calisan == []
+    basili.add(0x05)
+    y.fare_yokla(oku)
+    y.fare_yokla(oku)                               # basılı tutmak tekrar tetiklemez
+    assert calisan == ["ses.mikrofon"]
+    basili.clear()
+    y.fare_yokla(oku)
+    basili.update({0x11, 0x05})                     # Ctrl + Fare4: sadece Ctrl'li olan
+    y.fare_yokla(oku)
+    assert calisan == ["ses.mikrofon", "kamera.ac_kapat"]
+    basili.clear()
+    y.fare_yokla(oku)
+    y.fare_grubu_ayarla("genel", {})                # grup kaldırılınca çalışmaz
+    basili.add(0x05)
+    y.fare_yokla(oku)
+    assert calisan == ["ses.mikrofon", "kamera.ac_kapat"]
+
+
+def test_ayarlarda_fare_tusu_hucreye_yazilir():
+    QtCore = pytest.importorskip("PySide6.QtCore")
+    from ui.settings_dialog import fare_kisayolu
+    Qt = QtCore.Qt
+    assert fare_kisayolu(Qt.BackButton, Qt.NoModifier) == "Fare4"
+    assert fare_kisayolu(Qt.MiddleButton, Qt.ControlModifier | Qt.ShiftModifier) == "Ctrl+Shift+Fare3"
+    assert fare_kisayolu(Qt.LeftButton, Qt.NoModifier) == ""

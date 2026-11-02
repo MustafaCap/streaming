@@ -11,6 +11,11 @@ açıkken kaydedilir, kalem kapalıyken bu tuşlar normal şekilde oyuna gider.
 RegisterHotKey, kaydı yapan iş parçacığının mesaj kuyruğuna haber verir;
 bu yüzden kendi mesaj döngüsü olan ayrı bir iş parçacığı çalıştırıyoruz.
 Kayıt değişiklikleri de o iş parçacığına mesajla iletilir.
+
+Fare tuşları (Fare3 = orta tuş/tekerlek tıkı, Fare4 / Fare5 = yan tuşlar) de atanabilir, Ctrl/Alt/
+Shift ile birlikte de. RegisterHotKey fareyi desteklemez; fare kancası da kurmuyoruz (antivirüs ve
+oyun sorunu). Bunun yerine bas-konuştaki gibi tuş durumu saniyede 50 kez GetAsyncKeyState ile
+okunur. Tık oyuna/uygulamaya da gider (yutulmaz). Sol ve sağ tık atanamaz.
 """
 
 import logging
@@ -31,6 +36,17 @@ _OZEL_TUSLAR = {
     "pageup": 0x21, "pagedown": 0x22, "pause": 0x13, "up": 0x26, "down": 0x28, "left": 0x25,
     "right": 0x27, "printscreen": 0x2C, "scrolllock": 0x91,
 }
+# Fare tuşları: ad -> sanal tuş kodu (VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2)
+FARE_TUSLARI = {"fare3": 0x04, "fare4": 0x05, "fare5": 0x06}
+FARE_VK = set(FARE_TUSLARI.values())
+
+
+def fare_tusu_mu(metin: str) -> bool:
+    """'Ctrl+Fare4' gibi fare tuşlu bir kısayol mu?"""
+    try:
+        return tus_coz(metin)[1] in FARE_VK
+    except GecersizTus:
+        return False
 
 
 class GecersizTus(ValueError):
@@ -62,6 +78,10 @@ def tus_coz(metin: str) -> tuple[int, int]:
         return mod, 0x60 + int(k[3:])
     if k in _OZEL_TUSLAR:
         return mod, _OZEL_TUSLAR[k]
+    if k in FARE_TUSLARI:
+        return mod, FARE_TUSLARI[k]
+    if k in ("fare1", "fare2"):
+        raise GecersizTus("Sol ve sağ tık kısayol olamaz; orta tuş (Fare3) ya da yan tuşları (Fare4, Fare5) kullan")
     raise GecersizTus(f"Bilinmeyen tuş: {tus}")
 
 
@@ -88,6 +108,11 @@ class KisayolYoneticisi:
         self._sonraki_id = 1
         self.basarisiz: list[str] = []  # başka program kullandığı için alınamayan tuşlar
         self._kilit = threading.Lock()
+        # fare kısayolları: (grup, tuş) -> (mod, vk, komut); ayrı bir iş parçacığı yoklar
+        self._fare: dict[tuple[str, str], tuple[int, int, str]] = {}
+        self._fare_basili: set[tuple[str, str]] = set()
+        self._fare_is: threading.Thread | None = None
+        self._fare_calis = threading.Event()
 
     @property
     def destekleniyor(self) -> bool:
@@ -101,6 +126,10 @@ class KisayolYoneticisi:
         self._hazir.wait(2)
 
     def durdur(self) -> None:
+        self._fare_calis.clear()
+        if self._fare_is is not None:
+            self._fare_is.join(timeout=1)
+            self._fare_is = None
         if self._is is None:
             return
         import ctypes
@@ -166,12 +195,16 @@ class KisayolYoneticisi:
                     user32.UnregisterHotKey(None, kimlik)
                     del self._kayitli[kimlik]
             basarisiz = [b for b in self.basarisiz if not b.startswith(f"{grup}:")]
+            fare = {}
             for tus, komut in tuslar.items():
                 try:
                     mod, vk = tus_coz(tus)
                 except GecersizTus as e:
                     log.warning("%s (%s)", e, komut)
                     basarisiz.append(f"{grup}:{tus}")
+                    continue
+                if vk in FARE_VK:
+                    fare[(grup, tus)] = (mod, vk, komut)
                     continue
                 kimlik = self._sonraki_id
                 self._sonraki_id += 1
@@ -182,6 +215,67 @@ class KisayolYoneticisi:
                     basarisiz.append(f"{grup}:{tus}")
             with self._kilit:
                 self.basarisiz = basarisiz
+            self.fare_grubu_ayarla(grup, fare)
+
+    # ---------------- fare tuşları (yoklama)
+
+    FARE_ARALIGI = 0.02
+
+    def fare_grubu_ayarla(self, grup: str, fare: dict) -> None:
+        """Bir grubun fare kısayollarını değiştirir; gerekirse yoklama iş parçacığını başlatır."""
+        with self._kilit:
+            self._fare = {a: v for a, v in self._fare.items() if a[0] != grup} | dict(fare)
+            self._fare_basili = {a for a in self._fare_basili if a in self._fare}
+            gerekli = bool(self._fare)
+        if gerekli and self._fare_is is None and sys.platform == "win32":
+            self._fare_calis.set()
+            self._fare_is = threading.Thread(target=self._fare_dongusu, name="fare-kisayollari", daemon=True)
+            self._fare_is.start()
+
+    def fare_yokla(self, basili_mi) -> None:
+        """Bir yoklama turu: basılı olanlardan yeni basılanların komutunu çalıştırır.
+
+        basili_mi(vk) -> bool. Değiştiriciler tam eşleşmeli: Ctrl+Fare4 atanmışsa sadece Fare4
+        basmak onu tetiklemez; Fare4 atanmışsa Ctrl basılıyken Fare4 onu tetiklemez.
+        """
+        degistiriciler = 0
+        for m, v in ((MOD_CONTROL, 0x11), (MOD_SHIFT, 0x10), (MOD_ALT, 0x12), (MOD_WIN, 0x5B)):
+            if basili_mi(v) or (m == MOD_WIN and basili_mi(0x5C)):
+                degistiriciler |= m
+        with self._kilit:
+            kayitlar = list(self._fare.items())
+        calisacak = []
+        for anahtar, (mod, vk, komut) in kayitlar:
+            basili = basili_mi(vk) and degistiriciler == mod
+            with self._kilit:
+                if basili and anahtar not in self._fare_basili:
+                    self._fare_basili.add(anahtar)
+                    calisacak.append(komut)
+                elif not basili_mi(vk):
+                    self._fare_basili.discard(anahtar)
+        for komut in calisacak:
+            try:
+                self.basildi(komut)
+            except Exception:
+                log.exception("Fare kısayolu işlenirken hata")
+
+    def _fare_dongusu(self) -> None:
+        import ctypes
+        import time
+        oku = ctypes.windll.user32.GetAsyncKeyState
+
+        def basili_mi(vk: int) -> bool:
+            return bool(oku(vk) & 0x8000)
+
+        while self._fare_calis.is_set():
+            with self._kilit:
+                bos = not self._fare
+            if not bos:
+                try:
+                    self.fare_yokla(basili_mi)
+                except Exception:
+                    log.exception("Fare kısayolları okunamadı")
+            time.sleep(self.FARE_ARALIGI)
 
 
 VARSAYILAN_KISAYOLLAR = {

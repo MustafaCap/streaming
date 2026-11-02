@@ -26,9 +26,9 @@ Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa
 
 1. Uygulamayı aç. Sanal kamera ve sanal mikrofon arka planda **kendiliğinden başlar**; ayrı bir Yayın düğmesi yok. Duraklatmak için tepsi simgesine sağ tık → *Sanal çıkışı duraklat*.
 2. Zoom / Meet / Discord'da: kamera **OBS Virtual Camera**, mikrofon **CABLE Output (VB-Audio Virtual Cable)**.
-3. Ana pencere sade açılır: önizleme ve altta kontrol barı (Mikrofon, Sistem sesi, Kamera, Göster, Bölge, Kalem, Kayıt). Sahneler, kaynaklar, ses mikseri ve ses anahtarları başlık çubuğundaki **☰ Gelişmiş** ile açılır. Pencere daraldıkça sütunlar alt alta geçer. Uygulama son seçimi hatırlar.
+3. Ana pencere ilk açılışta Gelişmiş görünümle açılır: solda sahneler ve kaynaklar, ortada önizleme ve altta kontrol barı (Mikrofon, Sistem sesi, Kamera, Göster, Bölge, Kalem, Kayıt), sağda ses mikseri ve ses anahtarları. Başlık çubuğundaki **☰ Gelişmiş** ile sade görünüme geçilir. Aktif sahnede kamera kaynağı yoksa Kamera düğmesi kapalı görünür ve basılamaz. Pencere daraldıkça sütunlar alt alta geçer. Uygulama son seçimi hatırlar.
 4. Ne gösterileceğini **Göster** menüsünden seç: tüm ekran, bir monitör, bir pencere ya da ekranın bir bölgesi.
-5. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan çalışan pencere öne gelir. Pencere ve mini bar kapalıyken (kayıt da yoksa) kamera kapalı tutulur. Kayıt sürerken pencereyi kapatırsan mini bar açılır. Tamamen kapatmak için tepsi menüsü ya da Ayarlar → *Çıkış* (kayıt açıksa önce sorar).
+5. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan çalışan pencere öne gelir. Pencere ve mini bar kapalıyken (kayıt da yoksa) kamera kapalı tutulur. Kayıt sürerken pencereyi kapatırsan mini bar açılır. Tamamen kapatmak için tepsi menüsü ya da ana pencerenin en altındaki *Çıkış* (kayıt açıksa önce sorar).
 
 ### Kısayollar (hepsi Ayarlar > Kısayollar'dan değiştirilebilir)
 
@@ -50,6 +50,8 @@ Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa
 | Ctrl+Shift+K | Kaydı duraklat / devam et. Duraklatılan süre videoya girmez |
 | (ayarlanabilir) | Ne gösterilsin: tüm ekran ya da bir pencere |
 | (ayarlanabilir) | Bas-konuş: basılıyken mikrofon açık (Gelişmiş görünümde *Bas-konuş* anahtarı açık olmalı) |
+
+Kısayollara farenin orta tuşu ve yan tuşları da atanabilir (Fare3, Fare4, Fare5; Ctrl/Alt/Shift ile de): Ayarlar > Kısayollar'da hücreye çift tıklayıp fare tuşuna bas. Fare tıkı açık uygulamaya da gider. Kalem açıkken yazı aracında var olan yazıyı tutup sürükleyerek yerini değiştirebilirsin; boş yazı kutusu dışarı tıklayınca ya da Esc ile kapanır.
 
 Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · Ctrl+Shift+M"). Başka bir program aynı tuşu kullanıyorsa uygulama bunu söyler ve Ayarlar > Kısayollar'da o tuşun yanında ⚠ görünür.
 

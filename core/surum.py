@@ -1,3 +1,3 @@
 """Uygulama sürümü (pencere başlığında ve logda görünür)."""
 
-SURUM = "2.0.0"
+SURUM = "2.0.1"

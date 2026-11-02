@@ -52,7 +52,13 @@ def test_ana_pencere_sade_acilir_gelismis_acilip_kapanir(uygulama, tmp_path):
     p = AnaPencere(depo, _komutlar(), _hat(), ayarlar=ayarlar)
     p.show()
     k = p.kontrol
-    assert not p.sol_panel.isVisible()
+    assert p.sol_panel.isVisible()                    # 2.0.1: ilk açılışta Gelişmiş açık
+    p.gelismis_dugmesi.setChecked(False)
+    assert not p.sol_panel.isVisible() and ayarlar.al("ui.advanced") is False
+    cikildi = []
+    p.uygulamadan_cik = lambda: cikildi.append(1)
+    p.cikis_dugmesi.click()                           # Çıkış alt satırda, CPU yazısının yanında
+    assert cikildi == [1] and p.cikis_dugmesi.isVisible()
     assert k.kayit.isVisible() and not k.kayit_grubu.isVisible()
     assert p.goster.secili == "Ekran 1"
     p.gelismis_dugmesi.setChecked(True)
@@ -180,3 +186,22 @@ def test_kaynak_secici_ilk_satir_tum_ekran(uygulama):
     s.liste.setCurrentRow(1)
     s._sec()
     assert s.secilen == (42, "Not Defteri")
+
+
+def test_mini_bar_sahnede_kamera_yoksa_kamera_dugmesi_kapali_ve_basilamaz(uygulama):
+    from scenes.scene_manager import Sahne, SahneYoneticisi
+    from ui.mini_bar import MiniCubuk
+    hat = _hat()
+    hat.kamera = object()                                  # takılı bir webcam varmış gibi
+    hat.sahneler = SahneYoneticisi([Sahne("Ekran + kamera", ekran=True, kamera="corner"),
+                                    Sahne("Sadece ekran", ekran=True)], gecis_ms=0)
+    hat.kamerayi_ayarla(True)
+    depo = DurumDeposu()
+    m = MiniCubuk(_komutlar(), hat, None)
+    m.durumu_goster(depo.durum)
+    kamera = m.dugmeler["kamera.ac_kapat"]
+    assert kamera.isEnabled() and not kamera.kapali
+    hat.sahne_sec(1)
+    m.durumu_goster(depo.durum)
+    assert not kamera.isEnabled() and kamera.kapali and kamera.accessibleName() == "Bu sahnede kamera yok"
+    m.close()
