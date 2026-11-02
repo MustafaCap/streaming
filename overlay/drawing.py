@@ -16,11 +16,17 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
-TURLER = ["kalem", "fosforlu", "ok", "kare", "yazi", "lazer"]
-TUR_ADLARI = {"kalem": "Kalem", "fosforlu": "Fosforlu", "ok": "Ok", "kare": "Kare", "yazi": "Yazı",
-              "lazer": "Lazer"}
-RENKLER = ["#FF8A3D", "#FFD43B", "#4C9BFF", "#FFFFFF"]   # turuncu (varsayılan), sarı, mavi, beyaz
-LAZER_RENGI = "#FF3B3B"
+TURLER = ["kalem", "fosforlu", "ok", "kare", "yazi", "lazer", "silgi"]
+TUR_ADLARI = {"kalem": "Kalem", "fosforlu": "Fosforlu kalem", "ok": "Ok", "kare": "Kare", "yazi": "Yazı",
+              "lazer": "Lazer", "silgi": "Silgi"}
+# Çizim renkleri kullanıcının içeriğidir (arayüzün gri kuralına girmez): beyaz, kırmızı, sarı, mavi
+RENKLER = ["#F4F4F5", "#EF4444", "#FACC15", "#3B82F6"]
+RENK_ADLARI = ["Beyaz", "Kırmızı", "Sarı", "Mavi"]
+VARSAYILAN_RENK = 1          # kırmızı
+LAZER_RENGI = "#EF4444"      # eski ad (lazer artık seçili rengi kullanır)
+KALINLIKLAR = ["ince", "orta", "kalin"]
+KALINLIK_ADLARI = {"ince": "İnce", "orta": "Orta", "kalin": "Kalın"}
+KALINLIK_CARPANI = {"ince": 0.6, "orta": 1.0, "kalin": 1.8}
 
 # Kalınlıklar monitör yüksekliğine oranla (1080p'de piksel / 1080)
 KALINLIK = {"kalem": 4 / 1080, "fosforlu": 22 / 1080, "ok": 5 / 1080, "kare": 4 / 1080,
@@ -40,10 +46,45 @@ class Sekil:
     renk: str
     noktalar: list = field(default_factory=list)   # [(x, y)] monitöre oranla; lazerde (x, y, zaman)
     metin: str = ""
+    carpan: float = 1.0                             # ince / orta / kalın
 
     @property
     def kalinlik(self) -> float:
-        return KALINLIK.get(self.tur, 4 / 1080)
+        return KALINLIK.get(self.tur, 4 / 1080) * self.carpan
+
+
+def _parca_uzakligi(px, py, ax, ay, bx, by) -> float:
+    dx, dy = bx - ax, by - ay
+    uz = dx * dx + dy * dy
+    t = 0.0 if uz == 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / uz))
+    qx, qy = ax + t * dx, ay + t * dy
+    return ((px - qx) ** 2 + (py - qy) ** 2) ** 0.5
+
+
+def sekle_degiyor_mu(s: Sekil, x: float, y: float, yaricap: float, oran: float = 16 / 9) -> bool:
+    """Silgi (x, y) noktasında şekle değiyor mu. oran: monitör en/boy (x'i y ölçeğine çevirir)."""
+    def u(a, b):   # yatay mesafe ekranda daha uzun
+        return a * oran, b
+    px, py = u(x, y)
+    pay = yaricap + s.kalinlik / 2
+    if s.tur in ("kalem", "fosforlu"):
+        pts = [u(*n[:2]) for n in s.noktalar]
+        if len(pts) == 1:
+            return ((px - pts[0][0]) ** 2 + (py - pts[0][1]) ** 2) ** 0.5 <= pay
+        return any(_parca_uzakligi(px, py, *a, *b) <= pay for a, b in zip(pts, pts[1:]))
+    if s.tur == "ok":
+        a, b = u(*s.noktalar[0]), u(*s.noktalar[1])
+        return _parca_uzakligi(px, py, *a, *b) <= pay
+    if s.tur == "kare":
+        (x0, y0), (x1, y1) = u(*s.noktalar[0]), u(*s.noktalar[1])
+        kenarlar = [((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))]
+        return any(_parca_uzakligi(px, py, *a, *b) <= pay for a, b in kenarlar)
+    if s.tur == "yazi":
+        x0, y0 = u(*s.noktalar[0])
+        w = len(s.metin) * s.kalinlik * 0.55
+        h = s.kalinlik * 1.3
+        return x0 - yaricap <= px <= x0 + w + yaricap and y0 - yaricap <= py <= y0 + h + yaricap
+    return False
 
 
 class CizimDeposu:
@@ -54,22 +95,45 @@ class CizimDeposu:
         self._sekiller: list[Sekil] = []
         self._aktif: Sekil | None = None
         self._lazer: list[tuple[float, float, float]] = []
+        self.lazer_rengi = RENKLER[VARSAYILAN_RENK]
+        self._gecmis: list[tuple] = []   # geri al için: ("ekle", şekil) | ("sil", [(sıra, şekil)])
+        self._siliyor: list | None = None
         self._saat = saat
         self.surum = 0  # her değişiklikte artar (katman yeniden çizsin diye)
 
     # ---- çizim sırasında
 
-    def basla(self, tur: str, renk: str, x: float, y: float) -> None:
+    SILGI_YARICAPI = 0.012   # monitör yüksekliğine oranla
+
+    def basla(self, tur: str, renk: str, x: float, y: float, carpan: float = 1.0) -> None:
         with self._kilit:
             if tur == "lazer":
+                self.lazer_rengi = renk
                 self._lazer.append((x, y, self._saat()))
+            elif tur == "silgi":
+                self._siliyor = []
+                self._sil(x, y)
             else:
-                self._aktif = Sekil(tur, renk, [(x, y)] if tur in ("kalem", "fosforlu") else [(x, y), (x, y)])
+                self._aktif = Sekil(tur, renk, [(x, y)] if tur in ("kalem", "fosforlu") else [(x, y), (x, y)],
+                                    carpan=carpan)
             self.surum += 1
+
+    def _sil(self, x: float, y: float) -> None:
+        """Silgi: değdiği şekilleri bütün olarak kaldırır (kilit içinde çağrılır)."""
+        kalan = []
+        for i, s in enumerate(self._sekiller):
+            if sekle_degiyor_mu(s, x, y, self.SILGI_YARICAPI):
+                self._siliyor.append((i, s))
+            else:
+                kalan.append(s)
+        if len(kalan) != len(self._sekiller):
+            self._sekiller = kalan
 
     def surukle(self, x: float, y: float) -> None:
         with self._kilit:
-            if self._aktif is None:
+            if self._siliyor is not None:
+                self._sil(x, y)
+            elif self._aktif is None:
                 self._lazer.append((x, y, self._saat()))
                 self._lazer = self._lazer[-400:]
             elif self._aktif.tur in ("kalem", "fosforlu"):
@@ -82,23 +146,32 @@ class CizimDeposu:
 
     def bitir(self) -> None:
         with self._kilit:
+            if self._siliyor is not None:
+                if self._siliyor:
+                    self._gecmis.append(("sil", self._siliyor))
+                self._siliyor = None
             s = self._aktif
             self._aktif = None
             if s is not None and self._anlamli(s):
                 self._sekiller.append(s)
+                self._gecmis.append(("ekle", s))
             self.surum += 1
 
-    def lazer_noktasi(self, x: float, y: float) -> None:
+    def lazer_noktasi(self, x: float, y: float, renk: str | None = None) -> None:
         """Lazer modunda fare basılı olmasa da hareket izi bırakır."""
         with self._kilit:
+            if renk:
+                self.lazer_rengi = renk
             self._lazer.append((x, y, self._saat()))
             self._lazer = self._lazer[-400:]
             self.surum += 1
 
-    def yazi_ekle(self, renk: str, x: float, y: float, metin: str) -> None:
+    def yazi_ekle(self, renk: str, x: float, y: float, metin: str, carpan: float = 1.0) -> None:
         if metin.strip():
             with self._kilit:
-                self._sekiller.append(Sekil("yazi", renk, [(x, y)], metin))
+                s = Sekil("yazi", renk, [(x, y)], metin, carpan)
+                self._sekiller.append(s)
+                self._gecmis.append(("ekle", s))
                 self.surum += 1
 
     @staticmethod
@@ -111,7 +184,20 @@ class CizimDeposu:
     # ---- düzenleme
 
     def geri_al(self) -> bool:
+        """Son çizimi geri alır; son işlem silgiyse silinenleri geri getirir."""
         with self._kilit:
+            while self._gecmis:
+                tur, veri = self._gecmis.pop()
+                if tur == "ekle":
+                    if veri in self._sekiller:
+                        self._sekiller.remove(veri)
+                        self.surum += 1
+                        return True
+                    continue
+                for i, s in sorted(veri, key=lambda p: p[0]):
+                    self._sekiller.insert(min(i, len(self._sekiller)), s)
+                self.surum += 1
+                return True
             if not self._sekiller:
                 return False
             self._sekiller.pop()
@@ -121,7 +207,9 @@ class CizimDeposu:
     def temizle(self) -> None:
         with self._kilit:
             self._sekiller.clear()
+            self._gecmis.clear()
             self._aktif = None
+            self._siliyor = None
             self._lazer.clear()
             self.surum += 1
 
@@ -134,7 +222,8 @@ class CizimDeposu:
             self._lazer = [p for p in self._lazer if simdi - p[2] < LAZER_OMRU]
             sekiller = list(self._sekiller) + ([self._aktif] if self._aktif is not None else [])
             if self._aktif is not None:
-                sekiller[-1] = Sekil(self._aktif.tur, self._aktif.renk, list(self._aktif.noktalar))
+                sekiller[-1] = Sekil(self._aktif.tur, self._aktif.renk, list(self._aktif.noktalar),
+                                     carpan=self._aktif.carpan)
             lazer = [(x, y, (simdi - t) / LAZER_OMRU) for x, y, t in self._lazer]
         return sekiller, lazer
 
@@ -204,7 +293,7 @@ def cizimleri_uygula(kare: np.ndarray, depo: CizimDeposu, monitor_w: int, monito
             kare = _yazi(kare, s.metin, x, y, max(8, int(round(s.kalinlik * monitor_h * olcek))), renk)
 
     if lazer:
-        renk = hex_rgb(LAZER_RENGI)
+        renk = hex_rgb(depo.lazer_rengi)
         kalin = max(2, int(round(KALINLIK["lazer"] * monitor_h * olcek)))
         for i in range(1, len(lazer)):
             a, b = lazer[i - 1], lazer[i]
