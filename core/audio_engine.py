@@ -99,6 +99,7 @@ class SesMotoru:
         self._is: threading.Thread | None = None
         self._cihaz_listesi: list[str] = []
         self._kilit = threading.Lock()
+        self.gurultu = None             # core.gurultu.GurultuAzaltici: mikrofon sesini temizler
 
     # ---------------- dışarıdan
 
@@ -291,7 +292,11 @@ class SesMotoru:
 
         def geri_cagri(in_data, frames, t, status):
             self._mik.son = time.monotonic()
-            kanal.tampon.yaz(np.frombuffer(in_data, np.float32))
+            veri = np.frombuffer(in_data, np.float32)
+            g = self.gurultu
+            if g is not None and g.acik:
+                veri = g.isle(veri)   # 48 kHz, 480 örneklik bloklar
+            kanal.tampon.yaz(veri)
             return (None, pyaudio.paContinue)
 
         try:

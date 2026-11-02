@@ -185,19 +185,18 @@ class KisayolYoneticisi:
 
 
 VARSAYILAN_KISAYOLLAR = {
-    "bolge.sec": "F6",
-    "kalem.ac_kapat": "F7",
-    "ses.mikrofon": "F8",
-    "ses.sistem": "F9",
-    "kamera.ac_kapat": "F10",
-    "anlik_kayit.kaydet": "F11",
-    "panik": "Ctrl+Alt+P",
-    "sahne.sec:1": "Ctrl+1",
-    "sahne.sec:2": "Ctrl+2",
-    "sahne.sec:3": "Ctrl+3",
-    "sahne.sec:4": "Ctrl+4",
+    "bolge.sec": "Ctrl+Shift+S",
+    "kalem.ac_kapat": "Ctrl+Shift+D",
+    "ses.mikrofon": "Ctrl+Shift+M",
+    "ses.sistem": "Ctrl+Shift+A",
+    "kamera.ac_kapat": "Ctrl+Shift+C",
+    "anlik_kayit.kaydet": "Ctrl+Shift+B",
+    "ekran.goruntusu": "Ctrl+Shift+G",
+    "kalem.temizle": "Ctrl+Shift+X",
+    "panik": "Ctrl+Shift+P",
+    **{f"sahne.sec:{n}": f"Ctrl+Shift+{n}" for n in range(1, 10)},
     "kayit.ac_kapat": "Ctrl+Shift+R",
-    "kayit.duraklat": "Ctrl+Alt+D",
+    "kayit.duraklat": "Ctrl+Shift+K",
 }
 
 

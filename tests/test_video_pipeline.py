@@ -72,7 +72,7 @@ def test_surucu_yoksa_cokmez_ve_durum_yok_olur():
         assert _bekle(lambda: depo.durum.sanal_kamera == "yok")
         assert not depo.durum.cikis_acik
         assert depo.durum.son_hata == "OBS Virtual Camera sürücüsü bulunamadı"   # nedeni kullanıcıya iletilir
-        assert not hat.cikis_istegi
+        assert hat.cikis_istegi          # 2.0.0: istek kalır, birkaç saniyede bir yeniden denenir
     finally:
         hat.durdur()
 

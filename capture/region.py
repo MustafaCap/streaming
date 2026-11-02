@@ -131,6 +131,6 @@ def uygula(ham: np.ndarray, g: Gorunum, genislik: int, yukseklik: int, karartma_
         kare = cv2.convertScaleAbs(kare, alpha=1.0 - karartma_gucu * g.karartma)
         if parlak is not None:
             kare[ay:by, ax:bx] = parlak
-            renk = (int(76 * g.karartma), int(155 * g.karartma), int(255 * g.karartma))  # vurgu mavisi
-            cv2.rectangle(kare, (ax, ay), (bx - 1, by - 1), renk, 2, cv2.LINE_AA)
+            c = int(228 * g.karartma)   # ince açık gri çerçeve (arayüzle aynı dil)
+            cv2.rectangle(kare, (ax, ay), (bx - 1, by - 1), (c, c, c), 1, cv2.LINE_AA)
     return kare, donusum

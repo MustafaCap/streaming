@@ -38,25 +38,73 @@ def kapanis_bekcisi(sn: float = KAPANIS_SURESI_SN, cik=_zorla_cik) -> threading.
     return zamanlayici
 
 
-def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None, mikser=None,
-                     ayarlar=None, kayitci=None, bildir=None) -> None:
-    hatirlatildi = [False]
+def klasorde_goster(dosya) -> None:
+    """Dosyayı Gezgin'de seçili olarak gösterir (Windows dışında klasörü açar)."""
+    import subprocess
+    try:
+        if sys.platform == "win32":
+            subprocess.Popen(["explorer", "/select,", str(dosya)])
+        else:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(dosya.parent)))
+    except Exception:
+        log.exception("Klasör açılamadı")
 
+
+def dosyayi_ac(dosya) -> None:
+    """Dosyayı varsayılan programla açar (video oynatıcı, resim görüntüleyici)."""
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(dosya))  # noqa: S606 (yerel dosya)
+        else:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(dosya)))
+    except Exception:
+        log.exception("Dosya açılamadı")
+
+
+def ekran_goruntusu_kaydet(kare, klasor, zaman=None):
+    """Çıkış karesini (çizimler dahil) PNG olarak kaydeder. PIL ile yazılır: Türkçe karakterli yollar da çalışır."""
+    from datetime import datetime
+    from pathlib import Path
+
+    import numpy as np
+    from PIL import Image
+    klasor = Path(klasor)
+    klasor.mkdir(parents=True, exist_ok=True)
+    hedef = klasor / (zaman or datetime.now()).strftime("Goruntu_%Y-%m-%d_%H-%M-%S.png")
+    sira = 2
+    while hedef.exists():   # aynı saniyede iki kez basılırsa üzerine yazma
+        hedef = hedef.with_name(f"{hedef.stem.split('~')[0]}~{sira}.png")
+        sira += 1
+    Image.fromarray(np.ascontiguousarray(kare[:, :, :3])).save(hedef, "PNG")
+    return hedef
+
+
+def goruntu_klasoru(ayarlar):
+    from pathlib import Path
+
+    from core.recorder import varsayilan_klasor
+    klasor = ayarlar.al("screenshot.folder", "") if ayarlar is not None else ""
+    if klasor:
+        return Path(klasor)
+    kayit = ayarlar.al("record.folder", "") if ayarlar is not None else ""
+    return Path(kayit) if kayit else varsayilan_klasor()
+
+
+def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None, mikser=None,
+                     ayarlar=None, kayitci=None, bildir=None, tekrar=None) -> None:
     def cikis_ac_kapat(_):
+        """Sanal çıkış (OBS Virtual Camera + VB-Cable) arka planda hep açıktır; tepsiden duraklatılabilir."""
         acilacak = not hat.cikis_istegi
         hat.cikisi_ayarla(acilacak)
         if ses is not None:
-            ses.ac(acilacak)  # görüntü ve ses birlikte başlar/durur
-        if not acilacak:
-            return "Yayın durduruldu"
-        if ayarlar is not None and ayarlar.al("ui.dnd_reminder", True) and not hatirlatildi[0]:
-            # Windows bildirimleri ekran yakalamaya girer ve başka uygulamaların penceresini
-            # gizlemenin resmi yolu yok; en güvenlisi Rahatsız Etme modu (brif 14. özellik).
-            hatirlatildi[0] = True
-            return "Yayın başladı · bildirimler görünmesin: Rahatsız Etme'yi aç (Win+N)"
-        return "Yayın başlatılıyor"
+            ses.ac(acilacak)  # görüntü ve ses birlikte durur/sürer
+        return "Sanal çıkış açıldı" if acilacak else "Sanal çıkış duraklatıldı · kamera ve mikrofon gönderilmiyor"
 
-    komutlar.kaydet("cikis.ac_kapat", "Yayını başlat/durdur", cikis_ac_kapat)
+    komutlar.kaydet("cikis.ac_kapat", "Sanal çıkışı duraklat/sürdür", cikis_ac_kapat)
 
     def sahne_sec(param):
         try:
@@ -67,7 +115,7 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             return f"{numara}. sahne yok"
         return f"Sahne: {hat.sahneler.aktif.ad}"
 
-    komutlar.kaydet("sahne.sec", "Sahne seç (1-4)", sahne_sec)
+    komutlar.kaydet("sahne.sec", "Sahne seç (1-9)", sahne_sec)
 
     def kamera_ac_kapat(_):
         if hat.kamera is None:
@@ -93,19 +141,17 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             if ses is not None:
                 ses.kayit_icin_ac(False)
             if bildir is not None:
-                bildir(f"Kayıt kaydedildi: {dosya.name} · 📁 Kayıtlar düğmesiyle aç" if dosya else f"Kayıt kaydedilemedi: {hata}")
-
-        kamera_onceki = [None]   # kayıt için kamerayı kapattıysak eski hâli (kayıt bitince geri gelir)
+                if dosya:
+                    bildir("Kayıt kaydedildi", eylem=("Klasörde göster", lambda: klasorde_goster(dosya)))
+                else:
+                    bildir(f"Kayıt kaydedilemedi: {hata}")
 
         def kayit_ac_kapat(_):
             if kayitci.kayitta:
                 if mikser is not None:
-                    mikser.kayit_dinleyici = None
+                    mikser.dinleyici_sil(kayitci.ses_yaz)
                 kayitci.durdur(kayit_bitti)
                 depo.guncelle(kayit_duraklatildi=False)
-                if kamera_onceki[0] is not None:
-                    hat.kamerayi_ayarla(kamera_onceki[0])
-                    kamera_onceki[0] = None
                 return "Kayıt durdu, dosya hazırlanıyor"
             if ayarlar is not None:
                 from pathlib import Path
@@ -117,17 +163,11 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
                 depo.guncelle(kayit="hata")
                 return f"Kayıt başlamadı: {kayitci.son_hata}"
             if mikser is not None:
-                mikser.kayit_dinleyici = kayitci.ses_yaz
+                mikser.dinleyici_ekle(kayitci.ses_yaz)
             if ses is not None:
                 ses.kayit_icin_ac(True)
             depo.guncelle(kayit="açık")
-            kamerasiz = (ayarlar is not None and not ayarlar.al("record.camera", False)
-                         and not hat.cikis_istegi and hat.kamera_istegi)
-            if kamerasiz:
-                # Yayın kapalıyken kayıt kamerasız başlar (F10 ile açılabilir); yayındaysan görüntü değişmez.
-                kamera_onceki[0] = True
-                hat.kamerayi_ayarla(False)
-            return f"Kayıt başladı{' (kamerasız)' if kamerasiz else ''} · {kayitci.klasor}"
+            return "Kayıt başladı"
 
         komutlar.kaydet("kayit.ac_kapat", "Yerel kaydı başlat/durdur", kayit_ac_kapat)
         komutlar.kaydet("kayit.durdur", "Yerel kaydı durdur",
@@ -146,6 +186,38 @@ def komutlari_kaydet(komutlar: KomutYoneticisi, depo: DurumDeposu, hat, ses=None
             return "Kayıt duraklatıldı · devam etmek için tekrar bas"
 
         komutlar.kaydet("kayit.duraklat", "Kaydı duraklat/devam et", kayit_duraklat)
+
+    def ekran_goruntusu(_):
+        try:
+            dosya = ekran_goruntusu_kaydet(hat.son_kare(), goruntu_klasoru(ayarlar))
+        except Exception as e:
+            log.exception("Ekran görüntüsü kaydedilemedi")
+            return f"Ekran görüntüsü kaydedilemedi: {e}"
+        if bildir is not None:
+            bildir("Ekran görüntüsü kaydedildi", eylem=("Aç", lambda: dosyayi_ac(dosya)))
+        return None
+
+    komutlar.kaydet("ekran.goruntusu", "Ekran görüntüsü al", ekran_goruntusu)
+
+    if tekrar is not None:
+        def tekrar_bitti(dosya, hata):
+            if bildir is None:
+                return
+            if dosya:
+                from core.anlik_tekrar import sure_etiketi
+                bildir(f"{sure_etiketi(tekrar.sure_sn)} kaydedildi", eylem=("Aç", lambda: dosyayi_ac(dosya)))
+            else:
+                bildir(f"Tekrar kaydedilemedi: {hata}")
+
+        def tekrar_kaydet(_):
+            if not tekrar.acik:
+                return "Anlık tekrar kapalı · Ayarlar > Genel'den açabilirsin"
+            klasor = (ayarlar.al("record.folder", "") if ayarlar is not None else "") or None
+            if not tekrar.kaydet(klasor, tekrar_bitti):
+                return tekrar.son_hata
+            return None
+
+        komutlar.kaydet("anlik_kayit.kaydet", "Son 2 dakikayı kaydet", tekrar_kaydet)
 
     if mikser is not None:
         def susturma(anahtar, durum_alani, ayar, ad):
@@ -196,6 +268,10 @@ def main() -> int:
     app.setApplicationName("RizeOn")
     app.setWindowIcon(uygulama_ikonu())
     app.setQuitOnLastWindowClosed(False)  # pencere kapanınca tepside çalışmaya devam
+    from ui import gizlilik
+    from ui.theme import QSS
+    gizlilik.kur(app)        # uygulamanın hiçbir penceresi (menüler, bildirimler dahil) yakalamaya girmez
+    app.setStyleSheet(QSS)   # tüm pencereler aynı gri tema
 
     w, h, fps = ayarlar.al("video.width"), ayarlar.al("video.height"), ayarlar.al("video.fps")
     depo = DurumDeposu()
@@ -209,7 +285,8 @@ def main() -> int:
                      kamera=WebcamKaynagi(ayarlar.al("camera.device", 0), w, h, fps,
                                           ayna=ayarlar.al("camera.mirror", False),
                                           bulaniklastir=ayarlar.al("camera.blur", False)),
-                     sahneler=SahneYoneticisi(sahneleri_oku(ayarlar.al("scenes", [])),
+                     sahneler=SahneYoneticisi(sahneleri_oku(ayarlar.al("scenes", []),
+                                                            ayarlar.al("video.cursor_highlight", False)),
                                               ayarlar.al("transition_ms", 300)),
                      kamera_yerlesimi=KameraYerlesimi.ayarlardan(ayarlar.al("camera", {})),
                      bekleme_metni=ayarlar.al("standby_text", "Birazdan döneceğim"),
@@ -228,21 +305,30 @@ def main() -> int:
                     sistem_modu=ayarlar.al("audio.system_mode", "auto"),
                     haric_uygulamalar=ayarlar.al("audio.exclude_apps", None),
                     dahil_uygulama=ayarlar.al("audio.include_app", ""))
+    from core.gurultu import GurultuAzaltici
+    gurultu = GurultuAzaltici(ayarlar.al("audio.noise_suppression", False))
+    ses.gurultu = gurultu
     from core.recorder import Kayitci
     kayitci = Kayitci(w, h, fps, ayarlar.al("record.folder", "") or None, ayarlar.al("record.encoder", "auto"))
     hat.kayitci = kayitci
+    from core.anlik_tekrar import AnlikTekrar
+    tekrar = AnlikTekrar(w, h, fps, ayarlar.al("record.replay_seconds", 120), ayarlar.al("record.encoder", "auto"))
+    hat.tekrar = tekrar
+    mikser.dinleyici_ekle(tekrar.ses_yaz)
+    # Sahne ve kaynak değişiklikleri hemen kaydedilir (uygulama çökse de kaybolmaz)
+    hat.sahneler.degisti = lambda: ayarlar.ayarla("scenes", hat.sahneler.sozluk_listesi())
     kabuk_ref = []
 
-    def bildir(mesaj):
+    def bildir(mesaj, eylem=None):
         log.info(mesaj)
         if kabuk_ref:
-            kabuk_ref[0].bildir(mesaj)
+            kabuk_ref[0].bildir(mesaj, eylem=eylem)
 
-    komutlari_kaydet(komutlar, depo, hat, ses, mikser, ayarlar, kayitci, bildir)
+    komutlari_kaydet(komutlar, depo, hat, ses, mikser, ayarlar, kayitci, bildir, tekrar)
     komutlar.dinle(lambda ad, mesaj: log.info("Komut: %s%s", ad, f" ({mesaj})" if mesaj else ""))
 
     pencere = AnaPencere(depo, komutlar, hat, onizleme_fps=ayarlar.al("ui.preview_fps", 15),
-                         ses=ses, mikser=mikser, ayarlar=ayarlar)
+                         ses=ses, mikser=mikser, ayarlar=ayarlar, gurultu=gurultu)
     kabuk = UygulamaKabugu(app, pencere, komutlar, depo, hat, ayarlar, cizimler, ses)
     kabuk_ref.append(kabuk)
     app.setQuitOnLastWindowClosed(not pencere.tepsiye_kucul)
@@ -255,8 +341,15 @@ def main() -> int:
 
     bas_konus = BasKonus(bas_konus_degisti)
     kabuk.bas_konus_kur(bas_konus, bas_konus_degisti)
+    # Sanal çıkış (OBS Virtual Camera + VB-Cable) arka planda hep açık; arayüzde düğmesi yok.
+    # Sürücü yoksa video hattı birkaç saniyede bir yeniden dener; tepsiden duraklatılabilir.
+    hat.cikisi_ayarla(True)
     hat.baslat()
     ses.baslat()
+    ses.ac(True)
+    if ayarlar.al("record.replay", True):
+        # FFmpeg ilk açılışta kodlayıcı denemesi yapar; arayüzü bekletmesin
+        threading.Thread(target=tekrar.baslat, name="tekrar-baslat", daemon=True).start()
     kabuk.baslat()
     tek.dinle(lambda: kabuk.komut_gonder("pencere.goster"))
 
@@ -283,6 +376,7 @@ def main() -> int:
         kayitci.durdur(lambda d, h: bitti.set())
         bitti.wait(60)  # kapanırken kayıt yarım kalmasın
     kapanis_bekcisi()
+    tekrar.durdur()
     bas_konus.durdur()
     kabuk.durdur()
     hat.durdur()
@@ -320,6 +414,8 @@ DUMAN_MODULLERI = (
     "outputs.virtualcam", "overlay.cursor", "overlay.drawing", "core.recorder", "capture.background_blur",
     "capture.region", "core.hotkeys", "capture.screen", "capture.webcam", "capture.app_audio",
     "core.audio_engine", "scenes.scene_manager", "core.platform_win", "capture.window", "ui.pencere_secici",
+    "ui.gizlilik", "ui.icons", "PySide6.QtSvg", "ui.bilesenler", "ui.sahne_panelleri", "scenes.kaynaklar",
+    "core.sistem_olcer", "core.ses_modlari", "core.gurultu", "core.anlik_tekrar", "ui.yardim", "ui.logo_veri",
 )
 
 
@@ -338,7 +434,11 @@ def duman_testi(sonuc_yolu: str) -> int:
         ffmpeg = ffmpeg_bul()
         if ffmpeg is None:
             raise RuntimeError("ffmpeg\\ffmpeg.exe bulunamadı")
-        sonuc, kod = f"tamam · sürüm {SURUM} · {len(DUMAN_MODULLERI)} modül · ffmpeg: {ffmpeg}\n", 0
+        from core.gurultu import GurultuAzaltici, dll_yolu
+        if getattr(sys, "frozen", False) and not GurultuAzaltici(True).acik:
+            raise RuntimeError(f"RNNoise yüklenemedi: {dll_yolu()}")
+        sonuc, kod = (f"tamam · sürüm {SURUM} · {len(DUMAN_MODULLERI)} modül · ffmpeg: {ffmpeg} · "
+                      f"rnnoise: {dll_yolu()}\n", 0)
     except BaseException:
         sonuc, kod = traceback.format_exc(), 1
     with open(sonuc_yolu, "w", encoding="utf-8") as f:

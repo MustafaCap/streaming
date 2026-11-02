@@ -1,100 +1,140 @@
-"""Mini mod: ekran kenarında sürüklenebilir, her zaman üstte duran küçük çubuk.
+"""Mini bar: her zaman üstte duran, sürüklenebilir küçük bar. Ekran yakalamaya girmez.
 
-Durum (CANLI/KAPALI/PANİK, kayıt süresi), Yayın, Kayıt (kayıtta Duraklat), Göster (tüm
-ekran / pencere), Mikrofon, Ses, Kamera, Kare, Kalem, Panik ve ana pencereye dönüş.
-Küçük kalsın diye düğmelerde sadece simge var; adı ve kısayolu fareyle üstüne
-gelince görünür. Ekran yakalamaya girmez.
+  kayıtta (küçük)   : tutma yeri · kırmızı nokta + süre · duraklat · genişlet ›
+  duraklatıldı      : gri nokta, soluk süre, ▶
+  genişletilmiş     : tutma yeri · Mikrofon · Sistem sesi · Kamera · Bölge · Kalem · Ekran görüntüsü |
+                      kayıt grubu (nokta + süre · duraklat · bitir) ya da Kayıt · küçült ‹
+
+Kayıt yokken genişletilmiş açılır; kayıt başlayınca kendiliğinden küçülür. Kapalı mikrofon ve
+kamera sönük gri zemin + çapraz çizgili simgeyle görünür. Panik ve "Son 2 dk" barda yok
+(kısayolları var). Sağ tık: ana pencere, kaydı bitir. Tutma yerine çift tık: ana pencere.
 """
 
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from core.hotkeys import tus_metni
 from core.platform_win import yakalamadan_gizle
-from ui.theme import QSS, RENK
+from ui.bilesenler import KayitGrubu, SimgeDugme, TutmaYeri
+from ui.theme import ALFA, RENK, beyaz
+
+
+def _ayrac() -> QWidget:
+    a = QWidget()
+    a.setFixedSize(13, 20)
+    a.setObjectName("miniAyrac")
+    a.setStyleSheet(f"QWidget#miniAyrac {{ border-left: 1px solid {beyaz(ALFA['kenarlik'])}; margin-left: 6px; }}")
+    return a
 
 
 class MiniCubuk(QWidget):
     ana_pencere_istendi = Signal()
 
-    DUGMELER = [  # komut, simge, ad
-        ("cikis.ac_kapat", "📡", "Yayın"),
-        ("kayit.ac_kapat", "⏺", "Kayıt"),
-        ("kayit.duraklat", "⏸", "Duraklat / devam et"),
-        ("kaynak.sec", "🗔", "Ne gösterilsin (tüm ekran / pencere)"),
-        ("ses.mikrofon", "🎙", "Mik"),
-        ("ses.sistem", "🔊", "Ses"),
-        ("kamera.ac_kapat", "📷", "Kamera"),
-        ("bolge.sec", "⛶", "Kare"),
-        ("kalem.ac_kapat", "✎", "Kalem"),
-        ("panik", "⚠", "Panik"),
+    ARACLAR = [  # komut, simge, açıkken ad, kapalıyken ad
+        ("ses.mikrofon", "mikrofon", "Mikrofon açık, kapat", "Mikrofon kapalı, aç"),
+        ("ses.sistem", "ses", "Sistem sesi açık, kapat", "Sistem sesi kapalı, aç"),
+        ("kamera.ac_kapat", "kamera", "Kamera açık, kapat", "Kamera kapalı, aç"),
+        ("bolge.sec", "bolge", "Bölge seç", "Bölge seç"),
+        ("kalem.ac_kapat", "kalem", "Kalem", "Kalem"),
+        ("ekran.goruntusu", "foto", "Ekran görüntüsü al", "Ekran görüntüsü al"),
     ]
 
     def __init__(self, komutlar, hat, ayarlar):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.komutlar, self.hat, self.ayarlar = komutlar, hat, ayarlar
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setStyleSheet(QSS + f"""
-            QWidget#mini {{ background: #20242D; border-radius: 14px; }}
-            QPushButton {{ background: {RENK['zemin']}; border: 1px solid {RENK['kenarlik']}; border-radius: 7px;
-                           padding: 2px 4px; font-size: 14px; min-width: 28px; min-height: 24px; }}
-            QPushButton:hover {{ border-color: {RENK['vurgu']}; }}
-            QLabel#durum {{ font-size: 10px; font-weight: 700; background: transparent; padding: 0 2px; }}
-        """)
+        self.setAccessibleName("RizeOn mini bar")
+        self.genis = True
+        self._kayitta = False
+        self._son = None
+
         kap = QWidget(self, objectName="mini")
+        kap.setAttribute(Qt.WA_StyledBackground)
         self._kap = kap
         satir = QHBoxLayout(kap)
-        satir.setContentsMargins(8, 5, 8, 5)
-        satir.setSpacing(3)
+        satir.setContentsMargins(4, 0, 4, 0)
+        satir.setSpacing(2)
+        self.tutma = TutmaYeri(dikey_bosluk=4)
+        self.tutma.birakildi.connect(self._konumu_kaydet)
+        self.tutma.cift_tiklandi.connect(self.ana_pencere_istendi.emit)
+        self.tutma.setToolTip("Taşı · çift tıkla: ana pencere")
+        satir.addWidget(self.tutma)
 
-        # Durum: yayın açık/kapalı, panik, kayıt — renkli ve yazılı (tek bakışta görünsün)
-        durum_kutu = QVBoxLayout()
-        durum_kutu.setSpacing(0)
-        self.nokta = QLabel("●", objectName="durum")
-        self.nokta.setToolTip("Yayın durumu")
-        self.nokta.setAlignment(Qt.AlignCenter)
-        self.durum_yazisi = QLabel("KAPALI", objectName="durum")
-        self.durum_yazisi.setAlignment(Qt.AlignCenter)
-        durum_kutu.addWidget(self.nokta)
-        durum_kutu.addWidget(self.durum_yazisi)
-        satir.addLayout(durum_kutu)
-        satir.addSpacing(4)
-
-        tuslar = (ayarlar.al("hotkeys", {}) if ayarlar is not None else {}) or {}
-        self.dugmeler = {}
-        # Küçük kalsın diye sadece simge; adı ve kısayol tuşu fareyle üstüne gelince görünür.
-        for komut, simge, ad in self.DUGMELER:
-            d = QPushButton(simge)
-            d.setProperty("ad", f"{ad}" + (f" · {tus_metni(tuslar[komut])}" if tuslar.get(komut) else ""))
-            d.setToolTip(d.property("ad"))
-            d.setFocusPolicy(Qt.NoFocus)
-            d.clicked.connect(lambda _=False, k=komut: komutlar.calistir(k))
-            satir.addWidget(d)
+        self.dugmeler: dict[str, SimgeDugme] = {}
+        self._araclar = QWidget()
+        arac_satiri = QHBoxLayout(self._araclar)
+        arac_satiri.setContentsMargins(0, 0, 0, 0)
+        arac_satiri.setSpacing(2)
+        for komut, simge, ad, _ in self.ARACLAR:
+            d = SimgeDugme(simge, ad, self._tus(komut))
+            d.clicked.connect(lambda _=False, k=komut: self._calistir(k))
+            arac_satiri.addWidget(d)
             self.dugmeler[komut] = d
-        self.dugmeler["kayit.duraklat"].setVisible(False)
+        arac_satiri.addWidget(_ayrac())
+        satir.addWidget(self._araclar)
 
-        satir.addSpacing(3)
-        don = QPushButton("⤢")
-        don.setToolTip("Ana pencereye dön (çubuğa çift tıklamak da olur)")
-        don.setFocusPolicy(Qt.NoFocus)
-        don.clicked.connect(self.ana_pencere_istendi.emit)
-        satir.addWidget(don)
+        self.kayit = SimgeDugme("kayit", "Kaydı başlat", self._tus("kayit.ac_kapat"))
+        self.kayit.clicked.connect(lambda: self._calistir("kayit.ac_kapat"))
+        satir.addWidget(self.kayit)
+        self.dugmeler["kayit.ac_kapat"] = self.kayit
+        self.kayit_grubu = KayitGrubu(dugme_boyu=32, bitir=True, zemin=False,
+                                      tus_duraklat=self._tus("kayit.duraklat"), tus_bitir=self._tus("kayit.ac_kapat"))
+        self.kayit_grubu.duraklat_basildi.connect(lambda: self._calistir("kayit.duraklat"))
+        self.kayit_grubu.bitir_basildi.connect(lambda: self._calistir("kayit.ac_kapat"))
+        satir.addWidget(self.kayit_grubu)
+        self.dugmeler["kayit.duraklat"] = self.kayit_grubu.duraklat
+
+        self.ac_kapa = SimgeDugme("geri", "Küçült", boyut=32, simge_boyu=14, renk=RENK["soluk"])
+        self.ac_kapa.clicked.connect(lambda: self.genislet(not self.genis))
+        satir.addWidget(self.ac_kapa)
 
         dis = QHBoxLayout(self)
-        dis.setContentsMargins(6, 6, 6, 6)   # gölge için yer
+        dis.setContentsMargins(0, 0, 0, 0)
         dis.addWidget(kap)
-        from PySide6.QtGui import QColor
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect
-        golge = QGraphicsDropShadowEffect(kap)
-        golge.setBlurRadius(12)
-        golge.setOffset(0, 3)
-        golge.setColor(QColor(0, 0, 0, 170))
-        kap.setGraphicsEffect(golge)
-        self._cerceve_rengi(RENK["kenarlik"])
-        self.adjustSize()
-        self._surukle: QPoint | None = None
+        self._yerlesim()
         self._konumu_yukle()
+
+    def _tus(self, komut: str) -> str:
+        tuslar = (self.ayarlar.al("hotkeys", {}) if self.ayarlar is not None else {}) or {}
+        return tus_metni(tuslar[komut]) if tuslar.get(komut) else ""
+
+    def _calistir(self, komut: str) -> None:
+        if self.komutlar.var_mi(komut):
+            self.komutlar.calistir(komut)
+
+    # ---- düzen
+
+    def genislet(self, genis: bool) -> None:
+        self.genis = genis
+        self._yerlesim()
+
+    def _yerlesim(self) -> None:
+        genis, kayitta = self.genis, self._kayitta
+        yukseklik = 44 if genis else 40
+        self._kap.setFixedHeight(yukseklik)
+        self._kap.setStyleSheet(f"QWidget#mini {{ background: {RENK['yuzen']}; border: 1px solid "
+                                f"{beyaz(ALFA['kenarlik'])}; border-radius: {yukseklik // 2}px; }}")
+        self._araclar.setVisible(genis)
+        self.kayit.setVisible(genis and not kayitta)
+        self.kayit_grubu.setVisible(kayitta)
+        if self.kayit_grubu.bitir is not None:
+            self.kayit_grubu.bitir.setVisible(genis)
+        boy = 36 if genis else 32
+        for d in (self.kayit_grubu.duraklat, self.kayit_grubu.bitir):
+            if d is not None:
+                d.setFixedSize(boy, boy)
+        # Kayıt yokken küçük bar boş kalırdı: küçültme sadece kayıtta var
+        self.ac_kapa.setVisible(kayitta or not genis)
+        self.ac_kapa.setFixedSize(boy, boy)
+        self.ac_kapa.durum(simge_adi="geri" if genis else "ileri")
+        self.ac_kapa.ad_ayarla("Küçült" if genis else "Genişlet")
+        self.adjustSize()
+        if self.isVisible():
+            # sağa doğru büyüsün/küçülsün ama ekrandan taşmasın
+            g = (self.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+            x = min(self.x(), g.right() - self.width())
+            self.move(max(g.x(), x), self.y())
 
     def _konumu_yukle(self) -> None:
         g = QGuiApplication.primaryScreen().availableGeometry()
@@ -106,84 +146,60 @@ class MiniCubuk(QWidget):
                 return
         self.move(g.x() + (g.width() - self.width()) // 2, g.bottom() - self.height() - 60)
 
+    def _konumu_kaydet(self) -> None:
+        if self.ayarlar is not None:
+            self.ayarlar.ayarla("ui.mini_pos", [self.x(), self.y()])
+
     def goster(self) -> None:
+        # Kayıt yokken genişletilmiş, kayıttayken küçük açılır
+        self.genis = not self._kayitta
+        self._yerlesim()
         self.show()
         yakalamadan_gizle(int(self.winId()))
         self.raise_()
 
-    # ---- sürükleme
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.hat.mini_gorunur = True     # mini bar açıkken kamera çalışır
 
-    def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self._surukle = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        self.hat.mini_gorunur = False
 
-    def mouseMoveEvent(self, e):
-        if self._surukle is not None:
-            self.move(e.globalPosition().toPoint() - self._surukle)
+    # ---- sağ tık
 
-    def mouseReleaseEvent(self, e):
-        if self._surukle is not None and self.ayarlar is not None:
-            self.ayarlar.ayarla("ui.mini_pos", [self.x(), self.y()])
-            self.ayarlar.kaydet()
-        self._surukle = None
-
-    def mouseDoubleClickEvent(self, e):
-        self.ana_pencere_istendi.emit()
+    def contextMenuEvent(self, e):
+        menu = QMenu(self)
+        menu.addAction("Ana pencereyi göster", self.ana_pencere_istendi.emit)
+        if self._kayitta:
+            menu.addAction("Kaydı bitir", lambda: self._calistir("kayit.ac_kapat"))
+        menu.addAction("Genişlet" if not self.genis else "Küçült", lambda: self.genislet(not self.genis))
+        menu.exec(e.globalPos())
 
     # ---- durum
 
-    def _cerceve_rengi(self, renk: str) -> None:
-        self._kap.setStyleSheet(f"QWidget#mini {{ background: #20242D; border: 2px solid {renk}; border-radius: 14px; }}")
-
     def durumu_goster(self, d) -> None:
         kayitta = getattr(d, "kayit", "kapalı") == "açık"
-        if d.panik:
-            renk, yazi = RENK["panik"], "PANİK"
-        elif d.cikis_acik:
-            renk, yazi = RENK["acik"], "CANLI"
-        else:
-            renk, yazi = RENK["yazi2"], "KAPALI"
-        metin = f'<span style="color:{renk}">{yazi}</span>'
+        if kayitta != self._kayitta:
+            self._kayitta = kayitta
+            if kayitta:
+                self.genis = False         # kayıt başlayınca kendiliğinden küçülür
+            self._yerlesim()
         if kayitta:
-            sn = int(getattr(d, "kayit_suresi", 0) or 0)
-            ek = "II" if d.kayit_duraklatildi else "REC"
-            metin += f'<br><span style="color:{RENK["kapali"]}">{ek} {sn // 60:02d}:{sn % 60:02d}</span>'
-        self.nokta.setStyleSheet(f"color: {renk}; font-size: 11px;")
-        self.durum_yazisi.setText(metin)
-        self._cerceve_rengi(RENK["kapali"] if kayitta and not d.panik else renk)
-        acik = {
-            "cikis.ac_kapat": d.cikis_acik,
-            "kayit.ac_kapat": kayitta,
-            "ses.mikrofon": not d.mikrofon_sessiz,
-            "ses.sistem": not d.sistem_sessiz,
-            "kamera.ac_kapat": self.hat.kamera_istegi,
-            "bolge.sec": bool(d.bolge),
-            "kalem.ac_kapat": d.kalem_acik,
-            "panik": d.panik,
-            "kayit.duraklat": kayitta and d.kayit_duraklatildi,
-            "kaynak.sec": d.kaynak_turu == "pencere",
+            self.kayit_grubu.guncelle(d.kayit_suresi, d.kayit_duraklatildi, self._tus("kayit.duraklat"))
+        kamera = self.hat.kamera_istegi
+        durumlar = {
+            "ses.mikrofon": (d.mikrofon_sessiz, False),
+            "ses.sistem": (d.sistem_sessiz, False),
+            "kamera.ac_kapat": (not kamera, False),
+            "bolge.sec": (False, bool(d.bolge)),
+            "kalem.ac_kapat": (False, d.kalem_acik),
+            "ekran.goruntusu": (False, False),
         }
-        duraklat = self.dugmeler.get("kayit.duraklat")
-        if duraklat is not None and duraklat.isHidden() == kayitta:
-            duraklat.setVisible(kayitta)        # sadece kayıt sürerken
-            self.adjustSize()
-        for komut, d_ in self.dugmeler.items():
-            a = acik[komut]
-            d_.setEnabled(self.komutlar.var_mi(komut))
-            if komut == "kayit.duraklat":
-                d_.setText("▶" if a else "⏸")
-                d_.setToolTip("Kayda devam et" if a else d_.property("ad"))
-                d_.setStyleSheet(f"color: {RENK['panik']}; border-color: {RENK['panik'] if a else 'transparent'};")
-                continue
-            if komut == "kaynak.sec":
-                d_.setToolTip(f"Gösterilen: {d.kaynak_adi or 'pencere'}" if a else "Gösterilen: tüm ekran · tıkla, pencere seç")
-            if komut in ("ses.mikrofon", "ses.sistem", "kamera.ac_kapat"):
-                # renk tek başına anlatmasın: kapalıyken simgenin yanında ✕
-                simge = next(s for k, s, _ in self.DUGMELER if k == komut)
-                d_.setText(simge if a else f"{simge}✕")
-                d_.setToolTip(f"{d_.property('ad')}: {'Açık' if a else 'Kapalı'}")
-                d_.setStyleSheet(f"color: {RENK['acik'] if a else RENK['kapali']};")
-            else:
-                renk = {"panik": RENK["panik"], "cikis.ac_kapat": RENK["acik"],
-                        "kayit.ac_kapat": RENK["kapali"]}.get(komut, RENK["vurgu"]) if a else RENK["yazi"]
-                d_.setStyleSheet(f"color: {renk}; border-color: {renk if a else 'transparent'};")
+        for komut, simge, ad_acik, ad_kapali in self.ARACLAR:
+            kapali, secili = durumlar[komut]
+            dugme = self.dugmeler[komut]
+            dugme.durum(kapali=kapali, secili=secili)
+            dugme.ad_ayarla(ad_kapali if kapali else ad_acik, self._tus(komut))
+            dugme.setEnabled(self.komutlar.var_mi(komut))
+        self.kayit.setEnabled(self.komutlar.var_mi("kayit.ac_kapat"))

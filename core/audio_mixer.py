@@ -140,7 +140,15 @@ class SesKaristirici:
         self._kisma = 1.0
         self._sessizlik_sn = 99.0
         self.konusuyor = False
-        self.kayit_dinleyici = None   # fn(blok): yerel kayıt sesi (VB-Cable'a gidenin aynısı)
+        # fn(blok): VB-Cable'a gidenin aynısını isteyenler (yerel kayıt, son 2 dk tamponu)
+        self._dinleyiciler: tuple = ()
+
+    def dinleyici_ekle(self, fn) -> None:
+        if fn not in self._dinleyiciler:
+            self._dinleyiciler = (*self._dinleyiciler, fn)   # ses iş parçacığı kopyayı okur, kilit gerekmez
+
+    def dinleyici_sil(self, fn) -> None:
+        self._dinleyiciler = tuple(d for d in self._dinleyiciler if d != fn)
 
     def kanal_ekle(self, anahtar: str, ad: str, kazanc: float = 1.0, sessiz: bool = False) -> Kanal:
         k = Kanal(ad, kazanc, sessiz)
@@ -186,8 +194,7 @@ class SesKaristirici:
             if tepe > 1.0:
                 np.clip(toplam, -1.0, 1.0, out=toplam)  # basit sınırlayıcı: patlama yerine kırpma
             self.cikis_seviyesi = min(tepe, 1.0)
-        dinleyici = self.kayit_dinleyici
-        if dinleyici is not None:
+        for dinleyici in self._dinleyiciler:
             try:
                 dinleyici(toplam)
             except Exception:

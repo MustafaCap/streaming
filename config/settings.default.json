@@ -28,7 +28,7 @@
   },
   "scenes": [
     {
-      "name": "Ekran + Kamera",
+      "name": "Ekran + kamera",
       "screen": true,
       "camera": "corner"
     },
@@ -41,7 +41,7 @@
       "camera": "full"
     },
     {
-      "name": "Bekleme",
+      "name": "Bekleme ekranı",
       "standby": true
     }
   ],
@@ -50,9 +50,9 @@
   "standby_image": "",
   "audio": {
     "mic_device": "",
-    "mic_gain": 1.0,
+    "mic_gain": 0.8,
     "mic_muted": false,
-    "system_gain": 0.7,
+    "system_gain": 0.8,
     "system_muted": false,
     "system_mode": "auto",
     "exclude_apps": [
@@ -64,7 +64,24 @@
     ],
     "include_app": "",
     "ducking": false,
-    "ducking_level": 0.3
+    "ducking_level": 0.3,
+    "ptt": false,
+    "noise_suppression": false,
+    "modes": {
+      "sesim": [
+        100,
+        45
+      ],
+      "dengeli": [
+        80,
+        80
+      ],
+      "oyun": [
+        70,
+        100
+      ]
+    },
+    "last_mode": "dengeli"
   },
   "pen": {
     "clear_on_close": true
@@ -72,22 +89,33 @@
   "record": {
     "folder": "",
     "encoder": "auto",
-    "camera": false
+    "replay": true,
+    "replay_seconds": 120
+  },
+  "screenshot": {
+    "folder": ""
   },
   "hotkeys": {
-    "bolge.sec": "F6",
-    "kalem.ac_kapat": "F7",
-    "ses.mikrofon": "F8",
-    "ses.sistem": "F9",
-    "kamera.ac_kapat": "F10",
-    "anlik_kayit.kaydet": "F11",
-    "panik": "Ctrl+Alt+P",
-    "sahne.sec:1": "Ctrl+1",
-    "sahne.sec:2": "Ctrl+2",
-    "sahne.sec:3": "Ctrl+3",
-    "sahne.sec:4": "Ctrl+4",
+    "bolge.sec": "Ctrl+Shift+S",
+    "kalem.ac_kapat": "Ctrl+Shift+D",
+    "ses.mikrofon": "Ctrl+Shift+M",
+    "ses.sistem": "Ctrl+Shift+A",
+    "kamera.ac_kapat": "Ctrl+Shift+C",
+    "anlik_kayit.kaydet": "Ctrl+Shift+B",
+    "ekran.goruntusu": "Ctrl+Shift+G",
+    "kalem.temizle": "Ctrl+Shift+X",
+    "panik": "Ctrl+Shift+P",
+    "sahne.sec:1": "Ctrl+Shift+1",
+    "sahne.sec:2": "Ctrl+Shift+2",
+    "sahne.sec:3": "Ctrl+Shift+3",
+    "sahne.sec:4": "Ctrl+Shift+4",
+    "sahne.sec:5": "Ctrl+Shift+5",
+    "sahne.sec:6": "Ctrl+Shift+6",
+    "sahne.sec:7": "Ctrl+Shift+7",
+    "sahne.sec:8": "Ctrl+Shift+8",
+    "sahne.sec:9": "Ctrl+Shift+9",
     "kayit.ac_kapat": "Ctrl+Shift+R",
-    "kayit.duraklat": "Ctrl+Alt+D",
+    "kayit.duraklat": "Ctrl+Shift+K",
     "kaynak.sec": "",
     "bas_konus": ""
   },
@@ -98,7 +126,9 @@
     "kalem.tur:4": "4",
     "kalem.tur:5": "5",
     "kalem.tur:6": "6",
+    "kalem.tur:7": "7",
     "kalem.geri_al": "Ctrl+Z",
-    "kalem.temizle": "Del"
+    "kalem.temizle": "Del",
+    "kalem.kapat": "Esc"
   }
 }

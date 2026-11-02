@@ -15,7 +15,7 @@ def test_eksik_alanlar_varsayilandan_tamamlanir():
     a = Ayarlar()
     assert a.al("video.fps") == 60          # kullanıcının değeri korunur
     assert a.al("video.width") == 1280      # eksik olan varsayılandan gelir
-    assert a.al("version") == 2
+    assert a.al("version") == 3
 
 
 def test_bozuk_dosya_uygulamayi_cokertmez():
@@ -39,9 +39,69 @@ def test_eski_f12_panik_tusu_tasinir():
     paths.ayar_dosyasi().write_text(json.dumps({"version": 1, "hotkeys": {"panik": "F12", "ses.mikrofon": "F2"}}),
                                     encoding="utf-8")
     a = Ayarlar()
-    assert a.al("hotkeys.panik") == "Ctrl+Alt+P"
+    assert a.al("hotkeys.panik") == "Ctrl+Shift+P"   # F12 -> Ctrl+Alt+P (1.x) -> Ctrl+Shift+P (2.0)
     assert a.al("hotkeys")["ses.mikrofon"] == "F2"
-    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == 2
+    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == 3
+
+
+def _v2_tuslari(**degisen):
+    from core.settings import KISAYOL_TASIMA_3
+    tuslar = {k: eski for k, (eski, _) in KISAYOL_TASIMA_3.items()}
+    tuslar.update({"kayit.ac_kapat": "Ctrl+Shift+R", "kaynak.sec": "", "bas_konus": ""})
+    tuslar.update(degisen)
+    return tuslar
+
+
+def test_kisayol_tasima_tablosu():
+    from core.hotkeys import VARSAYILAN_KISAYOLLAR
+    from core.settings import KISAYOL_TASIMA_3, YENI_KISAYOLLAR_3
+    beklenen = {"bolge.sec": "Ctrl+Shift+S", "kalem.ac_kapat": "Ctrl+Shift+D", "ses.mikrofon": "Ctrl+Shift+M",
+                "ses.sistem": "Ctrl+Shift+A", "kamera.ac_kapat": "Ctrl+Shift+C",
+                "anlik_kayit.kaydet": "Ctrl+Shift+B", "panik": "Ctrl+Shift+P", "kayit.duraklat": "Ctrl+Shift+K",
+                **{f"sahne.sec:{n}": f"Ctrl+Shift+{n}" for n in range(1, 5)}}
+    assert {k: yeni for k, (_, yeni) in KISAYOL_TASIMA_3.items()} == beklenen
+    assert KISAYOL_TASIMA_3["ses.mikrofon"][0] == "F8" and KISAYOL_TASIMA_3["kayit.duraklat"][0] == "Ctrl+Alt+D"
+    # yeni varsayılanlar settings.default.json ve Ayarlar penceresindeki "Varsayılanlara dön" ile aynı
+    for komut, tus in {**beklenen, **YENI_KISAYOLLAR_3}.items():
+        assert VARSAYILAN_KISAYOLLAR[komut] == tus
+    varsayilan = json.loads(paths.varsayilan_ayar_dosyasi().read_text(encoding="utf-8"))["hotkeys"]
+    for komut, tus in VARSAYILAN_KISAYOLLAR.items():
+        assert varsayilan[komut] == tus
+    tuslar = list(VARSAYILAN_KISAYOLLAR.values())
+    assert len(tuslar) == len(set(tuslar))   # iki işe aynı tuş verilmemiş
+
+
+def test_degistirilmemis_kisayollar_tasinir_degistirilenler_kalir():
+    paths.ayar_dosyasi().write_text(json.dumps({"version": 2, "hotkeys": _v2_tuslari(**{"ses.mikrofon": "F2"}),
+                                                "pen_hotkeys": {"kalem.tur:1": "1"}}), encoding="utf-8")
+    a = Ayarlar()
+    t = a.al("hotkeys")
+    assert t["ses.mikrofon"] == "F2"                       # kullanıcı değiştirmiş: dokunulmaz
+    assert t["bolge.sec"] == "Ctrl+Shift+S" and t["anlik_kayit.kaydet"] == "Ctrl+Shift+B"
+    assert t["sahne.sec:1"] == "Ctrl+Shift+1" and t["kayit.duraklat"] == "Ctrl+Shift+K"
+    assert t["sahne.sec:9"] == "Ctrl+Shift+9" and t["ekran.goruntusu"] == "Ctrl+Shift+G"
+    assert t["kalem.temizle"] == "Ctrl+Shift+X"
+    assert a.al("pen_hotkeys")["kalem.tur:7"] == "7" and a.al("pen_hotkeys")["kalem.kapat"] == "Esc"
+    assert a.al("audio.ptt") is False
+    assert json.loads(paths.ayar_dosyasi().read_text(encoding="utf-8"))["version"] == 3
+
+
+def test_cakisan_yeni_varsayilan_bos_kalir():
+    # Kullanıcı mikrofonu Ctrl+Shift+S'ye almış: bölge Ctrl+Shift+S'ye taşınamaz, boş kalır.
+    # Ekran görüntüsünün yeni tuşu da kullanıcının bas-konuş tuşuyla çakışıyor.
+    paths.ayar_dosyasi().write_text(json.dumps({"version": 2, "hotkeys": _v2_tuslari(
+        **{"ses.mikrofon": "ctrl+shift+s", "bas_konus": "Ctrl+Shift+G"})}), encoding="utf-8")
+    a = Ayarlar()
+    t = a.al("hotkeys")
+    assert t["ses.mikrofon"] == "ctrl+shift+s" and t["bolge.sec"] == ""
+    assert t["ekran.goruntusu"] == "" and t["bas_konus"] == "Ctrl+Shift+G"
+    assert t["kalem.ac_kapat"] == "Ctrl+Shift+D"
+    assert a.al("audio.ptt") is True                       # bas-konuş tuşu vardı: anahtar açık başlar
+
+
+def test_yeni_kurulumda_tasima_yapilmaz():
+    a = Ayarlar()
+    assert a.al("hotkeys")["bolge.sec"] == "Ctrl+Shift+S" and a.al("audio.ptt") is False
 
 
 def test_yanlis_turdeki_deger_varsayilana_doner():

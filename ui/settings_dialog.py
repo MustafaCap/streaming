@@ -1,4 +1,4 @@
-"""Ayarlar penceresi: genel, kamera, ses ve kısayollar.
+"""Ayarlar penceresi: genel, kamera, ses ve kısayollar (görünüm uygulamanın gri temasından gelir).
 
 Değişiklikler settings.json'a yazılır. Çoğu hemen uygulanır; monitör ve
 kamera cihazı değişikliği uygulama yeniden açılınca geçerli olur.
@@ -19,20 +19,23 @@ log = logging.getLogger(__name__)
 KOSELER = [("bottom-right", "Sağ alt"), ("bottom-left", "Sol alt"), ("top-right", "Sağ üst"), ("top-left", "Sol üst")]
 SES_MODLARI = [("auto", "Tüm ses (Zoom/Discord hariç, yankı yapmaz)"), ("all", "Hoparlörden çıkan her şey"),
                ("app", "Sadece bir uygulama")]
-VARSAYILAN_KALEM_TUSLARI = {"kalem.tur:1": "1", "kalem.tur:2": "2", "kalem.tur:3": "3", "kalem.tur:4": "4",
-                            "kalem.tur:5": "5", "kalem.tur:6": "6", "kalem.geri_al": "Ctrl+Z", "kalem.temizle": "Del"}
+VARSAYILAN_KALEM_TUSLARI = {**{f"kalem.tur:{n}": str(n) for n in range(1, 8)},
+                            "kalem.geri_al": "Ctrl+Z", "kalem.temizle": "Del", "kalem.kapat": "Esc"}
 KOMUT_ADLARI = {
-    "bolge.sec": "Kare seç / tam ekran", "kalem.ac_kapat": "Kalemi aç/kapat", "ses.mikrofon": "Mikrofon aç/kapat",
+    "bolge.sec": "Bölge seç / tam ekran", "kalem.ac_kapat": "Kalemi aç/kapat", "ses.mikrofon": "Mikrofon aç/kapat",
     "ses.sistem": "Bilgisayar sesi aç/kapat", "kamera.ac_kapat": "Kamera aç/kapat",
-    "anlik_kayit.kaydet": "Son 2 dakikayı kaydet", "panik": "Panik (bekleme ekranı)",
-    "sahne.sec:1": "Sahne 1", "sahne.sec:2": "Sahne 2", "sahne.sec:3": "Sahne 3", "sahne.sec:4": "Sahne 4",
+    "anlik_kayit.kaydet": "Son dakikaları kaydet (anlık tekrar)", "ekran.goruntusu": "Ekran görüntüsü al",
+    "kalem.temizle": "Çizimleri sil", "panik": "Panik (bekleme ekranı)",
+    **{f"sahne.sec:{n}": f"Sahne {n}" for n in range(1, 10)},
     "kayit.ac_kapat": "Yerel kaydı başlat/durdur", "kayit.duraklat": "Kaydı duraklat/devam et",
     "kaynak.sec": "Ne gösterilsin (tüm ekran / pencere)",
     "bas_konus": "Bas-konuş tuşu",
     "kalem.tur:1": "Kalem: kalem", "kalem.tur:2": "Kalem: fosforlu", "kalem.tur:3": "Kalem: ok",
     "kalem.tur:4": "Kalem: kare", "kalem.tur:5": "Kalem: yazı", "kalem.tur:6": "Kalem: lazer",
-    "kalem.geri_al": "Kalem: geri al", "kalem.temizle": "Kalem: hepsini sil",
+    "kalem.tur:7": "Kalem: silgi", "kalem.geri_al": "Kalem: geri al", "kalem.kapat": "Kalem: kapat",
 }
+# Kalem açıkken aynı komutun kalem grubundaki tuşu ayrı bir satırda görünür
+KALEM_KOMUT_ADLARI = {"kalem.temizle": "Kalem: hepsini sil"}
 
 
 def monitorler() -> list[str]:
@@ -45,10 +48,17 @@ def monitorler() -> list[str]:
 
 
 class AyarlarPenceresi(QDialog):
-    def __init__(self, ayarlar, hat=None, ses=None, uygula=None, parent=None):
-        """uygula(): kaydettikten sonra canlı uygulanacaklar için geri çağrı (kısayolları yeniden kaydetmek vb.)."""
+    SEKMELER = ("genel", "kamera", "ses", "kisayollar")
+
+    def __init__(self, ayarlar, hat=None, ses=None, uygula=None, parent=None, sekme: str | None = None,
+                 cikis=None, basarisiz=None, mikser=None):
+        """uygula(): kaydettikten sonra canlı uygulanacaklar için geri çağrı (kısayolları yeniden kaydetmek vb.).
+        cikis(): uygulamadan çık. basarisiz: alınamayan kısayollar ("grup:tuş")."""
         super().__init__(parent)
         self.ayarlar, self.hat, self.ses, self.uygula = ayarlar, hat, ses, uygula
+        self.cikis = cikis
+        self.mikser = mikser if mikser is not None else getattr(ses, "mikser", None)
+        self.basarisiz = {b.split(":", 1)[1] for b in (basarisiz or []) if ":" in b}
         self.setWindowTitle("Ayarlar")
         self.setStyleSheet(QSS)
         self.resize(640, 560)
@@ -57,6 +67,9 @@ class AyarlarPenceresi(QDialog):
         sekmeler.addTab(self._kamera(), "Kamera")
         sekmeler.addTab(self._ses(), "Ses")
         sekmeler.addTab(self._kisayollar(), "Kısayollar")
+        if sekme in self.SEKMELER:
+            sekmeler.setCurrentIndex(self.SEKMELER.index(sekme))
+        self.sekmeler = sekmeler
         self.uyari = QLabel(objectName="hata")
         self.uyari.setWordWrap(True)
         dugmeler = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -66,6 +79,10 @@ class AyarlarPenceresi(QDialog):
         dugmeler.rejected.connect(self.reject)
         hakkinda = dugmeler.addButton("Hakkında", QDialogButtonBox.HelpRole)
         hakkinda.clicked.connect(self._hakkinda)
+        if cikis is not None:
+            cik = dugmeler.addButton("Çıkış", QDialogButtonBox.ResetRole)
+            cik.setToolTip("RizeOn'u tamamen kapat (tepside de kalmaz)")
+            cik.clicked.connect(self._cik)
         kok = QVBoxLayout(self)
         kok.addWidget(sekmeler, 1)
         kok.addWidget(self.uyari)
@@ -75,6 +92,10 @@ class AyarlarPenceresi(QDialog):
         super().showEvent(olay)
         from core.platform_win import yakalamadan_gizle
         yakalamadan_gizle(int(self.winId()))  # ayarlar karşı tarafa görünmesin
+
+    def _cik(self) -> None:
+        self.reject()
+        self.cikis()
 
     def _hakkinda(self) -> None:
         from ui.hakkinda import hakkinda_goster
@@ -112,8 +133,6 @@ class AyarlarPenceresi(QDialog):
         self.gecis.setSingleStep(50)
         self.gecis.setSuffix(" ms")
         self.gecis.setValue(self._al("transition_ms", 300))
-        self.dnd = QCheckBox("Yayın başlarken 'Rahatsız Etme'yi açmayı hatırlat")
-        self.dnd.setChecked(self._al("ui.dnd_reminder", True))
         f.addRow("Yakalanan ekran", self.monitor)
         f.addRow("", self.imlec)
         f.addRow("", self.vurgu)
@@ -139,12 +158,29 @@ class AyarlarPenceresi(QDialog):
         self.kodlayici.setCurrentIndex(max(0, self.kodlayici.findData(self._al("record.encoder", "auto"))))
         f.addRow("Kayıt klasörü", klasor_satiri)
         f.addRow("Kayıt kodlayıcısı", self.kodlayici)
-        self.kayit_kamera = QCheckBox("Kayıtta kamera da açık olsun (yayın kapalıyken kayıt normalde kamerasız başlar)")
-        self.kayit_kamera.setChecked(self._al("record.camera", False))
-        f.addRow("", self.kayit_kamera)
+        self.tekrar = QCheckBox("Son dakikaları bellekte tut (diske yazmaz)")
+        self.tekrar.setChecked(self._al("record.replay", True))
+        self.tekrar_suresi = QSpinBox()
+        self.tekrar_suresi.setRange(30, 300)
+        self.tekrar_suresi.setSingleStep(30)
+        self.tekrar_suresi.setSuffix(" sn")
+        self.tekrar_suresi.setValue(self._al("record.replay_seconds", 120))
+        self.tekrar_suresi.setEnabled(self.tekrar.isChecked())
+        self.tekrar.toggled.connect(self.tekrar_suresi.setEnabled)
+        tekrar_satiri = QHBoxLayout()
+        tekrar_satiri.addWidget(self.tekrar, 1)
+        tekrar_satiri.addWidget(self.tekrar_suresi)
+        f.addRow("Anlık tekrar", tekrar_satiri)
+        self.goruntu_klasoru = QLineEdit(self._al("screenshot.folder", "") or "")
+        self.goruntu_klasoru.setPlaceholderText("Kayıt klasörüyle aynı")
+        goruntu_sec = QPushButton("Seç…", objectName="sahne")
+        goruntu_sec.clicked.connect(lambda: self._klasor_sec(self.goruntu_klasoru, "Ekran görüntüsü klasörü"))
+        goruntu_satiri = QHBoxLayout()
+        goruntu_satiri.addWidget(self.goruntu_klasoru, 1)
+        goruntu_satiri.addWidget(goruntu_sec)
+        f.addRow("Ekran görüntüsü klasörü", goruntu_satiri)
         f.addRow("", self.bildirim)
         f.addRow("", self.tepsi)
-        f.addRow("", self.dnd)
         return w
 
     def _gorsel_sec(self) -> None:
@@ -153,11 +189,12 @@ class AyarlarPenceresi(QDialog):
         if yol:
             self.bekleme_gorseli.setText(yol)
 
-    def _klasor_sec(self) -> None:
+    def _klasor_sec(self, alan=None, baslik: str = "Kayıt klasörü") -> None:
         from PySide6.QtWidgets import QFileDialog
-        yol = QFileDialog.getExistingDirectory(self, "Kayıt klasörü", self.kayit_klasoru.text())
+        alan = alan if isinstance(alan, QLineEdit) else self.kayit_klasoru
+        yol = QFileDialog.getExistingDirectory(self, baslik, alan.text() or self.kayit_klasoru.text())
         if yol:
-            self.kayit_klasoru.setText(yol)
+            alan.setText(yol)
 
     def _klasoru_ac(self) -> None:
         from PySide6.QtCore import QUrl
@@ -204,6 +241,21 @@ class AyarlarPenceresi(QDialog):
     def _ses(self) -> QWidget:
         w = QWidget()
         f = QFormLayout(w)
+        self.mikrofon = QComboBox()
+        self.mikrofon.addItem("Windows varsayılanı", "")
+        secili = self._al("audio.mic_device", "") or ""
+        cihazlar = []
+        if self.ses is not None:
+            try:
+                cihazlar = list(self.ses.mikrofonlar())
+            except Exception:
+                log.exception("Mikrofonlar listelenemedi")
+        if secili and secili not in cihazlar:
+            cihazlar.append(secili)   # şu an takılı değilse de seçili kalsın
+        for ad in cihazlar:
+            self.mikrofon.addItem(ad, ad)
+        self.mikrofon.setCurrentIndex(max(0, self.mikrofon.findData(secili)))
+        f.addRow("Mikrofon", self.mikrofon)
         self.ses_modu = QComboBox()
         for k, ad in SES_MODLARI:
             self.ses_modu.addItem(ad, k)
@@ -232,7 +284,21 @@ class AyarlarPenceresi(QDialog):
                           objectName="ikincil")
         aciklama.setWordWrap(True)
         f.addRow(aciklama)
+        modlari_sifirla = QPushButton("Ses modlarını sıfırla", objectName="sahne")
+        modlari_sifirla.setToolTip("Sesim, Dengeli ve Oyun modları ilk ayarlarına döner")
+        modlari_sifirla.clicked.connect(self._modlari_sifirla)
+        self.mod_bilgisi = QLabel(objectName="ikincil")
+        satir = QHBoxLayout()
+        satir.addWidget(modlari_sifirla)
+        satir.addWidget(self.mod_bilgisi, 1)
+        f.addRow("", satir)
         return w
+
+    def _modlari_sifirla(self) -> None:
+        from core import ses_modlari
+        ses_modlari.varsayilana_don(self.ayarlar)
+        self.ayarlar.kaydet()
+        self.mod_bilgisi.setText("Modlar ilk ayarlarına döndü")
 
     def _kisayollar(self) -> QWidget:
         w = QWidget()
@@ -246,8 +312,9 @@ class AyarlarPenceresi(QDialog):
         sifirla = QPushButton("Varsayılanlara dön", objectName="sahne")
         sifirla.clicked.connect(lambda: self._tabloyu_doldur(
             {**VARSAYILAN_KISAYOLLAR, "bas_konus": ""}, VARSAYILAN_KALEM_TUSLARI))
-        ipucu = QLabel("Örnek: F8, Ctrl+1, Ctrl+Shift+R, Alt+M, Del. Boş bırakırsan o kısayol kapanır. "
-                       "Kalem tuşları sadece kalem açıkken çalışır.", objectName="ikincil")
+        ipucu = QLabel("Örnek: Ctrl+Shift+M, Ctrl+1, F8, Alt+M, Del. Boş bırakırsan o kısayol kapanır. "
+                       "Kalem tuşları sadece kalem açıkken çalışır. ⚠ işaretli tuşları başka bir program "
+                       "kullanıyor; başka bir tuş seç.", objectName="ikincil")
         ipucu.setWordWrap(True)
         kutu.addWidget(self.tablo, 1)
         kutu.addWidget(ipucu)
@@ -258,11 +325,23 @@ class AyarlarPenceresi(QDialog):
         satirlar = [("hotkeys", k, v) for k, v in genel.items()] + [("pen_hotkeys", k, v) for k, v in kalem.items()]
         self.tablo.setRowCount(len(satirlar))
         for i, (grup, komut, tus) in enumerate(satirlar):
-            ad = QTableWidgetItem(KOMUT_ADLARI.get(komut, komut))
+            ad = QTableWidgetItem((KALEM_KOMUT_ADLARI.get(komut) if grup == "pen_hotkeys" else None)
+                                  or KOMUT_ADLARI.get(komut, komut))
             ad.setFlags(Qt.ItemIsEnabled)
             ad.setData(Qt.UserRole, (grup, komut))
             self.tablo.setItem(i, 0, ad)
-            self.tablo.setItem(i, 1, QTableWidgetItem(tus_metni(tus) if tus else ""))
+            hucre = QTableWidgetItem(tus_metni(tus) if tus else "")
+            if tus and grup == "hotkeys" and self._alinamadi(tus):
+                ad.setText("⚠ " + ad.text())
+                ad.setToolTip("Bu tuş alınamadı: başka bir program kullanıyor")
+                hucre.setToolTip("Bu tuş alınamadı: başka bir program kullanıyor")
+            self.tablo.setItem(i, 1, hucre)
+
+    def _alinamadi(self, tus: str) -> bool:
+        try:
+            return tus_metni(tus) in {tus_metni(b) for b in self.basarisiz}
+        except Exception:
+            return tus in self.basarisiz
 
     # ---------------- kaydet
 
@@ -298,7 +377,6 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("video.show_cursor", self.imlec.isChecked())
         a.ayarla("ui.toasts", self.bildirim.isChecked())
         a.ayarla("ui.minimize_to_tray", self.tepsi.isChecked())
-        a.ayarla("ui.dnd_reminder", self.dnd.isChecked())
         a.ayarla("standby_text", self.bekleme.text().strip() or "Birazdan döneceğim")
         gorsel = self.bekleme_gorseli.text().strip()
         if gorsel != a.al("standby_image", ""):
@@ -311,7 +389,11 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("standby_image", gorsel)
         a.ayarla("record.folder", self.kayit_klasoru.text().strip())
         a.ayarla("record.encoder", self.kodlayici.currentData())
-        a.ayarla("record.camera", self.kayit_kamera.isChecked())
+        a.ayarla("record.replay", self.tekrar.isChecked())
+        a.ayarla("record.replay_seconds", self.tekrar_suresi.value())
+        a.ayarla("screenshot.folder", self.goruntu_klasoru.text().strip())
+        mikrofon_degisti = self.mikrofon.currentData() != (a.al("audio.mic_device", "") or "")
+        a.ayarla("audio.mic_device", self.mikrofon.currentData())
         a.ayarla("video.cursor_highlight", self.vurgu.isChecked())
         a.ayarla("audio.ducking_level", self.kisma_seviye.value() / 100)
         a.ayarla("transition_ms", self.gecis.value())
@@ -330,6 +412,8 @@ class AyarlarPenceresi(QDialog):
         a.ayarla("pen_hotkeys", gruplar["pen_hotkeys"])
         a.kaydet()
         self._canli_uygula()
+        if mikrofon_degisti and self.ses is not None:
+            self.ses.mikrofon_sec(a.al("audio.mic_device", ""))
         if self.uygula is not None:
             try:
                 self.uygula()
@@ -351,6 +435,14 @@ class AyarlarPenceresi(QDialog):
             hat.imlec_vurgusu = a.al("video.cursor_highlight", False)
             hat.kamera_yerlesimi = KameraYerlesimi.ayarlardan(a.al("camera", {}))
             hat.sahneler.gecis_sn = max(0, a.al("transition_ms", 300)) / 1000
+            tekrar = getattr(hat, "tekrar", None)
+            if tekrar is not None:
+                tekrar.sure_ayarla(a.al("record.replay_seconds", 120))
+                acik = a.al("record.replay", True)
+                if acik != tekrar.acik:
+                    import threading
+                    threading.Thread(target=tekrar.baslat if acik else tekrar.durdur, name="tekrar-ayar",
+                                     daemon=True).start()
             if hat.kamera is not None:
                 hat.kamera.ayna = a.al("camera.mirror", False)
                 if hasattr(hat.kamera, "bulaniklastir"):

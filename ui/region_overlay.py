@@ -1,21 +1,23 @@
-"""F6 kare seçme katmanı.
+"""Bölge seçimi: ekranın üstüne kararan katman, ince beyaz çerçeve ve 4 yuvarlak tutamak.
 
-Ekranın üstüne yarı saydam koyu bir pencere açılır; fareyle kare çizilir.
-  Enter: yakınlaştır (sadece bu kare yayına gider)
-  V    : vurgula (ekranın geri kalanı kararır)
-  Esc  : iptal
-Kare çizildikten sonra içinden sürükleyerek taşınabilir, köşelerinden boyutlandırılabilir.
-Bu pencere ekran yakalamaya girmez; karşı taraf seçim ekranını görmez.
+SecimDuzenleyici çerçeveyi çizer ve fareyle düzenler (yeni kutu çiz, içinden taşı, köşeden
+boyutlandır). İki yerde kullanılır:
+  - ui/drawing_overlay.py'deki birleşik bölge + kalem katmanı (Bölge düğmesi, Ctrl+Shift+S)
+  - BolgeKatmani: "Ekran bölgesi" kaynağı eklerken alan seçmek için basit seçici
+
+Bu pencereler ekran yakalamaya girmez; karşı taraf seçim ekranını görmez.
 """
 
-from PySide6.QtCore import QPoint, QRect, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QGuiApplication, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
 from core.platform_win import yakalamadan_gizle
-from ui.theme import RENK
+from ui.theme import RENK, qrenk, yazi_tipi
 
-TUTAMAK = 10
+TUTAMAK = 7          # yuvarlak tutamak çapı
+TUTAMAK_ALANI = 22   # fareyle yakalama alanı
+KARARTMA = QColor(9, 9, 11, 140)   # rgba(9,9,11,.55)
 
 
 def ekrani_bul(dikdortgen):
@@ -36,120 +38,87 @@ def ekrani_bul(dikdortgen):
     return en_iyi or QGuiApplication.primaryScreen()
 
 
-class BolgeKatmani(QWidget):
-    secildi = Signal(tuple, str)   # (x, y, w, h) monitöre oranla 0..1, mod
-    iptal = Signal()
+class SecimDuzenleyici:
+    """Bir widget üstündeki seçim kutusu (widget koordinatında)."""
 
-    def __init__(self, ekran, onceki=None):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_DeleteOnClose)
-        self.setCursor(Qt.CrossCursor)
-        self.setMouseTracking(True)
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.ekran = ekran
-        self.setGeometry(ekran.geometry())
+    KOSELER = ("sol_ust", "sag_ust", "sol_alt", "sag_alt")
+
+    def __init__(self, widget: QWidget, oranlar=None):
+        self.w = widget
         self.secim = QRect()
-        if onceki:
-            g = ekran.geometry()
-            x, y, w, h = onceki
-            self.secim = QRect(round(x * g.width()), round(y * g.height()),
-                               round(w * g.width()), round(h * g.height()))
-        self._surukle = None   # ("yeni"|"tasi"|köşe adı, başlangıç noktası, başlangıç seçimi)
-        self._bitti = False
+        self._surukle = None   # (tür, başlangıç noktası, başlangıç kutusu)
+        if oranlar:
+            self.oranlardan(oranlar)
 
-    def baslat(self) -> None:
-        self.show()
-        yakalamadan_gizle(int(self.winId()))
-        self.raise_()
-        self.activateWindow()
-        self.setFocus()
+    # ---- dönüşüm
 
-    # ---- çizim
+    def oranlardan(self, oranlar) -> None:
+        W, H = self.w.width(), self.w.height()
+        x, y, w, h = oranlar
+        self.secim = QRect(round(x * W), round(y * H), round(w * W), round(h * H))
 
-    def _koseler(self) -> dict[str, QRect]:
+    def oranlar(self):
         r = self.secim.normalized()
-        t = TUTAMAK
-        return {"sol_ust": QRect(r.left() - t // 2, r.top() - t // 2, t, t),
-                "sag_ust": QRect(r.right() - t // 2, r.top() - t // 2, t, t),
-                "sol_alt": QRect(r.left() - t // 2, r.bottom() - t // 2, t, t),
-                "sag_alt": QRect(r.right() - t // 2, r.bottom() - t // 2, t, t)}
+        W, H = max(1, self.w.width()), max(1, self.w.height())
+        return r.x() / W, r.y() / H, r.width() / W, r.height() / H
 
-    def paintEvent(self, _):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        tum = QPainterPath()
-        tum.addRect(QRectF(self.rect()))
+    @property
+    def var(self) -> bool:
         r = self.secim.normalized()
-        if not r.isEmpty():
-            delik = QPainterPath()
-            delik.addRect(QRectF(r))
-            tum = tum.subtracted(delik)
-        p.fillPath(tum, QColor(0, 0, 0, 140))
-        if not r.isEmpty():
-            # Windows'ta tamamen saydam piksel tıklamayı alttaki pencereye geçirir; neredeyse saydam boya.
-            p.fillRect(r, QColor(0, 0, 0, 1))
+        return r.width() >= 8 and r.height() >= 8
 
-        vurgu = QColor(RENK["vurgu"])
-        if not r.isEmpty():
-            p.setPen(QPen(vurgu, 2))
-            p.setBrush(Qt.NoBrush)
-            p.drawRect(r)
-            p.setBrush(QColor("white"))
-            p.setPen(QPen(vurgu, 2))
-            for k in self._koseler().values():
-                p.drawRect(k)
-            dpr = self.ekran.devicePixelRatio()
-            self._etiket(p, f"{round(r.width() * dpr)} × {round(r.height() * dpr)}",
-                         QPoint(r.left(), max(0, r.top() - 34)))
+    def piksel_boyutu(self, dpr: float) -> tuple[int, int]:
+        r = self.secim.normalized()
+        return round(r.width() * dpr), round(r.height() * dpr)
 
-        ipucu = "Fareyle kare çiz  ·  Enter: yakınlaştır  ·  V: vurgula  ·  Esc: iptal"
-        self._etiket(p, ipucu, QPoint(self.width() // 2, 24), ortala=True, buyuk=True)
+    # ---- tutamaklar
 
-    def _etiket(self, p: QPainter, metin: str, nokta: QPoint, ortala=False, buyuk=False) -> None:
-        f = QFont("Segoe UI", 11 if buyuk else 10)
-        f.setBold(True)
-        p.setFont(f)
-        olc = p.fontMetrics().boundingRect(metin)
-        w, h = olc.width() + 20, olc.height() + 10
-        x = nokta.x() - w // 2 if ortala else nokta.x()
-        kutu = QRectF(x, nokta.y(), w, h)
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor(RENK["panel"]))
-        p.drawRoundedRect(kutu, 6, 6)
-        p.setPen(QColor(RENK["yazi"]))
-        p.drawText(kutu, Qt.AlignCenter, metin)
+    def kose_noktalari(self) -> dict[str, QPoint]:
+        r = self.secim.normalized()
+        return {"sol_ust": r.topLeft(), "sag_ust": QPoint(r.right() + 1, r.top()),
+                "sol_alt": QPoint(r.left(), r.bottom() + 1), "sag_alt": QPoint(r.right() + 1, r.bottom() + 1)}
+
+    def kose_altinda(self, nokta: QPoint) -> str | None:
+        if not self.var:
+            return None
+        for ad, k in self.kose_noktalari().items():
+            if abs(k.x() - nokta.x()) <= TUTAMAK_ALANI // 2 and abs(k.y() - nokta.y()) <= TUTAMAK_ALANI // 2:
+                return ad
+        return None
+
+    def imlec(self, nokta: QPoint, icinden_tasi: bool = True):
+        kose = self.kose_altinda(nokta)
+        if kose in ("sol_ust", "sag_alt"):
+            return Qt.SizeFDiagCursor
+        if kose:
+            return Qt.SizeBDiagCursor
+        if icinden_tasi and self.var and self.secim.normalized().contains(nokta):
+            return Qt.SizeAllCursor
+        return None
 
     # ---- fare
 
-    def mousePressEvent(self, e):
-        if e.button() != Qt.LeftButton:
-            if e.button() == Qt.RightButton:
-                self._iptal()
-            return
-        nokta = e.position().toPoint()
-        for ad, k in self._koseler().items():
-            if not self.secim.isEmpty() and k.adjusted(-4, -4, 4, 4).contains(nokta):
-                self._surukle = (ad, nokta, QRect(self.secim.normalized()))
-                return
-        if not self.secim.isEmpty() and self.secim.normalized().contains(nokta):
+    def bas(self, nokta: QPoint, yeni_kutu: bool = True, icinden_tasi: bool = True) -> bool:
+        """True: olay seçim düzenlemesine gitti."""
+        kose = self.kose_altinda(nokta)
+        if kose:
+            self._surukle = (kose, nokta, QRect(self.secim.normalized()))
+            return True
+        if icinden_tasi and self.var and self.secim.normalized().contains(nokta):
             self._surukle = ("tasi", nokta, QRect(self.secim.normalized()))
-            return
-        self.secim = QRect(nokta, nokta)
-        self._surukle = ("yeni", nokta, None)
-        self.update()
+            return True
+        if yeni_kutu:
+            self.secim = QRect(nokta, nokta)
+            self._surukle = ("yeni", nokta, None)
+            return True
+        return False
 
-    def mouseMoveEvent(self, e):
-        nokta = e.position().toPoint()
+    @property
+    def surukleniyor(self) -> bool:
+        return self._surukle is not None
+
+    def tasi(self, nokta: QPoint) -> None:
         if self._surukle is None:
-            uzerinde = any(k.adjusted(-4, -4, 4, 4).contains(nokta) for k in self._koseler().values()) \
-                if not self.secim.isEmpty() else False
-            if uzerinde:
-                self.setCursor(Qt.SizeAllCursor)
-            elif not self.secim.isEmpty() and self.secim.normalized().contains(nokta):
-                self.setCursor(Qt.OpenHandCursor)
-            else:
-                self.setCursor(Qt.CrossCursor)
             return
         tur, bas, ilk = self._surukle
         if tur == "yeni":
@@ -157,8 +126,8 @@ class BolgeKatmani(QWidget):
         elif tur == "tasi":
             r = QRect(ilk)
             r.translate(nokta - bas)
-            r.moveLeft(max(0, min(r.left(), self.width() - r.width())))
-            r.moveTop(max(0, min(r.top(), self.height() - r.height())))
+            r.moveLeft(max(0, min(r.left(), self.w.width() - r.width())))
+            r.moveTop(max(0, min(r.top(), self.w.height() - r.height())))
             self.secim = r
         else:
             r = QRect(ilk)
@@ -171,18 +140,108 @@ class BolgeKatmani(QWidget):
             else:
                 r.setBottom(nokta.y())
             self.secim = r
-        self.update()
+
+    def birak(self) -> bool:
+        """True: bir düzenleme bitti."""
+        if self._surukle is None:
+            return False
+        self._surukle = None
+        self.secim = self.secim.normalized().intersected(self.w.rect())
+        return True
+
+    # ---- çizim
+
+    def ciz(self, p: QPainter, karartma: QColor | None = KARARTMA) -> None:
+        r = self.secim.normalized()
+        if karartma is not None and karartma.alpha() > 0:
+            tum = QPainterPath()
+            tum.addRect(QRectF(self.w.rect()))
+            if self.var:
+                delik = QPainterPath()
+                delik.addRect(QRectF(r))
+                tum = tum.subtracted(delik)
+            p.fillPath(tum, karartma)
+        if not self.var:
+            return
+        p.setRenderHint(QPainter.Antialiasing)
+        beyaz = QColor(255, 255, 255, 230)
+        p.setPen(QPen(beyaz, 1))
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5))
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#ffffff"))
+        for k in self.kose_noktalari().values():
+            p.drawEllipse(QPointF(k), TUTAMAK / 2, TUTAMAK / 2)
+
+
+class BolgeKatmani(QWidget):
+    """Basit bölge seçici (kaynak eklerken): kutu çiz, Enter ya da çift tık onaylar, Esc vazgeçer."""
+
+    secildi = Signal(tuple, str)   # (x, y, w, h) monitöre oranla 0..1, mod
+    iptal = Signal()
+
+    def __init__(self, ekran, onceki=None):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setCursor(Qt.CrossCursor)
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.ekran = ekran
+        self.setGeometry(ekran.geometry())
+        self.duzenleyici = SecimDuzenleyici(self, onceki)
+        self._bitti = False
+
+    @property
+    def secim(self) -> QRect:
+        return self.duzenleyici.secim
+
+    def baslat(self) -> None:
+        self.show()
+        yakalamadan_gizle(int(self.winId()))
+        self.raise_()
+        self.activateWindow()
+        self.setFocus()
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        self.duzenleyici.ciz(p)
+        if self.duzenleyici.var:
+            # Windows'ta tamamen saydam piksel tıklamayı alttaki pencereye geçirir; neredeyse saydam boya.
+            p.fillRect(self.duzenleyici.secim.normalized(), QColor(0, 0, 0, 1))
+            r = self.duzenleyici.secim.normalized()
+            w, h = self.duzenleyici.piksel_boyutu(self.ekran.devicePixelRatio())
+            p.setFont(yazi_tipi(12))
+            p.setPen(qrenk("dugme"))
+            y = r.bottom() + 10 if r.bottom() + 30 < self.height() else r.top() - 24
+            p.drawText(QRectF(r.left(), y, 200, 18), Qt.AlignLeft | Qt.AlignVCenter, f"{w} × {h}")
+        p.setFont(yazi_tipi(12))
+        p.setPen(QColor(RENK["dugme"]))
+        p.drawText(QRectF(0, self.height() - 48, self.width(), 24), Qt.AlignCenter,
+                   "Kutu çiz · Enter ya da çift tık tamam · Esc vazgeç")
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.RightButton:
+            self._iptal()
+        elif e.button() == Qt.LeftButton:
+            self.duzenleyici.bas(e.position().toPoint())
+            self.update()
+
+    def mouseMoveEvent(self, e):
+        nokta = e.position().toPoint()
+        if self.duzenleyici.surukleniyor:
+            self.duzenleyici.tasi(nokta)
+            self.update()
+        else:
+            self.setCursor(self.duzenleyici.imlec(nokta) or Qt.CrossCursor)
 
     def mouseReleaseEvent(self, e):
-        self._surukle = None
-        self.secim = self.secim.normalized().intersected(self.rect())
+        self.duzenleyici.birak()
         self.update()
 
     def mouseDoubleClickEvent(self, e):
-        if not self.secim.isEmpty() and self.secim.contains(e.position().toPoint()):
+        if self.duzenleyici.var and self.duzenleyici.secim.normalized().contains(e.position().toPoint()):
             self._onayla("yakinlastir")
-
-    # ---- klavye
 
     def keyPressEvent(self, e):
         if e.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -193,12 +252,10 @@ class BolgeKatmani(QWidget):
             self._iptal()
 
     def _onayla(self, mod: str) -> None:
-        r = self.secim.normalized()
-        if r.width() < 8 or r.height() < 8:
-            return  # henüz kare çizilmedi
-        w, h = self.width(), self.height()
+        if not self.duzenleyici.var:
+            return  # henüz kutu çizilmedi
         self._bitti = True
-        self.secildi.emit((r.x() / w, r.y() / h, r.width() / w, r.height() / h), mod)
+        self.secildi.emit(self.duzenleyici.oranlar(), mod)
         self.close()
 
     def _iptal(self) -> None:
@@ -212,4 +269,3 @@ class BolgeKatmani(QWidget):
             self._bitti = True
             self.iptal.emit()
         super().closeEvent(e)
-

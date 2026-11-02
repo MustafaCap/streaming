@@ -2,7 +2,7 @@
 
 *(1.6.0'dan önceki adı: Yayın Uygulaması. Eski sürümün üstüne kurulur; ayarların ve bekleme görüntülerin yeni klasöre kendiliğinden taşınır.)*
 
-Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sanal kamera** ve **sanal mikrofon** olarak görünen ekran, kamera ve ses paylaşım uygulaması. Öne çıkanlar: tek tuşla ekranın bir bölgesini seçip göstermek (F6) ve ekrana anında çizim yapmak (F7).
+Windows 10/11 için **internete hiç bağlanmayan**, Meet/Zoom/Discord'da **sanal kamera** ve **sanal mikrofon** olarak görünen ekran, kamera ve ses paylaşım uygulaması. Öne çıkanlar: tek tuşla ekranın bir bölgesini seçip göstermek (Ctrl+Shift+S), ekrana anında çizim yapmak (Ctrl+Shift+D) ve son 2 dakikayı tek tuşla kaydetmek (Ctrl+Shift+B).
 
 ## Kurulum (bir kere)
 
@@ -24,54 +24,62 @@ Uyarı **"virüs algılandı"** ya da **"cihazınıza zarar verebilir"** diyorsa
 
 ## Kullanım
 
-1. **Yayın** düğmesine bas (görüntü ve ses birlikte başlar). Tüm ekran yerine tek bir pencere göstermek için **Göster** düğmesinden pencereyi seç.
+1. Uygulamayı aç. Sanal kamera ve sanal mikrofon arka planda **kendiliğinden başlar**; ayrı bir Yayın düğmesi yok. Duraklatmak için tepsi simgesine sağ tık → *Sanal çıkışı duraklat*.
 2. Zoom / Meet / Discord'da: kamera **OBS Virtual Camera**, mikrofon **CABLE Output (VB-Audio Virtual Cable)**.
-3. Ana pencere sade açılır: önizleme ve temel düğmeler (Yayın, Kayıt, Göster, Kamera, Mikrofon, Bilgisayar sesi). Sahneler, ses mikseri, kare seçme, kalem, panik ve bekleme ekranı sağ üstteki **☰ Gelişmiş** düğmesiyle açılır. Uygulama son seçimi hatırlar.
-4. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan yenisi başlamaz, çalışan pencere öne gelir. Pencere gizliyken (yayın ve kayıt da yoksa) kamera kapalı tutulur. Yayın ya da kayıt sürerken pencereyi kapatırsan mini çubuk açılır; yayının sürdüğünü görür, oradan durdurursun. Tamamen kapatmak için sağ üstteki **⏻ Çıkış** düğmesi ya da tepsi simgesine sağ tık → *Çıkış* (yayın/kayıt açıksa önce sorar).
+3. Ana pencere sade açılır: önizleme ve altta kontrol barı (Mikrofon, Sistem sesi, Kamera, Göster, Bölge, Kalem, Kayıt). Sahneler, kaynaklar, ses mikseri ve ses anahtarları başlık çubuğundaki **☰ Gelişmiş** ile açılır. Pencere daraldıkça sütunlar alt alta geçer. Uygulama son seçimi hatırlar.
+4. Ne gösterileceğini **Göster** menüsünden seç: tüm ekran, bir monitör, bir pencere ya da ekranın bir bölgesi.
+5. Pencereyi kapatınca uygulama saatin yanındaki tepside çalışmaya devam eder; kısayollar açık kalır. Uygulama tek kopya çalışır: exe'yi tekrar açarsan çalışan pencere öne gelir. Pencere ve mini bar kapalıyken (kayıt da yoksa) kamera kapalı tutulur. Kayıt sürerken pencereyi kapatırsan mini bar açılır. Tamamen kapatmak için tepsi menüsü ya da Ayarlar → *Çıkış* (kayıt açıksa önce sorar).
 
 ### Kısayollar (hepsi Ayarlar > Kısayollar'dan değiştirilebilir)
 
+2.0.0'da kısayollar oyunlar ve dizüstü Fn tuşlarıyla çakışmasın diye **Ctrl+Shift**'e taşındı. Eski sürümden gelirken sadece hiç değiştirmediğin tuşlar taşınır; yeni tuş başka bir işte kullanılıyorsa o kısayol boş bırakılır.
+
 | Tuş | İşlev |
 | --- | --- |
-| F6 | Kare seç (fareyle çiz; **Enter** yakınlaştır, **V** vurgula, **Esc** iptal); tekrar F6 tam ekrana döner. Yakınlaştırınca seçilen yer ekranında ince mavi kesik çizgiyle gösterilir (sadece sen görürsün) |
-| F7 | Kalemi aç/kapat |
-| 1–6 | Kalem türü: kalem, fosforlu, ok, kare, yazı, lazer (sadece kalem açıkken) |
-| Ctrl+Z / Del | Son çizimi geri al / hepsini sil (sadece kalem açıkken; sağ tık da geri alır) |
-| F8 / F9 / F10 | Mikrofon / bilgisayar sesi / kamera aç-kapat |
-| Ctrl+Alt+P | Panik: anında bekleme ekranı, ses kesilir; tekrar basınca geri döner |
-| Ctrl+1 … Ctrl+4 | Sahne: Ekran + Kamera, Sadece ekran, Sadece kamera, Bekleme |
-| Ctrl+Shift+R | Yerel MP4 kaydı başlat/durdur. Yayın kapalıyken kayıt kamerasız başlar (F10 ile açılır; Ayarlar'dan değiştirilebilir). Başka bir uygulamadayken basarsan mini çubuk açılır |
-| Ctrl+Alt+D | Kaydı duraklat / devam et. Duraklatılan süre videoya girmez |
+| Ctrl+Shift+S | Bölge seç: kutu çiz, **Yakınlaştır** ya da **Vurgula**; **Enter** tamam, **Esc** vazgeç. Tekrar basınca tam ekrana döner |
+| Ctrl+Shift+D | Kalemi aç/kapat |
+| 1–7 | Kalem türü: kalem, fosforlu, ok, kare, yazı, lazer, silgi (sadece kalem açıkken) |
+| Ctrl+Z / Del / Esc | Geri al / hepsini sil / kalemi kapat (sadece kalem açıkken; sağ tık da geri alır) |
+| Ctrl+Shift+X | Çizimleri sil (kalem kapalıyken de) |
+| Ctrl+Shift+M / A / C | Mikrofon / sistem sesi / kamera aç-kapat |
+| Ctrl+Shift+B | Son 2 dakikayı MP4 olarak kaydet (anlık tekrar) |
+| Ctrl+Shift+G | Ekran görüntüsü (çizimler dahil, PNG) |
+| Ctrl+Shift+P | Panik: anında bekleme ekranı, ses kesilir; tekrar basınca geri döner |
+| Ctrl+Shift+1 … 9 | Sahne seç |
+| Ctrl+Shift+R | Yerel MP4 kaydı başlat/durdur. Başka bir uygulamadayken basarsan mini bar açılır |
+| Ctrl+Shift+K | Kaydı duraklat / devam et. Duraklatılan süre videoya girmez |
 | (ayarlanabilir) | Ne gösterilsin: tüm ekran ya da bir pencere |
-| (ayarlanabilir) | Bas-konuş: basılıyken mikrofon açık |
+| (ayarlanabilir) | Bas-konuş: basılıyken mikrofon açık (Gelişmiş görünümde *Bas-konuş* anahtarı açık olmalı) |
 
-Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · F8"). Başka bir program aynı tuşu kullanıyorsa uygulama bunu söyler.
+Kısayola basınca sağ altta kısa bir bildirim çıkar ("Mikrofon kapandı · Ctrl+Shift+M"). Başka bir program aynı tuşu kullanıyorsa uygulama bunu söyler ve Ayarlar > Kısayollar'da o tuşun yanında ⚠ görünür.
 
 ### Özellikler
 
-- **Pencere seçme**: **Göster** düğmesinden (mini çubukta 🗔) açık bir pencereyi seçersen yayında ve kayıtta sadece o pencere görünür, üstüne başka pencere gelse bile. Listenin en üstündeki *Tüm ekran* geri döndürür. Pencere seçiliyken kare seçme ve kalem çalışmaz (ikisi de tüm ekranda çalışır). Seçilen pencere kapanırsa uygulama kendiliğinden tüm ekrana dönmez, "Ekran yakalanamıyor" gösterir ve seni uyarır. Bazı oyunlar ve video oynatıcılar pencereyi doğrudan vermez; o zaman pencerenin ekrandaki yeri gösterilir ve üstüne gelen pencereler de görünür.
-- **Sahneler** ve 0,3 sn yumuşak geçiş; webcam köşede. Kamerayı **önizlemede fareyle sürükleyerek** istediğin yere koyabilirsin (boyut, ayna, **arka plan bulanıklaştırma** Ayarlar > Kamera).
-- **Ses mikseri**: mikrofon ve bilgisayar sesi ayrı seviyeler (%0–200), seviye göstergeleri, mikrofon seçimi. Bilgisayar sesinde ses çıkaran her uygulama ayrı yakalanır; Zoom/Discord/Teams ve uygulamanın kendi sesi **hiç alınmaz**, böylece yankı oluşmaz. Hangi uygulamaların alındığı Gelişmiş görünümde soldaki *Bilgisayar sesi* satırında yazar. (Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da Ayarlar > Ses'te `msedge.exe`'yi hariç listesine ekle.)
-- **Otomatik ses kısma** (konuşunca oyun sesi kısılır) ve **bas-konuş** (Ayarlar).
-- **Kare seçme**: animasyonlu yakınlaştırma ya da vurgulama (geri kalan kararır).
-- **Kalem**: kalem, fosforlu, ok, kare, yazı (Türkçe), lazer; 4 renk. Çizimler yayına ayrıca eklenir, tam ekran oyunda katman görünmese bile karşı taraf görür.
-- **Mini mod**: her zaman üstte duran küçük çubuk (sağ üstteki *Mini mod*); CANLI/KAPALI/PANİK durumu, kayıt süresi, Yayın ve Kayıt düğmeleri dahil. Düğmelerin adı ve kısayolu fareyle üstüne gelince görünür.
-- **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…). Gelişmiş görünümde soldaki *Bekleme ekranı* düğmesinden ya da Ayarlar > Genel'den seçilir.
-- **İmleç vurgulama**: halka + tıklama dalgası (Ayarlar > Genel).
-- **Yerel kayıt**: `Videolar\RizeOn\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Kayıt sürerken **Duraklat** düğmesi çıkar (mini çubukta ⏸); duraklatılan süre videoya girmez. Klasörü sağ alttaki **📁 Kayıtlar** düğmesi (ya da tepsi menüsü) açar. Kayıt sırasında uygulama çökerse ya da elektrik giderse kayıt kaybolmaz: bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
-- Uygulamanın kendi pencereleri (önizleme, kalem çubuğu, kare seçme, bildirimler, mini mod) **ekran yakalamaya girmez**; karşı taraf görmez.
-- Bir kaynak koparsa (kamera çıkarılır, mikrofon değişir) uygulama çökmez; o kaynak kırmızı görünür ve birkaç saniyede bir yeniden denenir.
+- **Sahneler ve kaynaklar** (Gelişmiş görünüm): her sahnede ekran, pencere, ekran bölgesi, kamera, resim, yazı, imleç vurgusu gibi kaynaklar sabit yerlerde durur; göz simgesiyle gizlenir. Sahne adına çift tıklayıp değiştirebilirsin. Kamerayı **önizlemede fareyle sürükleyerek** istediğin yere koyabilirsin (boyut, ayna, **arka plan bulanıklaştırma** Ayarlar > Kamera).
+- **Ses mikseri**: mikrofon ve sistem sesi ayrı seviyeler; **Sesim / Dengeli / Oyun** modları tek tıkla seviyeleri ayarlar (kendi ayarını moda kaydedebilirsin; Ayarlar > Ses'ten sıfırlanır). Mikrofon seçimi Ayarlar > Ses'te. Sistem sesinde Zoom/Discord/Teams ve uygulamanın kendi sesi **hiç alınmaz**, böylece yankı oluşmaz. (Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da Ayarlar > Ses'te `msedge.exe`'yi hariç listesine ekle.)
+- **Gürültü azaltma** (RNNoise): klavye, fan ve uğultu sesini bastırır. Gelişmiş görünümdeki *Gürültü azaltma* anahtarıyla açılır.
+- **Otomatik ses kısma** (konuşunca oyun sesi kısılır) ve **bas-konuş**.
+- **Bölge**: ekranın bir kısmını animasyonla yakınlaştır ya da vurgula (geri kalan kararır). Yakınlaştırınca seçilen yer ekranında ince bir çerçeveyle gösterilir (sadece sen görürsün).
+- **Kalem**: kalem, fosforlu, ok, kare, yazı (Türkçe), lazer, silgi; 4 renk, 3 kalınlık. Çizimler yayına ayrıca eklenir, tam ekran oyunda katman görünmese bile karşı taraf görür.
+- **Anlık tekrar**: son 2 dakika bellekte tutulur, **Ctrl+Shift+B** (ya da başlık çubuğundaki düğme) `Tekrar_….mp4` olarak kaydeder. Diske sürekli yazılmaz. Süre (30 sn – 5 dk) ve aç/kapa Ayarlar > Genel'de; kapalıyken hiç bellek kullanmaz.
+- **Ekran görüntüsü**: **Ctrl+Shift+G** ya da mini bardaki düğme karşı tarafın gördüğü görüntüyü (çizimler dahil) `Goruntu_….png` olarak kaydeder. Klasör Ayarlar > Genel'de.
+- **Mini bar**: her zaman üstte duran küçük bar (başlık çubuğunda *Mini bar*). Kayıt yokken araçlarla açılır, kayıt başlayınca kendiliğinden küçülür (süre, duraklat).
+- **Bekleme ekranı**: yazı, resim ya da sessiz döngüde oynayan kısa video (MP4/GIF…).
+- **Yerel kayıt**: `Videolar\RizeOn\` klasörüne MP4; ekran kartına göre NVIDIA/Intel/AMD donanım kodlayıcısı. Kayıt kamerayı kendiliğinden kapatmaz; gördüğün neyse o kaydedilir. Kayıt bitince köşede *Klasörde göster* çıkar. Uygulama çökerse ya da elektrik giderse kayıt bir sonraki açılışta `..._kurtarildi.mp4` olarak kurtarılır. Disk dolarsa kayıt durur, o ana kadarki kısım kaydedilir.
+- **Sanal çıkış uyarıları**: OBS Virtual Camera ya da VB-Cable bulunamazsa köşede "Sanal mikrofon bulunamadı · Nasıl düzeltilir?" çıkar; tıklayınca adım adım yardım açılır. Sorun sürdükçe tepsi menüsünde de görünür.
+- Uygulamanın **bütün pencereleri** (ana pencere, menüler, ayarlar, kalem barı, bölge seçimi, bildirimler, mini bar) **ekran yakalamaya girmez**; karşı taraf görmez.
+- Bir kaynak koparsa (kamera çıkarılır, mikrofon değişir) uygulama çökmez; birkaç saniyede bir yeniden denenir.
 
 ### Bildirimler hakkında
 
-Windows'ta başka bir uygulamanın bildirimini ekran yakalamadan çıkarmanın resmi bir yolu yok. Yayın ilk başladığında uygulama **Rahatsız Etme'yi açmayı (Win+N)** hatırlatır (Ayarlar'dan kapatılabilir).
+Windows'ta başka bir uygulamanın bildirimini ekran yakalamadan çıkarmanın resmi bir yolu yok. Görüşmeye başlamadan önce **Rahatsız Etme'yi (Win+N)** açman önerilir.
 
 ## Sorun giderme
 
 | Sorun | Çözüm |
 | --- | --- |
-| "Sanal kamera: Yok" | OBS kurulu değil ya da sanal kamerası hiç başlatılmamış (Kurulum 1). |
-| "Sanal mikrofon: Yok" | VB-Cable kurulu değil ya da bilgisayar yeniden başlatılmadı (Kurulum 2). |
+| "Sanal kamera bulunamadı" | OBS kurulu değil ya da sanal kamerası hiç başlatılmamış (Kurulum 1). Bildirimdeki *Nasıl düzeltilir?* adımları gösterir. |
+| "Sanal mikrofon bulunamadı" | VB-Cable kurulu değil ya da bilgisayar yeniden başlatılmadı (Kurulum 2). |
 | Karşı taraf sadece gürültü duyuyor | Windows varsayılan girişi CABLE olmuş; gerçek mikrofona çevir (Kurulum 3). |
 | Ses kısık | Mikserde Mikrofon kaydırıcısını %100'ün üstüne çıkar. |
 | Yankı var | Hoparlörden çıkan sesi mikrofon da duyuyor olabilir: kulaklık kullan. Meet gibi tarayıcıdan katılıyorsan tarayıcıyı (`msedge.exe`) Ayarlar > Ses'te hariç listesine ekle. |
@@ -131,6 +139,7 @@ Paketin içindeki `lisanslar` klasöründe her parçanın kendi lisans metni ve 
 | PySide6 / Qt | LGPLv3 |
 | OpenCV (opencv-python) | Apache 2.0 (içindeki FFmpeg LGPLv2.1) |
 | FFmpeg (BtbN LGPL derlemesi, `ffmpeg\`) | LGPLv2.1+ |
+| RNNoise (gürültü azaltma, `rnnoise\`, kaynak koddan derlenir) | BSD-3 |
 | numpy | BSD-3 |
 | Pillow | MIT-CMU (HPND) |
 | psutil | BSD-3 |

@@ -9,6 +9,10 @@ Ayrı bir iş parçacığında sabit FPS ile döner:
 Arayüz bu iş parçacığını asla beklemez; sadece son_kare() ile en son kareyi alır.
 Sanal kamerayı açıp kapatma istekleri de bu iş parçacığında işlenir, böylece
 kamera başka bir iş parçacığından kapatılırken kare gönderilmez.
+
+2.0.0'dan itibaren sanal kamera arka planda hep açık: uygulama açılınca başlar. Sürücü
+yoksa ya da çalışırken koparsa birkaç saniyede bir yeniden denenir; durum DurumDeposu'na
+yazılır, arayüz bildirim gösterir.
 """
 
 import logging
@@ -19,12 +23,15 @@ from capture.region import BolgeSecimi, uygula as bolge_uygula
 from core import frames
 from core.state import DurumDeposu
 from outputs.virtualcam import SanalKameraYok
+from scenes.kaynaklar import EkKaynaklar
 from scenes.scene_manager import KameraYerlesimi, Sahne, SahneYoneticisi, sahne_karesi
 
 log = logging.getLogger(__name__)
 
 
 class VideoHatti:
+    CIKIS_YENIDEN_DENEME_SN = 5.0
+
     def __init__(self, depo: DurumDeposu, kaynak, cikis, genislik=1280, yukseklik=720, fps=30,
                  imlec_goster: bool = True, kamera=None, sahneler: SahneYoneticisi | None = None,
                  kamera_yerlesimi: KameraYerlesimi | None = None, bekleme_metni: str = "Birazdan döneceğim",
@@ -36,15 +43,18 @@ class VideoHatti:
         self.kamera = kamera  # WebcamKaynagi ya da None
         self.bolge = bolge or BolgeSecimi()  # F6 kare seçme / yakınlaştırma / vurgulama
         self.cizimler = cizimler             # overlay.drawing.CizimDeposu ya da None
-        self.imlec_vurgusu = imlec_vurgusu   # imlecin etrafında halka + tıklama dalgası
+        self.imlec_vurgusu = imlec_vurgusu   # eski genel ayar; 2.0.0'da sahnedeki "İmleç vurgusu" kaynağı
         self.bekleme_gorseli = bekleme_gorseli   # resim ya da kısa video
         from core.standby import BeklemeVideosu
         self._bekleme_videosu = BeklemeVideosu()
         self.panik = False                   # Panik tuşu: anında bekleme ekranı
         self.kayitci = None                  # core.recorder.Kayitci (yerel MP4 kayıt)
-        # Ana pencerenin önizlemesi ekranda mı? Değilse ve yayın/kayıt da yoksa webcam'e
-        # dokunulmaz (uygulama arka planda beklerken kamera ışığı yanmasın).
+        self.tekrar = None                   # core.anlik_tekrar.AnlikTekrar (son 2 dk bellekte)
+        # Ana pencere (simge durumunda olsa da) ya da mini bar açık mı? İkisi de kapalıysa (uygulama
+        # tepside) ve kayıt yoksa webcam'e dokunulmaz: arka planda beklerken kamera ışığı yanmasın.
         self.onizleme_gorunur = True
+        self.mini_gorunur = False
+        self.ek = EkKaynaklar(genislik, yukseklik, fps)
         from core.logging_setup import SeyrekHata
         self._seyrek_hata = SeyrekHata(log)
         from overlay.cursor import ImlecVurgusu
@@ -58,6 +68,7 @@ class VideoHatti:
         self._son_kare = frames.siyah_kare(genislik, yukseklik)
         self._kilit = threading.Lock()
         self._cikis_istegi = False
+        self._cikis_sonraki_deneme = 0.0
         self._bekleyen_kaynak = None         # kaynagi_degistir() ile gelen, sonraki karede geçilecek kaynak
         self._calisiyor = threading.Event()
         self._is_parcacigi: threading.Thread | None = None
@@ -84,6 +95,7 @@ class VideoHatti:
             bekleyen.kapat()
         if self.kamera is not None:
             self.kamera.durdur(bekle=True)
+        self.ek.kapat()
         self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı", ekran_kaynagi="kapalı", webcam="kapalı")
 
     def kaynagi_degistir(self, yeni) -> None:
@@ -107,6 +119,7 @@ class VideoHatti:
 
     def cikisi_ayarla(self, acik: bool) -> None:
         self._cikis_istegi = acik
+        self._cikis_sonraki_deneme = 0.0   # hemen dene
 
     def kamerayi_ayarla(self, acik: bool) -> None:
         """Webcam'i aç/kapat (F10). Kapalıyken cihaz bırakılır, ışığı söner."""
@@ -135,24 +148,47 @@ class VideoHatti:
         if istek == self.cikis.acik:
             return
         if istek:
+            if time.monotonic() < self._cikis_sonraki_deneme:
+                return   # açılamadı; birkaç saniye sonra yeniden denenir (OBS sonradan kurulabilir)
             try:
                 self.cikis.ac()
                 self.depo.guncelle(cikis_acik=True, sanal_kamera="açık", son_hata="")
             except SanalKameraYok as e:
-                log.warning("Sanal kamera açılamadı: %s", e)
-                self._cikis_istegi = False
+                if self.depo.durum.sanal_kamera != "yok":
+                    log.warning("Sanal kamera açılamadı: %s", e)
+                self._cikis_sonraki_deneme = time.monotonic() + self.CIKIS_YENIDEN_DENEME_SN
                 self.depo.guncelle(cikis_acik=False, sanal_kamera="yok",
                                    son_hata=str(e) or "OBS Virtual Camera bulunamadı. OBS'yi kurup sanal kamerayı "
                                                       "bir kez başlat.")
             except Exception as e:
-                log.exception("Sanal kamera açılamadı")
-                self._cikis_istegi = False
+                if self.depo.durum.sanal_kamera != "hata":
+                    log.exception("Sanal kamera açılamadı")
+                self._cikis_sonraki_deneme = time.monotonic() + self.CIKIS_YENIDEN_DENEME_SN
                 self.depo.guncelle(cikis_acik=False, sanal_kamera="hata", son_hata=f"Sanal kamera açılamadı: {e}")
         else:
             self.cikis.kapat()
             self.depo.guncelle(cikis_acik=False, sanal_kamera="kapalı")
 
-    def _ekran_karesi(self):
+    def _gonder(self, kare) -> None:
+        """Sanal kameraya gönder; çalışırken koparsa kapat, durumu yaz, sonra yeniden dene."""
+        try:
+            self.cikis.gonder(kare)
+        except Exception as e:
+            log.warning("Sanal kamera koptu: %s", e)
+            try:
+                self.cikis.kapat()
+            except Exception:
+                pass
+            self._cikis_sonraki_deneme = time.monotonic() + self.CIKIS_YENIDEN_DENEME_SN
+            self.depo.guncelle(cikis_acik=False, sanal_kamera="koptu", son_hata=f"Sanal kamera koptu: {e}")
+
+    @property
+    def kamera_kullaniliyor(self) -> bool:
+        """Görüntü birine gösteriliyor mu: pencere ya da mini bar açık, ya da kayıt sürüyor."""
+        return (self.onizleme_gorunur or self.mini_gorunur
+                or (self.kayitci is not None and self.kayitci.kayitta))
+
+    def _ekran_karesi(self, sahne: Sahne | None = None):
         if self._bekleyen_kaynak is not None:
             self._bekleyen_kaynaga_gec()
         ham = self.kaynak.grab()
@@ -162,22 +198,23 @@ class VideoHatti:
         self.depo.guncelle(ekran_kaynagi="çalışıyor", yakalama_yontemi=self.kaynak.yontem)
         kare, donusum = bolge_uygula(ham, self.bolge.gorunum(), self.genislik, self.yukseklik,
                                      self.bolge.karartma_gucu)
-        if self.cizimler is not None:
+        if self.cizimler is not None and (sahne is None or sahne.kalem):
             from overlay.drawing import cizimleri_uygula
             kare = cizimleri_uygula(kare, self.cizimler, ham.shape[1], ham.shape[0], donusum)
-        if self.imlec_goster or self.imlec_vurgusu:
+        vurgu = self.imlec_vurgusu or (sahne is not None and sahne.imlec_vurgusu)
+        if self.imlec_goster or vurgu:
             konum = getattr(self.kaynak, "imlec", lambda: None)()
             cikis_konumu = None
             if konum is not None:
                 x, y = donusum(*konum)
                 if -30 < x < self.genislik and -30 < y < self.yukseklik:
                     cikis_konumu = (x, y)
-            if self.imlec_vurgusu:
+            if vurgu:
                 self._vurgu.guncelle(konum)
-            if cikis_konumu is not None or (self.imlec_vurgusu and self._vurgu._dalgalar):
+            if cikis_konumu is not None or (vurgu and self._vurgu._dalgalar):
                 if kare is ham:  # aynı boyuttaysa kopyalanmamıştır; yakalayıcının önbelleğini bozma
                     kare = kare.copy()
-                if self.imlec_vurgusu:
+                if vurgu:
                     olcek = donusum(1, 0)[0] - donusum(0, 0)[0]
                     self._vurgu.ciz(kare, cikis_konumu, donusum, max(0.3, olcek * ham.shape[0] / 1080))
                 if self.imlec_goster and cikis_konumu is not None:
@@ -188,8 +225,7 @@ class VideoHatti:
         """Webcam'i sadece gerektiğinde açık tutar; son karesini (ya da None) döndürür."""
         if self.kamera is None:
             return None
-        kullaniliyor = (self._cikis_istegi or self.onizleme_gorunur
-                        or (self.kayitci is not None and self.kayitci.kayitta))
+        kullaniliyor = self.kamera_kullaniliyor
         gerekli = self._kamera_istegi and sahne.kamera is not None and kullaniliyor
         if gerekli and not self.kamera.acik:
             self.kamera.baslat()
@@ -226,11 +262,12 @@ class VideoHatti:
             return self._bekleme()
         sahne = self.sahneler.aktif
         self.depo.guncelle(aktif_sahne=self.sahneler.indeks, sahne_adi=sahne.ad)
-        ekran = self._ekran_karesi() if sahne.ekran else None
+        ekran = self._ekran_karesi(sahne) if sahne.ekran else None
         kamera = self._kamera_karesi(sahne)
+        ek = self.ek.kareler(sahne, self._kamera_istegi, self.kamera_kullaniliyor)
         kare = sahne_karesi(sahne, self.genislik, self.yukseklik, ekran, kamera,
                             self._kamera_istegi, self.kamera_yerlesimi, self.bekleme_metni,
-                            bekleme=self._bekleme)
+                            bekleme=self._bekleme, ek=ek)
         with self._kilit:
             onceki = self._son_kare
         return self.sahneler.gecis_uygula(kare, onceki)
@@ -245,9 +282,11 @@ class VideoHatti:
                 self._cikis_istegini_isle()
                 kare = self._kare_uret()
                 if self.cikis.acik:
-                    self.cikis.gonder(kare)
+                    self._gonder(kare)
                 if self.kayitci is not None and self.kayitci.kayitta:
                     self.kayitci.kare_yaz(kare)
+                if self.tekrar is not None and self.tekrar.acik:
+                    self.tekrar.kare_yaz(kare)
                 with self._kilit:
                     self._son_kare = kare
             except Exception:

@@ -2,6 +2,24 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.0 — 2026-11-02
+
+- Arayüz baştan tasarlandı: tek renk gri tema, yeni logo, çerçevesiz ana pencere ve başlık çubuğu (Gelişmiş, Kayıt klasörü, Son 2 dk'yı kaydet, Mini bar, Ayarlar). Pencere daraldıkça sütunlar alt alta geçer; sade görünümde pencere daha küçük olabilir.
+- **Yayın düğmesi kalktı.** Sanal kamera ve sanal mikrofon uygulama açılınca arka planda kendiliğinden başlar; tepsi menüsünden *Sanal çıkışı duraklat* ile durdurulur.
+- **Kayıt artık kamerayı kendiliğinden kapatmıyor.** Önizlemede ne görüyorsan o kaydedilir ("Kayıtta kamera da açık olsun" ayarı kalktı).
+- Gelişmiş görünümde sahneler ve kaynaklar: her sahneye ekran, pencere, ekran bölgesi, kamera, resim, yazı gibi kaynaklar eklenir, sabit yerlerde durur, göz simgesiyle gizlenir. Kontrol barındaki **Göster** menüsünden tüm ekran, monitör, pencere ya da bölge seçilir.
+- Ses mikserinde **Sesim / Dengeli / Oyun** modları. Mikrofon seçimi Ayarlar > Ses'e taşındı. Alt satırda CPU, GPU ve FPS görünür.
+- Bölge seçimi ve kalem tek katmanda birleşti: bölgede **Yakınlaştır / Vurgula**, yeni kalem barı (silgi, 3 kalınlık, yeni renkler, geri al, temizle). Kalem barı sürüklenebilir.
+- Yeni mini bar: kayıt yokken araçlarla açılır, kayıt başlayınca kendiliğinden küçülür.
+- **Anlık tekrar:** son 2 dakika bellekte tutulur, Ctrl+Shift+B ile `Tekrar_….mp4` olarak kaydedilir. Diske sürekli yazmaz. Süre 30 sn – 5 dk arası ayarlanır, kapatılabilir (kapalıyken bellek kullanmaz).
+- **Ekran görüntüsü:** Ctrl+Shift+G ya da mini bardaki düğme, karşı tarafın gördüğü görüntüyü çizimlerle birlikte `Goruntu_….png` olarak kaydeder.
+- **Gürültü azaltma (RNNoise):** klavye, fan ve uğultu sesini bastırır. Kütüphane kaynak koddan derlenip pakete konur.
+- Köşe bildirimleri yenilendi: "Son 2 dk kaydedildi · Aç", "Ekran görüntüsü kaydedildi", "Kayıt kaydedildi · Klasörde göster". Sanal kamera ya da mikrofon bulunamazsa "… bulunamadı · Nasıl düzeltilir?" çıkar, tıklayınca yardım açılır; sorun sürdükçe tepsi menüsünde de görünür.
+- **Kısayollar Ctrl+Shift'e taşındı** (F tuşları oyunlarla ve Fn tuşlarıyla çakışıyordu): Bölge Ctrl+Shift+S, Kalem Ctrl+Shift+D, Mikrofon Ctrl+Shift+M, Sistem sesi Ctrl+Shift+A, Kamera Ctrl+Shift+C, Son 2 dk Ctrl+Shift+B, Panik Ctrl+Shift+P, Sahneler Ctrl+Shift+1…9, Kaydı duraklat Ctrl+Shift+K. Yeni: Ekran görüntüsü Ctrl+Shift+G, Çizimleri sil Ctrl+Shift+X, kalemde 7 = silgi, Esc = kalemi kapat. Eski sürümden gelirken sadece hiç değiştirmediğin tuşlar taşınır; yeni tuş başka bir işte kullanılıyorsa boş bırakılır.
+- Alınamayan kısayollar bildirilir ve Ayarlar > Kısayollar'da ⚠ ile işaretlenir.
+- Ayarlara yeni seçenekler: anlık tekrar süresi ve aç/kapa, ekran görüntüsü klasörü, mikrofon seçimi, ses modlarını sıfırla, Çıkış düğmesi.
+- Ayarlar, Hakkında ve yardım dahil uygulamanın bütün pencereleri ekran yakalamaya girmez.
+
 ## 1.7.0 — 2026-10-31
 
 - Kayıt duraklatılıp devam ettirilebiliyor. Kayıt sürerken **Duraklat** düğmesi çıkıyor (mini çubukta ⏸, kısayol Ctrl+Alt+D). Duraklatılan süre videoya girmiyor ve kayıt süresine sayılmıyor. Duraklatılmışken uygulama çökerse kayıt yine kurtarılıyor.
