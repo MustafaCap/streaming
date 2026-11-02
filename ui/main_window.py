@@ -84,8 +84,17 @@ class BaslikCubugu(QWidget):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet("QWidget#baslikCubugu { border-bottom: 1px solid rgba(255, 255, 255, 15); }")
         kutu = QHBoxLayout(self)
-        kutu.setContentsMargins(16, 0, 0, 0)
+        kutu.setContentsMargins(12, 0, 0, 0)
         kutu.setSpacing(4)
+        from ui.icons import logo_pixmap
+        logo = QLabel()
+        dpr = self.devicePixelRatioF() or 1.0
+        lp = logo_pixmap(round(18 * dpr))
+        lp.setDevicePixelRatio(dpr)
+        logo.setPixmap(lp)
+        logo.setFixedSize(18, 18)
+        kutu.addWidget(logo)
+        kutu.addSpacing(4)
         ad = QLabel("RizeOn")
         ad.setStyleSheet(f"color: {RENK['yazi2']}; font-size: 12px;")
         kutu.addWidget(ad)

@@ -52,6 +52,10 @@ class HakkindaPenceresi(QDialog):
         lisanslar.clicked.connect(self.lisanslari_ac)
         dugmeler.rejected.connect(self.reject)
         kok = QVBoxLayout(self)
+        from ui.icons import logo_pixmap
+        logo = QLabel()
+        logo.setPixmap(logo_pixmap(72))
+        kok.addWidget(logo)
         kok.addWidget(yazi)
         kok.addWidget(dugmeler)
         self.resize(460, 0)

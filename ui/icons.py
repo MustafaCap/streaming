@@ -90,22 +90,28 @@ def simge(ad: str, renk: str | None = None, boyut: int = 18, cizgili: bool = Fal
     return icon
 
 
-def uygulama_ikonu(canli: bool = False, boyut: int = 64) -> QIcon:
-    """Gri kare içinde kamera simgesi. Logo yok; tepside ve görev çubuğunda uygulamayı tanıtır.
+def logo_pixmap(boyut: int = 64) -> QPixmap:
+    """RizeOn logosu (koyu yuvarlak kare içinde "RO" ve köşe çerçevesi)."""
+    return QPixmap(_logo(boyut))   # kopya: önbellekteki değişmesin
 
-    canli: eski sürümlerle uyum için duruyor; arayüz tek renk olduğu için simge değişmez.
+
+@lru_cache(maxsize=16)
+def _logo(boyut: int) -> QPixmap:
+    import base64
+    from ui.logo_veri import PNG_BASE64
+    pm = QPixmap()
+    pm.loadFromData(base64.b64decode(PNG_BASE64), "PNG")
+    if boyut != pm.width():
+        pm = pm.scaled(boyut, boyut, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    return pm
+
+
+def uygulama_ikonu(canli: bool = False, boyut: int = 64) -> QIcon:
+    """Pencere, görev çubuğu ve tepsi simgesi: RizeOn logosu.
+
+    canli: eski sürümlerle uyum için duruyor; simge değişmez.
     """
-    pm = QPixmap(boyut, boyut)
-    pm.fill(Qt.transparent)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.Antialiasing)
-    s = boyut / 64
-    p.setPen(Qt.NoPen)
-    p.setBrush(QColor(RENK["yuzen"]))
-    p.drawRoundedRect(QRectF(2 * s, 2 * s, 60 * s, 60 * s), 14 * s, 14 * s)
-    p.end()
-    ic = simge_pixmap("kamera", RENK["yazi"], round(40 * s), dpr=1.0)
-    p = QPainter(pm)
-    p.drawPixmap(round(12 * s), round(12 * s), ic)
-    p.end()
-    return QIcon(pm)
+    ikon = QIcon()
+    for b in (16, 20, 24, 32, 48, 64, 128, 256):
+        ikon.addPixmap(_logo(b))
+    return ikon
