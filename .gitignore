@@ -13,3 +13,5 @@ dist/
 ffmpeg/
 ffmpeg_tmp/
 ffmpeg.zip
+rnnoise/
+rnnoise_src/

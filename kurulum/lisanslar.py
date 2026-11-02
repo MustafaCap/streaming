@@ -45,6 +45,8 @@ DIGERLERI = [
      "ffmpeg/LICENSE.txt"),
     ("MediaPipe Selfie Segmentation modeli", "Apache-2.0",
      "_internal/models/LICENSE-mediapipe-Apache-2.0.txt"),
+    ("RNNoise (gürültü azaltma)", "BSD-3-Clause. Kaynak: https://github.com/xiph/rnnoise",
+     "rnnoise/COPYING"),
     ("Python", "PSF License (PyInstaller paketin içine Python çalışma zamanını koyar)", "lisanslar/Python/LICENSE.txt"),
     ("PyInstaller başlatıcısı", "GPLv2 + başlatıcı istisnası (paketlenen programın lisansını etkilemez)",
      "lisanslar/PyInstaller/COPYING.txt"),

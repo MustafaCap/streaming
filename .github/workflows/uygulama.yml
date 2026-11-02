@@ -71,11 +71,40 @@ jobs:
             Out-File -Encoding utf8 ffmpeg\KAYNAK.txt
           .\ffmpeg\ffmpeg.exe -hide_banner -version | Select-Object -First 1
 
+      # Gürültü azaltma: RNNoise (xiph.org, BSD-3-Clause) sabit bir sürümden kaynak koddan derlenir.
+      # Bu sürüm C99 değişken boyutlu dizi kullanıyor; MSVC'nin cl'i desteklemediği için Visual Studio'yla
+      # gelen clang-cl kullanılır (aynı MSVC bayrakları ve çalışma kitaplığı).
+      - name: RNNoise derle
+        run: |
+          git clone --quiet https://github.com/xiph/rnnoise.git rnnoise_src
+          git -C rnnoise_src checkout --quiet 6cbfd53eb348a8d394e0757b4025c6ded34eb2b6
+          if ($LASTEXITCODE -ne 0) { throw "RNNoise sürümü bulunamadı" }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          New-Item -ItemType Directory -Force rnnoise | Out-Null
+          $clang = @("$vs\VC\Tools\Llvm\x64\bin\clang-cl.exe", "$env:ProgramFiles\LLVM\bin\clang-cl.exe") |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $clang) { throw "clang-cl bulunamadı" }
+          Push-Location rnnoise_src
+          $kaynaklar = (Get-ChildItem src\*.c | ForEach-Object { "src\$($_.Name)" }) -join " "
+          @("@echo off",
+            "call `"$vs\VC\Auxiliary\Build\vcvars64.bat`" >nul || exit /b 1",
+            "`"$clang`" /nologo /O2 /LD /DWIN32 /DRNNOISE_BUILD /DDLL_EXPORT /D_USE_MATH_DEFINES /Iinclude $kaynaklar /Fe:..\rnnoise\rnnoise.dll") |
+            Out-File -Encoding ascii derle.bat
+          cmd /c derle.bat
+          $kod = $LASTEXITCODE
+          Pop-Location
+          if ($kod -ne 0) { throw "RNNoise derlenemedi" }
+          Copy-Item rnnoise_src\COPYING rnnoise\COPYING
+          "RNNoise - https://github.com/xiph/rnnoise (commit 6cbfd53eb348a8d394e0757b4025c6ded34eb2b6), BSD-3-Clause" |
+            Out-File -Encoding utf8 rnnoise\KAYNAK.txt
+          Remove-Item rnnoise\*.lib, rnnoise\*.exp -ErrorAction SilentlyContinue
+          python -c "from core.gurultu import GurultuAzaltici as G; assert G(True).kullanilabilir; print('RNNoise tamam')"
+
       - name: Birim testleri
         run: python -m pytest -q
 
       - name: Modüller Windows'ta yükleniyor mu?
-        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, ui.hakkinda, outputs.obs_kamera, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
+        run: python -c "import ui.main_window, ui.mixer_panel, ui.shell, ui.tray, ui.toast, ui.region_overlay, ui.drawing_overlay, ui.mini_bar, ui.settings_dialog, ui.hakkinda, outputs.obs_kamera, overlay.cursor, core.recorder, capture.background_blur, overlay.drawing, capture.region, core.hotkeys, capture.screen, capture.webcam, ui.bilesenler, ui.sahne_panelleri, scenes.kaynaklar, core.sistem_olcer, core.ses_modlari, core.gurultu, core.anlik_tekrar, capture.app_audio, core.audio_engine, pyaudiowpatch, comtypes, psutil, scenes.scene_manager, outputs.virtualcam, core.platform_win; print('tamam')"
 
       - name: .exe derle
         run: |
@@ -93,6 +122,7 @@ jobs:
         run: |
           Copy-Item README.md dist\RizeOn\BENIOKU.md
           Copy-Item -Recurse ffmpeg dist\RizeOn\ffmpeg
+          Copy-Item -Recurse rnnoise dist\RizeOn\rnnoise
           python kurulum/lisanslar.py dist\RizeOn
           if ($LASTEXITCODE -ne 0) { throw "Lisanslar toplanamadı" }
           Get-Content dist\RizeOn\lisanslar\UCUNCU_PARTI_LISANSLAR.txt

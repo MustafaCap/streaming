@@ -89,7 +89,12 @@
   "record": {
     "folder": "",
     "encoder": "auto",
-    "camera": false
+    "camera": false,
+    "replay": true,
+    "replay_seconds": 120
+  },
+  "screenshot": {
+    "folder": ""
   },
   "hotkeys": {
     "bolge.sec": "F6",
