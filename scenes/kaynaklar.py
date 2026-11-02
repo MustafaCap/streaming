@@ -16,6 +16,16 @@ from pathlib import Path
 import numpy as np
 
 log = logging.getLogger(__name__)
+_seyrek = None
+
+
+def _seyrek_hata():
+    """Her karede tekrarlanan aynı hata log'u doldurmasın (saniyede 30 kez yazılıyordu)."""
+    global _seyrek
+    if _seyrek is None:
+        from core.logging_setup import SeyrekHata
+        _seyrek = SeyrekHata(log)
+    return _seyrek
 
 
 def gorsel_oku(yol: str) -> np.ndarray | None:
@@ -203,8 +213,8 @@ class EkKaynaklar:
                     sonuc[kimlik] = yakalayici.grab(kamera_acik and kamera_kullaniliyor)
                 else:
                     sonuc[kimlik] = yakalayici.grab()
-            except Exception:
-                log.exception("Kaynak okunamadı: %s", k.ad)
+            except Exception as e:
+                _seyrek_hata().yaz(f"Kaynak okunamadı: {k.ad}", e)
                 sonuc[kimlik] = None
         return sonuc
 

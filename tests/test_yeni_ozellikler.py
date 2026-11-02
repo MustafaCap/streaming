@@ -213,3 +213,17 @@ def test_ayarlar_yeni_secenekler(tmp_path):
     assert a.al("audio.mic_device") == "USB Mikrofon" and ses.secilen == "USB Mikrofon"
     # 2.0.1: Çıkış düğmesi Ayarlar'dan ana pencerenin alt satırına taşındı
     assert "Çıkış" not in [d.text() for d in p.findChildren(QtWidgets.QPushButton)]
+
+
+def test_tekrar_ayni_saniyede_ustune_yazmaz_ve_artiklar_silinir(tmp_path):
+    from core.anlik_tekrar import artik_dosyalari_sil, bos_hedef
+    (tmp_path / "Tekrar_2026-11-02_20-00-00.mp4").write_bytes(b"x")
+    assert bos_hedef(tmp_path, "Tekrar_2026-11-02_20-00-00.mp4").name == "Tekrar_2026-11-02_20-00-00~2.mp4"
+    eski, yeni = tmp_path / ".Tekrar_a.ts", tmp_path / ".Tekrar_b.pcm"
+    eski.write_bytes(b"1")
+    yeni.write_bytes(b"2")
+    t = time.time() - 600
+    os.utime(eski, (t, t))
+    assert artik_dosyalari_sil(tmp_path) == 1
+    assert not eski.exists() and yeni.exists()   # yeni dosya şu an kaydediliyor olabilir
+    assert (tmp_path / "Tekrar_2026-11-02_20-00-00.mp4").exists()

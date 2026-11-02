@@ -2,6 +2,14 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.2 — 2026-11-02
+
+- **Kayıt:** kaydı durdurup dosya hazırlanırken hemen yeni kayıt başlatılırsa iki kayıt birbirine karışabiliyordu (yeni kaydın sesi kesilebiliyor, eski kayıt "kaydedilemedi" diyebiliyordu). Artık önceki dosya hazır olana kadar yeni kayıt başlamaz ve "birkaç saniye sonra tekrar dene" der.
+- **Kayıt ve anlık tekrar:** aynı saniyede iki dosya oluşursa ikincisi birincinin üstüne yazmaz, adının sonuna ~2 eklenir.
+- **Anlık tekrar:** kaydederken uygulama kapanırsa Kayıtlar klasöründe kalan gizli geçici dosyalar bir sonraki açılışta silinir.
+- Okunamayan bir kaynak (ör. bozuk ayar) log dosyasına saniyede 30 kez aynı hatayı yazmıyor; ilk seferinde ayrıntılı, sonra arada bir özetle yazılır.
+- Güvenlik denetimi: indirme sayfasına dosya koyan GitHub eylemi sabit bir sürüme bağlandı (paketlerin değiştirilemeden yayımlanması için).
+
 ## 2.0.1 — 2026-11-02
 
 - **Kamera:** aktif sahnede kamera kaynağı yoksa mini bardaki, ana penceredeki ve tepsideki Kamera düğmesi kapalı görünür ve basılamaz (kısayol da "Bu sahnede kamera yok" der). Böylece kamera seni çekmiyorken "açık" görünmez.

@@ -52,7 +52,8 @@ _PENCERESIZ = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW: 
 SES_HIZI, SES_KANALI = 48000, 2
 GECICI_VIDEO, GECICI_SES = ".video.mkv", ".ses.pcm"
 # İlk parça ".Kayit_....video.mkv", duraklatıp devam edince ".Kayit_....video.2.mkv", ".3" ...
-_GECICI_AD = re.compile(r"^\.(Kayit_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\.video(?:\.(\d+))?\.mkv$")
+# Aynı saniyede ikinci kayıt başlarsa adın sonuna ~2, ~3 ... eklenir.
+_GECICI_AD = re.compile(r"^\.(Kayit_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:~\d+)?)\.video(?:\.(\d+))?\.mkv$")
 
 
 def parca_yolu(klasor: Path, ad: str, sira: int) -> Path:
@@ -234,6 +235,12 @@ class Kayitci:
         self.atlanan_ses = 0
         self._ffmpeg_ciktisi: collections.deque = collections.deque(maxlen=50)
         self._kilit = threading.Lock()
+        self._kayit_hatasi = ""          # bu kayıt sırasında olan yazma hatası (son_hata başka işlerle de değişir)
+        self._bitiyor = False            # durdurulan kayıt arka planda birleştiriliyor
+
+    @property
+    def bitiyor(self) -> bool:
+        return self._bitiyor
 
     def _kuyruk_boyu(self) -> int:
         # Yaklaşık 1 saniyelik ham kare (1080p'de ~190 MB); kodlayıcı yetişemezse kare atlanır.
@@ -272,7 +279,11 @@ class Kayitci:
             except OSError as e:
                 self.son_hata = f"Kayıt klasörü oluşturulamadı: {e}"
                 return False
-            self._ad = datetime.now().strftime("Kayit_%Y-%m-%d_%H-%M-%S")
+            if self._bitiyor:
+                # Önceki kaydın dosyası hâlâ birleştiriliyor; yeni kayıt onun geçici dosyalarına karışmasın.
+                self.son_hata = "Önceki kayıt hâlâ hazırlanıyor, birkaç saniye sonra tekrar dene"
+                return False
+            self._ad = self._bos_ad(datetime.now().strftime("Kayit_%Y-%m-%d_%H-%M-%S"))
             self._hedef = self.klasor / f"{self._ad}.mp4"
             self._gecici_video = parca_yolu(self.klasor, self._ad, 1)
             self._gecici_ses = self.klasor / f".{self._ad}{GECICI_SES}"
@@ -287,6 +298,7 @@ class Kayitci:
             self._kapananlar = []
             self._ffmpeg_ciktisi.clear()
             self._hata_bildirildi = False
+            self._kayit_hatasi = ""
             if not self._parca_baslat():
                 self._ses_dosyasi.close()
                 self._gecici_ses.unlink(missing_ok=True)
@@ -303,6 +315,15 @@ class Kayitci:
             self._ses_is.start()
             log.info("Kayıt başladı: %s (%s)", self._hedef, self._kod)
             return True
+
+    def _bos_ad(self, ad: str) -> str:
+        """Aynı saniyede başlayan ikinci kayıt öncekinin (ya da kurtarılacak bir kaydın) üstüne yazmasın."""
+        aday, sira = ad, 2
+        while ((self.klasor / f"{aday}.mp4").exists() or parca_yolu(self.klasor, aday, 1).exists()
+               or (self.klasor / f".{aday}{GECICI_SES}").exists()):
+            aday = f"{ad}~{sira}"
+            sira += 1
+        return aday
 
     def _parca_baslat(self) -> bool:
         """Yeni bir görüntü parçası için FFmpeg'i başlatır (kilit tutulurken çağrılır)."""
@@ -394,6 +415,7 @@ class Kayitci:
     def _yazma_hatasi(self, mesaj: str) -> None:
         """Disk doldu, FFmpeg kapandı vb.: bir kez bildir; kayıt durdurulur, o ana kadarki kısım kaydedilir."""
         self.son_hata = mesaj
+        self._kayit_hatasi = mesaj
         log.warning(mesaj)
         if self._hata_bildirildi:
             return
@@ -462,15 +484,26 @@ class Kayitci:
             surec, video_is, kareler, parca = self._surec, self._video_is, self._kareler, self._parca
             self._surec = self._video_is = self._parca = None
             ses_is, kapananlar = self._ses_is, list(self._kapananlar)
+            # Bu kayda ait her şey ayrı alınır: birleştirme sürerken self'in alanları değişse de karışmaz.
+            kayit = {"parcalar": list(self._parcalar), "ses": self._gecici_ses, "hedef": self._hedef,
+                     "ses_dosyasi": self._ses_dosyasi, "ffmpeg": self.ffmpeg}
+            self._bitiyor = True
         if surec is not None:
             kareler.put(None)
         self._sesler.put(None)
-        threading.Thread(target=self._bitir, args=(surec, video_is, parca, ses_is, kapananlar, bitti),
+        threading.Thread(target=self._bitir, args=(surec, video_is, parca, ses_is, kapananlar, bitti, kayit),
                          name="kayit-bitir", daemon=True).start()
 
-    def _bitir(self, surec, video_is, parca, ses_is, kapananlar, bitti) -> None:
+    def _bitir(self, surec, video_is, parca, ses_is, kapananlar, bitti, kayit) -> None:
+        try:
+            self._bitir_isle(surec, video_is, parca, ses_is, kapananlar, bitti, kayit)
+        finally:
+            self._bitiyor = False
+
+    def _bitir_isle(self, surec, video_is, parca, ses_is, kapananlar, bitti, kayit) -> None:
         hata = ""
         tamam = False
+        tum_parcalar, gecici_ses, hedef = kayit["parcalar"], kayit["ses"], kayit["hedef"]
         try:
             for is_ in kapananlar:
                 is_.join(timeout=45)
@@ -478,39 +511,40 @@ class Kayitci:
                 self._parcayi_kapat(surec, video_is, parca)
             ses_is.join(timeout=10)
             try:
-                self._ses_dosyasi.close()
+                kayit["ses_dosyasi"].close()
             except OSError:
                 pass
             if self.atlanan_kare or self.atlanan_ses:
                 log.warning("Kayıtta %d kare ve %d ses bloğu atlandı (bilgisayar yetişemedi)",
                             self.atlanan_kare, self.atlanan_ses)
-            parcalar = [v for v in self._parcalar if v.exists() and v.stat().st_size > 0]
+            parcalar = [v for v in tum_parcalar if v.exists() and v.stat().st_size > 0]
+            ses_var = gecici_ses.exists() and gecici_ses.stat().st_size > 0
             if not parcalar:
-                hata = self.son_hata or "Görüntü kaydedilemedi"
+                hata = self._kayit_hatasi or "Görüntü kaydedilemedi"
             else:
-                tamam, ayrinti = _birlestir(self.ffmpeg, parcalar,
-                                            self._gecici_ses if self._ses_yazildi else None, self._hedef)
-                if not tamam and self._ses_yazildi:
+                tamam, ayrinti = _birlestir(kayit["ffmpeg"], parcalar, gecici_ses if ses_var else None, hedef)
+                if not tamam and ses_var:
                     log.warning("Ses birleştirilemedi: %s", ayrinti)
-                    tamam, ayrinti = _birlestir(self.ffmpeg, parcalar, None, self._hedef)
+                    tamam, ayrinti = _birlestir(kayit["ffmpeg"], parcalar, None, hedef)
                     hata = "Ses eklenemedi; sadece görüntü kaydedildi" if tamam else ""
                 if not tamam:
                     hata = f"Kayıt dosyası oluşturulamadı: {ayrinti}"
-                elif self.son_hata and not hata:
-                    hata = self.son_hata   # yarıda kesildi ama o ana kadarki kısım kaydedildi
+                elif self._kayit_hatasi and not hata:
+                    hata = self._kayit_hatasi   # yarıda kesildi ama o ana kadarki kısım kaydedildi
         except Exception as e:
             log.exception("Kayıt bitirilirken hata")
             hata = f"Kayıt bitirilemedi: {e}"
         finally:
             if tamam:   # başarısızsa geçici dosyalar kalır, bir sonraki açılışta yeniden denenir
-                for f in (*self._parcalar, self._gecici_ses):
+                for f in (*tum_parcalar, gecici_ses):
                     try:
                         f.unlink(missing_ok=True)
                     except OSError:
                         pass
-        dosya = self._hedef if self._hedef.exists() else None
+        dosya = hedef if hedef.exists() else None
         self.son_dosya = dosya
         log.info("Kayıt bitti: %s %s", dosya, hata)
+        self._bitiyor = False   # geri çağrıdan hemen sonra yeni kayıt başlatılabilsin
         if bitti is not None:
             try:
                 bitti(dosya, hata)

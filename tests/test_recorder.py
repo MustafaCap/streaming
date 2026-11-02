@@ -205,3 +205,44 @@ def test_klasor_adinda_tirnak_ve_turkce_harf_olsa_da_parcalar_birlesir(tmp_path)
     _kayit_et(k, 0.7)
     sonuc = _bitir(k)
     assert sonuc["hata"] == "" and sonuc["dosya"].exists()
+
+
+def test_onceki_kayit_birlesirken_yeni_kayit_baslamaz_ve_karismaz(tmp_path, monkeypatch):
+    """Durdurulan kaydın dosyası birleştirilirken yeni kayıt başlatılırsa eski kaydın dosyaları
+    yeni kaydınkilerle karışmamalı (önceden yeni kaydın ses dosyası kapatılıyordu)."""
+    import core.recorder as r
+    asil = r._birlestir
+    devam = threading.Event()
+
+    def yavas_birlestir(*a, **k):
+        devam.wait(30)
+        return asil(*a, **k)
+
+    monkeypatch.setattr(r, "_birlestir", yavas_birlestir)
+    k = Kayitci(320, 240, 30, klasor=tmp_path, kodlayici="mpeg4")
+    assert k.baslat()
+    _kayit_et(k, 0.5)
+    bitti = threading.Event()
+    sonuc = {}
+    k.durdur(lambda dosya, hata: (sonuc.update(dosya=dosya, hata=hata), bitti.set()))
+    assert k.bitiyor
+    assert not k.baslat() and "hazırlanıyor" in k.son_hata
+    devam.set()
+    assert bitti.wait(60)
+    assert sonuc["hata"] == "" and sonuc["dosya"].exists()
+    assert not k.bitiyor
+    assert k.baslat()   # bitince yeni kayıt başlar
+    _kayit_et(k, 0.3)
+    bitti2 = threading.Event()
+    sonuc2 = {}
+    k.durdur(lambda dosya, hata: (sonuc2.update(dosya=dosya, hata=hata), bitti2.set()))
+    assert bitti2.wait(60)
+    assert sonuc2["dosya"].exists() and sonuc2["dosya"] != sonuc["dosya"] and sonuc["dosya"].exists()
+
+
+def test_ayni_saniyede_ikinci_kayit_ustune_yazmaz(tmp_path):
+    from core.recorder import _GECICI_AD
+    k = Kayitci(320, 240, 30, klasor=tmp_path)
+    (tmp_path / "Kayit_2026-11-02_20-00-00.mp4").write_bytes(b"x")
+    assert k._bos_ad("Kayit_2026-11-02_20-00-00") == "Kayit_2026-11-02_20-00-00~2"
+    assert _GECICI_AD.match(".Kayit_2026-11-02_20-00-00~2.video.mkv").group(1) == "Kayit_2026-11-02_20-00-00~2"

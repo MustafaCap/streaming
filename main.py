@@ -363,12 +363,17 @@ def main() -> int:
     kayitci.hata_olunca = kayit_hatasi
 
     def yarim_kayitlari_kurtar():
+        from core.anlik_tekrar import artik_dosyalari_sil
         from core.recorder import ffmpeg_bul, yarim_kayitlari_kurtar as kurtar
         try:
             for dosya in kurtar(kayitci.klasor, kayitci.ffmpeg or ffmpeg_bul()):
                 bildir(f"Yarım kalan kayıt kurtarıldı: {dosya.name}")
         except Exception:
             log.exception("Yarım kayıtlar kurtarılamadı")
+        try:
+            artik_dosyalari_sil(kayitci.klasor)
+        except Exception:
+            log.exception("Tekrarın geçici dosyaları silinemedi")
 
     threading.Thread(target=yarim_kayitlari_kurtar, name="kayit-kurtar", daemon=True).start()
     pencere.show()
