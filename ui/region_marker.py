@@ -38,7 +38,7 @@ class YakinlastirmaIzi(QWidget):
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        renk = QColor(RENK["vurgu"])
+        renk = QColor(RENK["yazi"])
         renk.setAlpha(110)
         kalem = QPen(renk, 2, Qt.DashLine)
         p.setPen(kalem)

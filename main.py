@@ -196,6 +196,10 @@ def main() -> int:
     app.setApplicationName("RizeOn")
     app.setWindowIcon(uygulama_ikonu())
     app.setQuitOnLastWindowClosed(False)  # pencere kapanınca tepside çalışmaya devam
+    from ui import gizlilik
+    from ui.theme import QSS
+    gizlilik.kur(app)        # uygulamanın hiçbir penceresi (menüler, bildirimler dahil) yakalamaya girmez
+    app.setStyleSheet(QSS)   # tüm pencereler aynı gri tema
 
     w, h, fps = ayarlar.al("video.width"), ayarlar.al("video.height"), ayarlar.al("video.fps")
     depo = DurumDeposu()
@@ -320,6 +324,7 @@ DUMAN_MODULLERI = (
     "outputs.virtualcam", "overlay.cursor", "overlay.drawing", "core.recorder", "capture.background_blur",
     "capture.region", "core.hotkeys", "capture.screen", "capture.webcam", "capture.app_audio",
     "core.audio_engine", "scenes.scene_manager", "core.platform_win", "capture.window", "ui.pencere_secici",
+    "ui.gizlilik", "ui.icons", "PySide6.QtSvg",
 )
 
 
