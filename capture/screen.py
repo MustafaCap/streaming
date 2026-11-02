@@ -72,6 +72,16 @@ def monitor_dikdortgeni(monitor: int):
         return None
 
 
+def monitorleri_listele() -> list[tuple[int, int]]:
+    """Her monitörün (genişlik, yükseklik) değeri, numara sırasıyla ("Göster" menüsü için)."""
+    try:
+        import mss
+        with mss.mss() as sct:
+            return [(m["width"], m["height"]) for m in sct.monitors[1:]]
+    except Exception:
+        return []
+
+
 def fare_konumu():
     """Fare imlecinin ekrandaki konumu (x, y); imleç gizliyse (ör. oyunda) veya Windows değilse None."""
     import sys

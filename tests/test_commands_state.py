@@ -41,15 +41,27 @@ def test_bilinmeyen_durum_alani_reddedilir():
         DurumDeposu().guncelle(boyle_bir_alan=1)
 
 
-def test_kayit_yayin_kapaliyken_kamerasiz_baslar_bitince_kamera_geri_gelir():
-    from core.settings import Ayarlar
+def test_kayit_kamerayi_degistirmez_cikis_komutu_sanal_cikisi_duraklatir():
+    """2.0.0: kayıt kamerayı kendiliğinden kapatmaz; sanal çıkış hep açık, tepsiden duraklatılır."""
     from main import komutlari_kaydet
 
     class Hat:
-        cikis_istegi, kamera_istegi, kamera = False, True, object()
+        cikis_istegi, kamera_istegi, kamera = True, True, object()
 
         def kamerayi_ayarla(self, acik):
             self.kamera_istegi = acik
+
+        def cikisi_ayarla(self, acik):
+            self.cikis_istegi = acik
+
+    class Ses:
+        acik = True
+
+        def ac(self, acik):
+            self.acik = acik
+
+        def kayit_icin_ac(self, acik):
+            pass
 
     class Kayitci:
         kayitta, klasor, son_hata = False, "Videolar", ""
@@ -61,18 +73,16 @@ def test_kayit_yayin_kapaliyken_kamerasiz_baslar_bitince_kamera_geri_gelir():
         def durdur(self, bitti):
             self.kayitta = False
 
-    k, depo, hat = KomutYoneticisi(), DurumDeposu(), Hat()
-    komutlari_kaydet(k, depo, hat, ayarlar=Ayarlar(), kayitci=Kayitci())
+    k, depo, hat, ses = KomutYoneticisi(), DurumDeposu(), Hat(), Ses()
+    komutlari_kaydet(k, depo, hat, ses=ses, kayitci=Kayitci())
     mesajlar = []
     k.dinle(lambda ad, mesaj: mesajlar.append(mesaj))
-    assert k.calistir("kayit.ac_kapat") and "kamerasız" in mesajlar[-1]
-    assert depo.durum.kayit == "açık" and hat.kamera_istegi is False
-    k.calistir("kayit.ac_kapat")
-    assert hat.kamera_istegi is True
-
-    hat.cikis_istegi = True                       # yayındayken karşı tarafın görüntüsü değişmez
-    k.calistir("kayit.ac_kapat")
-    assert hat.kamera_istegi is True
+    assert k.calistir("kayit.ac_kapat") and mesajlar[-1] == "Kayıt başladı"
+    assert depo.durum.kayit == "açık" and hat.kamera_istegi is True
+    k.calistir("cikis.ac_kapat")
+    assert hat.cikis_istegi is False and ses.acik is False and "duraklatıldı" in mesajlar[-1]
+    k.calistir("cikis.ac_kapat")
+    assert hat.cikis_istegi is True and ses.acik is True
 
 
 def test_kapanis_takilirsa_surec_zorla_kapanir():

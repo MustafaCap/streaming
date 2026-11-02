@@ -28,7 +28,7 @@
   },
   "scenes": [
     {
-      "name": "Ekran + Kamera",
+      "name": "Ekran + kamera",
       "screen": true,
       "camera": "corner"
     },
@@ -41,7 +41,7 @@
       "camera": "full"
     },
     {
-      "name": "Bekleme",
+      "name": "Bekleme ekranı",
       "standby": true
     }
   ],
@@ -50,9 +50,9 @@
   "standby_image": "",
   "audio": {
     "mic_device": "",
-    "mic_gain": 1.0,
+    "mic_gain": 0.8,
     "mic_muted": false,
-    "system_gain": 0.7,
+    "system_gain": 0.8,
     "system_muted": false,
     "system_mode": "auto",
     "exclude_apps": [
@@ -64,7 +64,24 @@
     ],
     "include_app": "",
     "ducking": false,
-    "ducking_level": 0.3
+    "ducking_level": 0.3,
+    "ptt": false,
+    "noise_suppression": false,
+    "modes": {
+      "sesim": [
+        100,
+        45
+      ],
+      "dengeli": [
+        80,
+        80
+      ],
+      "oyun": [
+        70,
+        100
+      ]
+    },
+    "last_mode": "dengeli"
   },
   "pen": {
     "clear_on_close": true

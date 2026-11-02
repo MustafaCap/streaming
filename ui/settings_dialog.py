@@ -45,7 +45,9 @@ def monitorler() -> list[str]:
 
 
 class AyarlarPenceresi(QDialog):
-    def __init__(self, ayarlar, hat=None, ses=None, uygula=None, parent=None):
+    SEKMELER = ("genel", "kamera", "ses", "kisayollar")
+
+    def __init__(self, ayarlar, hat=None, ses=None, uygula=None, parent=None, sekme: str | None = None):
         """uygula(): kaydettikten sonra canlı uygulanacaklar için geri çağrı (kısayolları yeniden kaydetmek vb.)."""
         super().__init__(parent)
         self.ayarlar, self.hat, self.ses, self.uygula = ayarlar, hat, ses, uygula
@@ -57,6 +59,9 @@ class AyarlarPenceresi(QDialog):
         sekmeler.addTab(self._kamera(), "Kamera")
         sekmeler.addTab(self._ses(), "Ses")
         sekmeler.addTab(self._kisayollar(), "Kısayollar")
+        if sekme in self.SEKMELER:
+            sekmeler.setCurrentIndex(self.SEKMELER.index(sekme))
+        self.sekmeler = sekmeler
         self.uyari = QLabel(objectName="hata")
         self.uyari.setWordWrap(True)
         dugmeler = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)

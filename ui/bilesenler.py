@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QAbstractButton, QFrame, QHBoxLayout, QLabel, QPu
 
 from core.audio_mixer import db
 from ui.icons import simge_pixmap
-from ui.theme import ALFA, KARO, RENK, qrenk, yazi_tipi
+from ui.theme import ALFA, KARO, RENK, beyaz, qrenk, yazi_tipi
 
 
 def ipucu(ad: str, tus: str = "") -> str:
@@ -113,6 +113,7 @@ class SimgeDugme(_Dugme):
         self.kapali = False
         self.secili = False
         self._yaricap = yaricap
+        self.gizli = False      # True: yeri durur ama çizilmez (kaynak satırındaki ×, üzerine gelince çıkar)
         self.setFixedSize(boyut, boyut)
         self.ad_ayarla(ad, tus)
 
@@ -129,6 +130,8 @@ class SimgeDugme(_Dugme):
             self.update()
 
     def paintEvent(self, _):
+        if self.gizli and not self.hasFocus() and not self._uzerinde:
+            return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         r = QRectF(self.rect())
@@ -243,13 +246,13 @@ class SecimGrubu(QFrame):
             self.dugmeler.append(d)
         r = (yukseklik + 6) // 2
         arka = zemin or RENK["zemin"]
-        kenar = f"border: 1px solid {qrenk('beyaz').name()}14;" if kucuk else "border: none;"
+        kenar = f"border: 1px solid {beyaz(ALFA['kenarlik'])};" if kucuk else "border: none;"
         self.setStyleSheet(
             f"QFrame#secimGrubu {{ background: {arka}; border-radius: {r}px; {kenar} }}"
             f"QFrame#secimGrubu QPushButton {{ border-radius: {yukseklik // 2}px; min-height: {yukseklik}px;"
             f" padding: 0 12px; color: {RENK['yazi2'] if not kucuk else RENK['dugme']}; font-size: 12px; }}"
-            f"QFrame#secimGrubu QPushButton:hover {{ background: rgba(255,255,255,18); color: {RENK['beyaz']}; }}"
-            f"QFrame#secimGrubu QPushButton:checked {{ background: rgba(255,255,255,26); color: {RENK['beyaz']}; }}")
+            f"QFrame#secimGrubu QPushButton:hover {{ background: {beyaz(ALFA['uzerine'])}; color: {RENK['beyaz']}; }}"
+            f"QFrame#secimGrubu QPushButton:checked {{ background: {beyaz(ALFA['seçili'])}; color: {RENK['beyaz']}; }}")
         self.secili = -1
 
     def _tikla(self, n: int) -> None:
@@ -392,8 +395,11 @@ class _MenuSatiri(QWidget):
     def __init__(self, baslik: str, aciklama: str, secili: bool):
         super().__init__()
         self.setMinimumHeight(44)
+        self.setMinimumWidth(220)
         self.setAttribute(Qt.WA_Hover)
+        self.setMouseTracking(True)
         self.secili = secili
+        self.eylem = None
         kutu = QVBoxLayout(self)
         kutu.setContentsMargins(10, 4, 10, 4)
         kutu.setSpacing(0)
@@ -405,11 +411,33 @@ class _MenuSatiri(QWidget):
             a.setStyleSheet(f"color: {RENK['soluk']}; font-size: 11px;")
             kutu.addWidget(a)
 
+    def _menu(self):
+        w = self.parentWidget()
+        while w is not None and not w.inherits("QMenu"):
+            w = w.parentWidget()
+        return w
+
+    def event(self, e):
+        if e.type() in (e.Type.HoverEnter, e.Type.HoverLeave):
+            menu = self._menu()
+            if menu is not None and e.type() == e.Type.HoverEnter:
+                menu.setActiveAction(self.eylem)
+            self.update()
+        return super().event(e)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.eylem is not None and self.rect().contains(e.position().toPoint()):
+            menu = self._menu()
+            if menu is not None:
+                menu.close()
+            self.eylem.trigger()
+
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         alfa = ALFA["seçili"] if self.secili else 0
-        if self.underMouse():
+        menu = self._menu()
+        if self.underMouse() or (menu is not None and menu.activeAction() is self.eylem):
             alfa = max(alfa, ALFA["uzerine"])
         if alfa:
             p.setPen(Qt.NoPen)
@@ -418,11 +446,16 @@ class _MenuSatiri(QWidget):
 
 
 def menu_ogesi(menu, baslik: str, aciklama: str = "", tetik=None, secili: bool = False):
-    """İki satırlı menü öğesi: ad + altında soluk açıklama (Göster ve kaynak ekleme menüleri)."""
+    """İki satırlı menü öğesi: ad + altında soluk açıklama (Göster ve kaynak ekleme menüleri).
+
+    Fareyle tıklanınca da, klavyede ok + Enter ile de çalışır."""
     eylem = QWidgetAction(menu)
-    eylem.setDefaultWidget(_MenuSatiri(baslik, aciklama, secili))
-    eylem.setText(baslik)
+    satir = _MenuSatiri(baslik, aciklama, secili)
+    satir.eylem = eylem
+    eylem.setDefaultWidget(satir)
+    eylem.setText(baslik if not aciklama else f"{baslik}, {aciklama}")
     if tetik is not None:
         eylem.triggered.connect(tetik)
     menu.addAction(eylem)
+    menu.hovered.connect(lambda _a: satir.update())
     return eylem

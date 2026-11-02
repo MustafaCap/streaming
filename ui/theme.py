@@ -170,7 +170,3 @@ QCheckBox::indicator:checked {{ background: {RENK['dugme']}; border-color: {RENK
 QRadioButton {{ spacing: 8px; }}
 """
 
-
-def rozet_stili(durum: str) -> str:
-    """Eski ana pencere için (2. aşamada kalkar)."""
-    return f"background: {RENK['yuzen']}; color: {RENK['yazi']}; border: 1px solid {beyaz(ALFA['kenarlik'])};"
