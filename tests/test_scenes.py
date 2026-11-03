@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from core.state import DurumDeposu
 from core.video_pipeline import VideoHatti
@@ -41,11 +42,30 @@ def test_tam_ekran_kamera_kirpilarak_doldurulur():
     assert kare.shape == (H, W, 3) and (kare == 200).all()
 
 
-def test_bekleme_ve_kopuk_ekran_yazilabilir_kare_verir():
+def test_bekleme_ve_kopuk_ekran_onbellegi_bozamaz():
+    # 2.0.5: üstüne bir şey çizilmeyen kare kopyalanmaz; paylaşılan önbellek salt okunur gelir
     b = sahne_karesi(Sahne("b", bekleme=True), W, H, None, None, True, YER, "Birazdan döneceğim")
-    b[0, 0] = 1  # salt okunur önbellek kopyalanmış olmalı
+    assert not b.flags.writeable
+    with pytest.raises(ValueError):
+        b[0, 0] = 1
     e = sahne_karesi(Sahne("e", ekran=True), W, H, None, None, True, YER, "")
-    e[0, 0] = 1
+    assert not e.flags.writeable
+
+
+def test_degismeyen_ekran_kopyalanmadan_cikisa_gider():
+    ekran = np.full((H, W, 3), 50, np.uint8)
+    ekran.setflags(write=False)
+    sahne = Sahne("e", ekran=True)
+    assert sahne_karesi(sahne, W, H, ekran, None, True, YER, "") is ekran
+
+
+def test_kamera_kutusu_ekranin_kopyasina_cizilir():
+    ekran = np.full((H, W, 3), 50, np.uint8)
+    ekran.setflags(write=False)
+    kare = sahne_karesi(Sahne("ek", ekran=True, kamera="corner"), W, H, ekran, KAMERA, True, YER, "")
+    assert kare is not ekran and kare.flags.writeable
+    assert (ekran == 50).all()          # ekranın kendisi değişmedi
+    assert (kare == 200).any()          # kamera kopyaya çizildi
 
 
 def test_gecis_iki_kareyi_karistirir_ve_biter():

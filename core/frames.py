@@ -1,5 +1,7 @@
 """Kare (görüntü) yardımcıları. Saf numpy/OpenCV, test edilebilir."""
 
+import threading
+
 import cv2
 import numpy as np
 
@@ -30,6 +32,25 @@ def imlec_ciz(kare: np.ndarray, x: float, y: float, boy: int = 22) -> None:
     cv2.polylines(kare, [noktalar], True, (0, 0, 0), 1, cv2.LINE_AA)
 
 
+def olcekle(kare: np.ndarray, genislik: int, yukseklik: int) -> np.ndarray:
+    """Kareyi tam olarak genislik x yukseklik yapar (en-boy oranına bakmaz).
+
+    Küçültürken INTER_AREA çok yavaştır (1080p -> 720p tek çekirdekte ~9 ms, 30 FPS'te bir
+    çekirdeğin dörtte biri). Onun yerine: hedefin iki katından büyükse önce INTER_AREA ile tam
+    yarıya iner (OpenCV'nin hızlı 2x yolu), kalan küçük oran INTER_LINEAR ile yapılır. Görüntü
+    INTER_AREA'ya çok yakın (yazılar keskin kalır), 4-5 kat daha az işlemci harcar.
+    """
+    h, w = kare.shape[:2]
+    if (w, h) == (genislik, yukseklik):
+        return kare
+    while w >= 2 * genislik and h >= 2 * yukseklik:
+        w, h = w // 2, h // 2
+        kare = cv2.resize(kare, (w, h), interpolation=cv2.INTER_AREA)
+    if (w, h) == (genislik, yukseklik):
+        return kare
+    return cv2.resize(kare, (genislik, yukseklik), interpolation=cv2.INTER_LINEAR)
+
+
 def sigdir(kare: np.ndarray, genislik: int, yukseklik: int) -> np.ndarray:
     """Kareyi en-boy oranını bozmadan hedef boyuta sığdırır, boşluklar siyah kalır.
 
@@ -40,8 +61,7 @@ def sigdir(kare: np.ndarray, genislik: int, yukseklik: int) -> np.ndarray:
         return kare
     olcek = min(genislik / w, yukseklik / h)
     yeni_w, yeni_h = max(1, round(w * olcek)), max(1, round(h * olcek))
-    yontem = cv2.INTER_AREA if olcek < 1 else cv2.INTER_LINEAR
-    kucuk = cv2.resize(kare, (yeni_w, yeni_h), interpolation=yontem)
+    kucuk = olcekle(kare, yeni_w, yeni_h)
     if (yeni_w, yeni_h) == (genislik, yukseklik):
         return kucuk
     tuval = siyah_kare(genislik, yukseklik)
@@ -140,3 +160,41 @@ def karistir(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
     if t >= 1:
         return b
     return cv2.addWeighted(a, 1.0 - t, b, t, 0.0)
+
+
+def rgb_nv12(rgb: np.ndarray, hedef: np.ndarray) -> None:
+    """RGB kareyi NV12'ye (BT.601, sınırlı aralık) çevirip hedef diziye yazar.
+
+    NV12: önce Y düzlemi, sonra iç içe U,V. Sanal kamera ve donanım kodlayıcılar (QSV, NVENC,
+    AMF) bu biçimi ister; FFmpeg'e de NV12 verilirse onun ayrıca çevirmesi gerekmez."""
+    y, x = rgb.shape[:2]
+    i420 = cv2.cvtColor(np.ascontiguousarray(rgb[:, :, :3]), cv2.COLOR_RGB2YUV_I420).reshape(-1)
+    alan, ceyrek = x * y, (x // 2) * (y // 2)
+    hedef[:alan] = i420[:alan]
+    uv = hedef[alan:alan + 2 * ceyrek]
+    uv[0::2] = i420[alan:alan + ceyrek]              # U
+    uv[1::2] = i420[alan + ceyrek:alan + 2 * ceyrek]  # V
+
+
+_nv12_kilit = threading.Lock()
+_nv12_son: list = []   # [(rgb kare, nv12)] en son çevrilenler; aynı kare ikinci kez çevrilmez
+_NV12_ONBELLEK = 4
+
+
+def nv12(rgb: np.ndarray) -> np.ndarray:
+    """RGB karenin NV12 hali (salt okunur, tek boyutlu). Aynı kare nesnesi sanal kameraya, anlık
+    tekrara ve kayda gittiğinde bir kez çevrilir; görüntü değişmediği için video hattı aynı kareyi
+    tekrar verdiğinde de hiç çevrilmez. Karelerin üstüne sonradan yazılmamalı (video hattı yazmaz)."""
+    with _nv12_kilit:
+        for kare, sonuc in _nv12_son:
+            if kare is rgb:
+                return sonuc
+    y, x = rgb.shape[:2]
+    sonuc = np.empty(x * y * 3 // 2, np.uint8)
+    rgb_nv12(rgb, sonuc)
+    sonuc.setflags(write=False)
+    with _nv12_kilit:
+        # kare nesnesinin kendisi tutulur: silinip aynı adrese yeni bir kare gelirse karışmasın
+        _nv12_son.append((rgb, sonuc))
+        del _nv12_son[:-_NV12_ONBELLEK]
+    return sonuc

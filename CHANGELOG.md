@@ -2,6 +2,16 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.5 — 2026-11-03
+
+- **Daha az işlemci kullanımı.** Ölçümde (aynı bilgisayarda, 30 FPS, sanal kamera + anlık tekrar açık) görüntü hattı: masaüstü dururken bir çekirdeğin %51'i yerine %2'si, ekran sürekli değişirken (oyun, video) %52 yerine %23'ü, ekran + köşede kamera varken %52 yerine %18'i.
+  - Ekran ve fare yerinde duruyorsa kare baştan kurulmaz; bir önceki kare aynen kullanılır.
+  - Ekranı 720p'ye küçültme 4-5 kat hızlı (görüntü göz ile ayırt edilemeyecek kadar aynı).
+  - Sanal kamera, anlık tekrar ve kayıt aynı kareyi ayrı ayrı çevirmiyor; NV12'ye bir kez çevrilir. FFmpeg'e de NV12 gider, donanım kodlayıcı (QSV, NVENC) için FFmpeg ayrıca çevirmez.
+  - Önizleme görüntü değişmediyse yeniden çizilmez.
+  - Pencere yakalamada renk çevirme ~10 kat hızlı.
+- Kayıt ve yayın kalitesi, kodlayıcı ayarları değişmedi.
+
 ## 2.0.4 — 2026-11-03
 
 - Microsoft Store paketi (`RizeOn-Store.msix`) artık Partner Center'daki gerçek RizeOn kimliğiyle derleniyor, Store'a yüklenebiliyor. Paket Türkçe ve İngilizce mağaza sayfasını destekliyor.

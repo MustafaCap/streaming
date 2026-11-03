@@ -29,8 +29,10 @@ import ctypes
 import sys
 import time
 
-import cv2
 import numpy as np
+
+from core import frames
+from core.frames import rgb_nv12  # noqa: F401  (eski yeri; testler buradan alır)
 
 BELLEK_ADI = "OBSVirtualCamVideo"
 SURUCU_CLSID = "{A3FCE0F5-3493-419F-958A-ABA1250EC20B}"
@@ -69,17 +71,6 @@ def bellek_duzeni(genislik: int, yukseklik: int) -> tuple[list[int], int, int]:
     return ofsetler, boyut, kare
 
 
-def rgb_nv12(rgb: np.ndarray, hedef: np.ndarray) -> None:
-    """RGB kareyi NV12'ye (BT.601, sınırlı aralık) çevirip hedef diziye yazar."""
-    y, x = rgb.shape[:2]
-    i420 = cv2.cvtColor(rgb, cv2.COLOR_RGB2YUV_I420).reshape(-1)
-    alan, ceyrek = x * y, (x // 2) * (y // 2)
-    hedef[:alan] = i420[:alan]
-    uv = hedef[alan:alan + 2 * ceyrek]
-    uv[0::2] = i420[alan:alan + ceyrek]              # U
-    uv[1::2] = i420[alan + ceyrek:alan + 2 * ceyrek]  # V
-
-
 class KareKuyrugu:
     """Verilen adresteki (en az bellek_duzeni()[1] bayt) OBS kare kuyruğu."""
 
@@ -103,11 +94,12 @@ class KareKuyrugu:
 
     def yaz(self, rgb: np.ndarray) -> None:
         if rgb.shape[:2] != (self.yukseklik, self.genislik):
-            rgb = cv2.resize(rgb, (self.genislik, self.yukseklik), interpolation=cv2.INTER_AREA)
+            rgb = frames.olcekle(rgb, self.genislik, self.yukseklik)
+        veri = frames.nv12(rgb)   # aynı kare tekrar gelirse yeniden çevrilmez, sadece kopyalanır
         sayac = (self.baslik.write_idx + 1) & 0xFFFFFFFF
         self.baslik.write_idx = sayac
         yuva = sayac % 3
-        rgb_nv12(np.ascontiguousarray(rgb), self._kareler[yuva])
+        self._kareler[yuva][:] = veri
         self._zamanlar[yuva].value = time.perf_counter_ns()
         self.baslik.read_idx = sayac      # kare tamamlandı: okuyucu artık bunu alır
         self.baslik.state = DURUM_HAZIR

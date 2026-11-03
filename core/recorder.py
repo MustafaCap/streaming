@@ -58,13 +58,17 @@ _GECICI_AD = re.compile(r"^\.(Kayit_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:~\d+)?
 
 
 def ffmpeg_girdi_bicimi(genislik: int, yukseklik: int) -> str:
-    """FFmpeg'e gönderilen ham karenin biçimi. YUV 4:2:0, RGB'nin yarısı kadar veri (1080p'de 186 yerine
-    93 MB/sn); çevirme OpenCV ile kayıt iş parçacığında yapılır. Tek sayılı boyutlarda RGB kalır."""
-    return "yuv420p" if genislik % 2 == 0 and yukseklik % 2 == 0 else "rgb24"
+    """FFmpeg'e gönderilen ham karenin biçimi. NV12 (YUV 4:2:0): RGB'nin yarısı kadar veri (1080p'de 186
+    yerine 93 MB/sn) ve donanım kodlayıcıların (QSV, NVENC, AMF) istediği biçim, FFmpeg ayrıca çevirmez.
+    Sanal kamera da NV12 ister; aynı kare bir kez çevrilir (core.frames.nv12). Tek sayılı boyutlarda RGB."""
+    return "nv12" if genislik % 2 == 0 and yukseklik % 2 == 0 else "rgb24"
 
 
 def ffmpeg_karesi(kare: np.ndarray, bicim: str):
     """Kareyi FFmpeg'in stdin'ine yazılacak hale getirir (fazladan kopya yapmadan)."""
+    if bicim == "nv12":
+        from core import frames
+        return memoryview(frames.nv12(kare)).cast("B")
     if bicim == "yuv420p":
         import cv2
         return memoryview(cv2.cvtColor(np.ascontiguousarray(kare[:, :, :3]), cv2.COLOR_RGB2YUV_I420)).cast("B")

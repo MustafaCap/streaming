@@ -234,10 +234,14 @@ class Onizleme(QWidget):
         self.setMinimumSize(320, 180)
         self.setAccessibleName("Önizleme: karşı tarafın gördüğü")
         self._resim: QImage | None = None
+        self._son_kare = None  # en son gösterilen kare nesnesi
         self._surukle = None   # (kaynak kimliği ya da None=ana kamera, fark x, fark y)
 
     def kareyi_al(self) -> None:
         kare = self.hat.son_kare()
+        if kare is self._son_kare:
+            return   # görüntü değişmedi (masaüstü duruyor): çevirme ve yeniden çizme yok
+        self._son_kare = kare
         h, w = kare.shape[:2]
         self._resim = QImage(kare.data, w, h, 3 * w, QImage.Format_RGB888).copy()
         self.update()
