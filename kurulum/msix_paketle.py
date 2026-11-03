@@ -2,11 +2,12 @@
 
 Store'a yüklenen MSIX'i Microsoft imzalar; bu yüzden kullanıcı Store'dan kurarken
 SmartScreen uyarısı görmez. Paketin kimliği (Identity Name / Publisher) Partner Center'da
-uygulama adı ayrılınca verilir; CI bunları depo değişkenlerinden okur:
+uygulama adı ayrılınca verilir (RizeOn için 2026-11-03'te alındı, aşağıda STORE_*).
+Depo değişkenleri tanımlıysa onlar kullanılır:
   MSIX_KIMLIK_ADI   (Partner Center > Ürün kimliği > Package/Identity/Name)
   MSIX_YAYINCI      (Package/Identity/Publisher, "CN=..." ile başlar)
   MSIX_YAYINCI_ADI  (Package/Properties/PublisherDisplayName)
-Değişkenler yoksa deneme değerleri kullanılır (paket derlenir ama Store kabul etmez).
+Değişkenler yoksa Partner Center'daki gerçek kimlik kullanılır.
 
 Kullanım (CI):
   python kurulum/msix_paketle.py dist/RizeOn build/msix
@@ -24,9 +25,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import surum_bilgisi  # noqa: E402
 
-DENEME_ADI = "MustafaCap.RizeOn"
-DENEME_YAYINCI = "CN=MustafaCap"
-DENEME_YAYINCI_ADI = "Mustafa"
+# Partner Center > RizeOn > Ürün kimliği (gizli değil: her Store paketinin içinde yazar)
+STORE_ADI = "MustafaCap.RizeOn"
+STORE_YAYINCI = "CN=C183D33B-691B-4258-9073-8775FE813C89"
+STORE_YAYINCI_ADI = "MustafaCap"
 
 ACIKLAMA = ("Meet, Zoom ve Discord'da sanal kamera ve sanal mikrofon olarak görünen, internete "
             "bağlanmayan ekran, kamera ve ses paylaşım uygulaması.")
@@ -47,9 +49,9 @@ def msix_surumu(surum_metni: str) -> str:
 
 
 def kimlik() -> tuple[str, str, str]:
-    return (os.environ.get("MSIX_KIMLIK_ADI") or DENEME_ADI,
-            os.environ.get("MSIX_YAYINCI") or DENEME_YAYINCI,
-            os.environ.get("MSIX_YAYINCI_ADI") or DENEME_YAYINCI_ADI)
+    return (os.environ.get("MSIX_KIMLIK_ADI") or STORE_ADI,
+            os.environ.get("MSIX_YAYINCI") or STORE_YAYINCI,
+            os.environ.get("MSIX_YAYINCI_ADI") or STORE_YAYINCI_ADI)
 
 
 def manifest(surum_metni: str, ad: str, yayinci: str, yayinci_adi: str) -> str:
@@ -73,7 +75,9 @@ def manifest(surum_metni: str, ad: str, yayinci: str, yayinci_adi: str) -> str:
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
   <Resources>
+    <!-- Store sayfası sadece burada yazan dillerde açılabilir -->
     <Resource Language="tr-TR" />
+    <Resource Language="en-US" />
   </Resources>
   <Applications>
     <Application Id="RizeOn" Executable="RizeOn.exe" EntryPoint="Windows.FullTrustApplication">
@@ -126,5 +130,4 @@ if __name__ == "__main__":
         sys.exit("Kullanım: python kurulum/msix_paketle.py <PyInstaller klasörü> <hedef klasör>")
     yol = hazirla(Path(sys.argv[1]), Path(sys.argv[2]))
     ad, yayinci, _ = kimlik()
-    deneme = " (DENEME kimliği: Store kabul etmez)" if ad == DENEME_ADI else ""
-    print(f"MSIX klasörü hazır: {yol} · {ad} · {yayinci}{deneme}")
+    print(f"MSIX klasörü hazır: {yol} · {ad} · {yayinci}")

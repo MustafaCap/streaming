@@ -157,7 +157,7 @@ jobs:
           Get-Item RizeOn-Kurulum.exe | Select-Object Name, Length
 
       # Microsoft Store paketi: Store'a yüklenince Microsoft imzalar (SmartScreen uyarısı olmaz).
-      # Kimlik bilgileri Partner Center'dan gelir; depo değişkenleri yoksa deneme kimliğiyle derlenir.
+      # Kimlik Partner Center'dan (kurulum/msix_paketle.py STORE_*); depo değişkenleri varsa onlar geçerli.
       - name: Store paketi (MSIX)
         env:
           MSIX_KIMLIK_ADI: ${{ vars.MSIX_KIMLIK_ADI }}

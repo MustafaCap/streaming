@@ -2,6 +2,10 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.4 — 2026-11-03
+
+- Microsoft Store paketi (`RizeOn-Store.msix`) artık Partner Center'daki gerçek RizeOn kimliğiyle derleniyor, Store'a yüklenebiliyor. Paket Türkçe ve İngilizce mağaza sayfasını destekliyor.
+
 ## 2.0.3 — 2026-11-02
 
 - **Anlık tekrar varsayılanı 15 saniye** (önceden 2 dakika): bellekte çok daha az yer tutar. Düğme "Son 15 sn'yi kaydet" olur; süre Ayarlar > Genel'den 15 sn ile 5 dk arasında seçilir. Süreyi hiç değiştirmemiş olanlarda da 15 sn'ye geçer.
