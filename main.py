@@ -353,6 +353,8 @@ def main() -> int:
         # FFmpeg ilk açılışta kodlayıcı denemesi yapar; arayüzü bekletmesin
         threading.Thread(target=tekrar.baslat, name="tekrar-baslat", daemon=True).start()
     kabuk.baslat()
+    from core import cpu_dagilimi
+    cpu_dagilimi.baslat()   # log'a 30 sn'de bir: işlemci hangi iş parçacığına gidiyor (teşhis)
     tek.dinle(lambda: kabuk.komut_gonder("pencere.goster"))
 
     def kayit_hatasi(mesaj):
@@ -422,7 +424,7 @@ DUMAN_MODULLERI = (
     "capture.region", "core.hotkeys", "capture.screen", "capture.webcam", "capture.app_audio",
     "core.audio_engine", "scenes.scene_manager", "core.platform_win", "capture.window", "ui.pencere_secici",
     "ui.gizlilik", "ui.icons", "PySide6.QtSvg", "ui.bilesenler", "ui.sahne_panelleri", "scenes.kaynaklar",
-    "core.sistem_olcer", "core.ses_modlari", "core.gurultu", "core.anlik_tekrar", "ui.yardim", "ui.logo_veri",
+    "core.sistem_olcer", "core.cpu_dagilimi", "core.ses_modlari", "core.gurultu", "core.anlik_tekrar", "ui.yardim", "ui.logo_veri",
 )
 
 

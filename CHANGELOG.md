@@ -2,6 +2,10 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 2.0.6 — 2026-11-03
+
+- **İşlemci teşhisi:** uygulama 30 saniyede bir log dosyasına (`%APPDATA%\RizeOn\logs\uygulama.log`) işlemcinin nereye gittiğini yazar: video hattı, ses, webcam, anlık tekrar, FFmpeg ayrı ayrı, Görev Yöneticisi gibi tüm çekirdeklere oranla. Satır "CPU dağılımı" ile başlar. Hiçbir yere gönderilmez.
+
 ## 2.0.5 — 2026-11-03
 
 - **Daha az işlemci kullanımı.** Ölçümde (aynı bilgisayarda, 30 FPS, sanal kamera + anlık tekrar açık) görüntü hattı: masaüstü dururken bir çekirdeğin %51'i yerine %2'si, ekran sürekli değişirken (oyun, video) %52 yerine %23'ü, ekran + köşede kamera varken %52 yerine %18'i.
