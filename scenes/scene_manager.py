@@ -278,8 +278,8 @@ def _kirp_doldur(kare: np.ndarray, w: int, h: int) -> np.ndarray:
     kes_w, kes_h = min(kw, round(w / olcek)), min(kh, round(h / olcek))
     x0, y0 = (kw - kes_w) // 2, (kh - kes_h) // 2
     parca = kare[y0:y0 + kes_h, x0:x0 + kes_w]
-    yontem = cv2.INTER_AREA if olcek < 1 else cv2.INTER_LINEAR
-    return cv2.resize(parca, (w, h), interpolation=yontem)
+    sonuc = frames.olcekle(parca, w, h)
+    return sonuc.copy() if sonuc is parca else sonuc   # aynı boyuttaysa kaynağın görünümüdür
 
 
 _KENAR = (38, 38, 43)  # #26262b
@@ -304,7 +304,7 @@ def ustune_koy(tuval: np.ndarray, resim: np.ndarray) -> None:
         return
     olcek = min(W / w, H / h)
     yw, yh = max(1, round(w * olcek)), max(1, round(h * olcek))
-    kucuk = cv2.resize(resim, (yw, yh), interpolation=cv2.INTER_AREA if olcek < 1 else cv2.INTER_LINEAR)
+    kucuk = frames.olcekle(resim, yw, yh)
     x, y = (W - yw) // 2, (H - yh) // 2
     alan = tuval[y:y + yh, x:x + yw]
     if kucuk.ndim == 3 and kucuk.shape[2] == 4:
@@ -332,7 +332,10 @@ def metin_bandi(tuval: np.ndarray, metin: str) -> None:
 def sahne_karesi(sahne: Sahne, genislik: int, yukseklik: int, ekran, kamera,
                  kamera_acik: bool, yer: KameraYerlesimi, bekleme_metni: str, bekleme=None,
                  ek: dict | None = None) -> np.ndarray:
-    """Sahneye göre yeni (yazılabilir) bir çıkış karesi kurar. Kaynaklar alttan üste çizilir.
+    """Sahneye göre çıkış karesini kurar. Kaynaklar alttan üste çizilir.
+
+    Dönen kare paylaşılan, salt okunur bir kare olabilir (ör. değişmeyen ekran ya da bekleme ekranı):
+    üstüne yazma, gerekirse kopyala.
 
     ekran: ana ekranın çıkış boyutuna sığdırılmış karesi ya da None (kaynak yok).
     kamera: ana kameranın son karesi ya da None (kamera yok/kapalı).
@@ -341,50 +344,69 @@ def sahne_karesi(sahne: Sahne, genislik: int, yukseklik: int, ekran, kamera,
     ek: {kaynak kimliği: kare ya da None} ana ekran / ana kamera dışındaki kaynakların son kareleri.
     """
     ek = ek or {}
+    # Kopyala-yaz: alttaki katman (ekran, bekleme ekranı, yazı) çoğu zaman paylaşılan, salt okunur bir
+    # karedir. Üstüne bir şey çizilmedikçe kopyalanmaz; sadece ekran olan sahnede ekran değişmediyse
+    # çıkış bir önceki karenin aynısı (aynı nesne) olur ve sanal kamera / kayıt onu yeniden çevirmez.
+    tuval, ozel = None, False   # ozel: tuval bizim kopyamız mı (üstüne çizilebilir mi)
+
+    def taban(kare, kendi: bool = False):
+        nonlocal tuval, ozel
+        tuval, ozel = kare, kendi
+
+    def yazilabilir() -> np.ndarray:
+        nonlocal tuval, ozel
+        if tuval is None:
+            tuval, ozel = frames.siyah_kare(genislik, yukseklik), True
+        elif not ozel:
+            tuval, ozel = tuval.copy(), True
+        return tuval
 
     def bekleme_karesi():
         if bekleme is not None:
-            return bekleme().copy()
-        return frames.bilgi_karesi(genislik, yukseklik, bekleme_metni).copy()
+            return bekleme()
+        return frames.bilgi_karesi(genislik, yukseklik, bekleme_metni)
 
-    tuval = frames.siyah_kare(genislik, yukseklik)
     for k in reversed([k for k in sahne.kaynaklar if k.gorunur]):
         if k.tur == "bekleme":
-            tuval = bekleme_karesi()
+            taban(bekleme_karesi())
         elif k.tur == "ekran" and k.ana:
-            tuval = ekran.copy() if ekran is not None else \
-                frames.bilgi_karesi(genislik, yukseklik, "Ekran yakalanamıyor").copy()
+            taban(ekran if ekran is not None else frames.bilgi_karesi(genislik, yukseklik, "Ekran yakalanamıyor"))
         elif k.tur in ("ekran", "pencere", "bolge", "video"):
             kare = ek.get(k.kimlik)
             if kare is None:
-                tuval = frames.bilgi_karesi(genislik, yukseklik, f"{k.ad}: görüntü yok").copy()
+                taban(frames.bilgi_karesi(genislik, yukseklik, f"{k.ad}: görüntü yok"))
             else:
-                tuval = frames.sigdir(kare, genislik, yukseklik)
-                tuval = tuval.copy() if not tuval.flags.writeable or tuval is kare else tuval
+                sigan = frames.sigdir(kare, genislik, yukseklik)
+                taban(sigan, kendi=sigan is not kare and sigan.base is None and sigan.flags.writeable)
         elif k.tur == "kamera" and k.ana:
             if k.ayar.get("yer") == "tam":
                 if not kamera_acik:
-                    tuval = bekleme_karesi()  # kamera kapalıyken siyah yerine bekleme ekranı
+                    taban(bekleme_karesi())  # kamera kapalıyken siyah yerine bekleme ekranı
                 elif kamera is None:
-                    tuval = frames.bilgi_karesi(genislik, yukseklik, "Kamera bağlı değil").copy()
+                    taban(frames.bilgi_karesi(genislik, yukseklik, "Kamera bağlı değil"))
                 else:
-                    tuval = _kirp_doldur(kamera, genislik, yukseklik)
+                    taban(_kirp_doldur(kamera, genislik, yukseklik), kendi=True)
             elif kamera_acik:
-                kamera_kutusu_ciz(tuval, kamera, yer)
+                kamera_kutusu_ciz(yazilabilir(), kamera, yer)
         elif k.tur == "kamera":
             if kamera_acik:
                 if k.ayar.get("yer") == "tam":
                     kare = ek.get(k.kimlik)
-                    tuval = _kirp_doldur(kare, genislik, yukseklik) if kare is not None else \
-                        frames.bilgi_karesi(genislik, yukseklik, f"{k.ad} bağlı değil").copy()
+                    if kare is not None:
+                        taban(_kirp_doldur(kare, genislik, yukseklik), kendi=True)
+                    else:
+                        taban(frames.bilgi_karesi(genislik, yukseklik, f"{k.ad} bağlı değil"))
                 else:
-                    kamera_kutusu_ciz(tuval, ek.get(k.kimlik), ek_kamera_yerlesimi(k))
+                    kamera_kutusu_ciz(yazilabilir(), ek.get(k.kimlik), ek_kamera_yerlesimi(k))
         elif k.tur == "gorsel":
             resim = ek.get(k.kimlik)
             if resim is not None:
-                ustune_koy(tuval, resim)
+                ustune_koy(yazilabilir(), resim)
         elif k.tur == "metin":
-            metin_bandi(tuval, str(k.ayar.get("text", "")))
+            if str(k.ayar.get("text", "")).strip():
+                metin_bandi(yazilabilir(), str(k.ayar.get("text", "")))
+    if tuval is None:
+        return yazilabilir()
     return tuval
 
 

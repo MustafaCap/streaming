@@ -19,6 +19,8 @@ import logging
 import threading
 import time
 
+import numpy as np
+
 from capture.region import BolgeSecimi, uygula as bolge_uygula
 from core import frames
 from core.state import DurumDeposu
@@ -70,6 +72,7 @@ class VideoHatti:
         self._cikis_istegi = False
         self._cikis_sonraki_deneme = 0.0
         self._bekleyen_kaynak = None         # kaynagi_degistir() ile gelen, sonraki karede geçilecek kaynak
+        self._ekran_onbellek = None          # (ham kare, imza, çıkış karesi): ekran değişmediyse yeniden kullanılır
         self._calisiyor = threading.Event()
         self._is_parcacigi: threading.Thread | None = None
 
@@ -202,36 +205,61 @@ class VideoHatti:
                 or (self.kayitci is not None and self.kayitci.kayitta))
 
     def _ekran_karesi(self, sahne: Sahne | None = None):
+        """Ana ekranın çıkış boyutundaki karesi (salt okunur; üstüne yazılmaz) ya da None.
+
+        Ekran değişmediyse (dxcam aynı kareyi verir), fare yerinde duruyorsa, çizim ve F6
+        animasyonu yoksa bir önceki kare olduğu gibi döner: küçültme, imleç çizme ve kopyalama
+        her karede baştan yapılmaz. Masaüstü dururken işlemcinin çoğu buradan kazanılır."""
         if self._bekleyen_kaynak is not None:
             self._bekleyen_kaynaga_gec()
         ham = self.kaynak.grab()
         if ham is None:
             self.depo.guncelle(ekran_kaynagi="koptu", yakalama_yontemi="")
+            self._ekran_onbellek = None
             return None
         self.depo.guncelle(ekran_kaynagi="çalışıyor", yakalama_yontemi=self.kaynak.yontem)
-        kare, donusum = bolge_uygula(ham, self.bolge.gorunum(), self.genislik, self.yukseklik,
-                                     self.bolge.karartma_gucu)
-        if self.cizimler is not None and (sahne is None or sahne.kalem):
+        gorunum = self.bolge.gorunum()
+        kalem = self.cizimler is not None and (sahne is None or sahne.kalem)
+        cizim_imzasi = None
+        if kalem:
+            cizim_imzasi = self.cizimler.surum
+            if not self.cizimler.bos and self.cizimler.anlik()[1]:
+                cizim_imzasi = object()   # lazer izi her karede soluyor: önbellek kullanılmaz
+        vurgu = self.imlec_vurgusu or (sahne is not None and sahne.imlec_vurgusu)
+        imlec_iste = self.imlec_goster or vurgu
+        konum = getattr(self.kaynak, "imlec", lambda: None)() if imlec_iste else None
+        if vurgu:
+            self._vurgu.guncelle(konum)
+        dalga = vurgu and bool(self._vurgu._dalgalar)
+        imza = (gorunum, self.bolge.karartma_gucu, cizim_imzasi, konum, vurgu, self.imlec_goster,
+                self.genislik, self.yukseklik)
+        onceki = self._ekran_onbellek
+        if onceki is not None and onceki[0] is ham and onceki[1] == imza and not dalga:
+            return onceki[2]
+
+        kare, donusum = bolge_uygula(ham, gorunum, self.genislik, self.yukseklik, self.bolge.karartma_gucu)
+        if kalem:
             from overlay.drawing import cizimleri_uygula
             kare = cizimleri_uygula(kare, self.cizimler, ham.shape[1], ham.shape[0], donusum)
-        vurgu = self.imlec_vurgusu or (sahne is not None and sahne.imlec_vurgusu)
-        if self.imlec_goster or vurgu:
-            konum = getattr(self.kaynak, "imlec", lambda: None)()
+        if imlec_iste:
             cikis_konumu = None
             if konum is not None:
                 x, y = donusum(*konum)
                 if -30 < x < self.genislik and -30 < y < self.yukseklik:
                     cikis_konumu = (x, y)
-            if vurgu:
-                self._vurgu.guncelle(konum)
-            if cikis_konumu is not None or (vurgu and self._vurgu._dalgalar):
-                if kare is ham:  # aynı boyuttaysa kopyalanmamıştır; yakalayıcının önbelleğini bozma
+            if cikis_konumu is not None or dalga:
+                if not kare.flags.writeable or np.may_share_memory(kare, ham):  # yakalayıcının karesini bozma
                     kare = kare.copy()
                 if vurgu:
                     olcek = donusum(1, 0)[0] - donusum(0, 0)[0]
                     self._vurgu.ciz(kare, cikis_konumu, donusum, max(0.3, olcek * ham.shape[0] / 1080))
                 if self.imlec_goster and cikis_konumu is not None:
                     frames.imlec_ciz(kare, *cikis_konumu)
+        if kare.base is not None or kare is ham:
+            kare = kare.view()   # yakalayıcının dizisini (ya da görünümünü) salt okunur yapmadan paylaş
+        kare.setflags(write=False)
+        # ham da tutulur: silinip aynı adrese yeni kare gelirse "aynı kare" sanılmasın
+        self._ekran_onbellek = (ham, imza, kare)
         return kare
 
     def _kamera_karesi(self, sahne: Sahne):
