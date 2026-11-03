@@ -39,7 +39,10 @@ def test_manifest_alanlari_ve_kacis():
 
 def test_kimlik_degiskenlerden(monkeypatch):
     monkeypatch.delenv("MSIX_KIMLIK_ADI", raising=False)
-    assert msix_paketle.kimlik()[0] == msix_paketle.DENEME_ADI
+    for ad in ("MSIX_YAYINCI", "MSIX_YAYINCI_ADI"):
+        monkeypatch.delenv(ad, raising=False)
+    # Değişken yoksa Partner Center'daki gerçek kimlik (Store başka kimlikli paketi reddeder)
+    assert msix_paketle.kimlik() == ("MustafaCap.RizeOn", "CN=C183D33B-691B-4258-9073-8775FE813C89", "MustafaCap")
     monkeypatch.setenv("MSIX_KIMLIK_ADI", "123.Gercek")
     monkeypatch.setenv("MSIX_YAYINCI", "CN=ABC")
     monkeypatch.setenv("MSIX_YAYINCI_ADI", "Mustafa")
