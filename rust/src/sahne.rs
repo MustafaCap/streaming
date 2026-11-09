@@ -200,6 +200,27 @@ pub fn yeni_sahne_adi(sahneler: &[Sahne]) -> String {
     (1..).map(|n| format!("Yeni sahne {n}")).find(|a| !sahneler.iter().any(|s| &s.ad == a)).unwrap()
 }
 
+/// Kaynaklar panelindeki + menüsü: (tür, ad, açıklama).
+pub const EKLENEBILIR: [(&str, &str, &str); 7] = [
+    ("ekran", "Ekran", "Tüm monitör"),
+    ("pencere", "Uygulama penceresi", "Tek bir pencere"),
+    ("bolge", "Ekran bölgesi", "Seçtiğin alan"),
+    ("kamera", "Kamera", "İkinci webcam veya telefon"),
+    ("gorsel", "Görsel", "Logo, resim"),
+    ("video", "Video", "Dosyadan döngüde oynat"),
+    ("metin", "Metin", "Başlık, isim etiketi"),
+];
+
+/// Sahnede olmayan bir ad: "Metin", yoksa "Metin 2", "Metin 3"…
+pub fn yeni_kaynak_adi(sahne: &Sahne, tur: &str) -> String {
+    let temel = tur_adi(tur);
+    let var = |a: &str| sahne.kaynaklar.iter().any(|k| k.ad == a);
+    if !var(temel) {
+        return temel.to_string();
+    }
+    (2..).map(|n| format!("{temel} {n}")).find(|a| !var(a)).unwrap()
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct KameraYerlesimi {
     pub kose: String,

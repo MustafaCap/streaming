@@ -35,11 +35,15 @@ pub struct Katman {
     kalinlik: usize,
     yazi: Option<(Pos2, String)>,
     gizlendi: bool,
+    /// true: seçilen bölge Göster'e değil, sahneye "Ekran bölgesi" kaynağı olarak eklenir
+    kaynak_icin: bool,
+    /// kaynak için seçilen bölge: (monitör, oran x,y,w,h, piksel w,h)
+    pub secilen_kaynak: Option<(usize, [f64; 4], [i64; 2])>,
 }
 
 impl Default for Katman {
     fn default() -> Self {
-        Katman { mod_: None, monitor: None, bas: None, son: None, tur: 0, renk: cizim::VARSAYILAN_RENK, kalinlik: 1, yazi: None, gizlendi: false }
+        Katman { mod_: None, monitor: None, bas: None, son: None, tur: 0, renk: cizim::VARSAYILAN_RENK, kalinlik: 1, yazi: None, gizlendi: false, kaynak_icin: false, secilen_kaynak: None }
     }
 }
 
@@ -59,6 +63,16 @@ impl Katman {
     }
 
     pub fn bolge_sec(&mut self, uyg: &Uygulama) {
+        self.bolge_baslat(uyg, false);
+    }
+
+    /// Kaynaklar > + > Ekran bölgesi: çizilen kutu sahneye kaynak olarak eklenir.
+    pub fn kaynak_bolgesi_sec(&mut self, uyg: &Uygulama) {
+        self.bolge_baslat(uyg, true);
+    }
+
+    fn bolge_baslat(&mut self, uyg: &Uygulama, kaynak_icin: bool) {
+        self.kaynak_icin = kaynak_icin;
         self.monitor = Self::monitoru_al(uyg);
         self.mod_ = Some(Mod::Bolge);
         self.bas = None;
@@ -192,6 +206,13 @@ impl Katman {
                 let (a, b) = (fiz(s.min), fiz(s.max));
                 let (x0, y0) = (a.x.clamp(0.0, m.w as f32), a.y.clamp(0.0, m.h as f32));
                 let (x1, y1) = (b.x.clamp(0.0, m.w as f32), b.y.clamp(0.0, m.h as f32));
+                if x1 - x0 >= 16.0 && y1 - y0 >= 16.0 && self.kaynak_icin {
+                    let n = rizeon::yakalama::monitorler().iter().position(|x| x.sol == m.sol && x.ust == m.ust).unwrap_or(0);
+                    let (mw, mh) = (m.w.max(1) as f64, m.h.max(1) as f64);
+                    let oran = [x0 as f64 / mw, y0 as f64 / mh, (x1 - x0) as f64 / mw, (y1 - y0) as f64 / mh].map(|v| (v * 10000.0).round() / 10000.0);
+                    self.secilen_kaynak = Some((n, oran, [(x1 - x0).round() as i64, (y1 - y0).round() as i64]));
+                    return true;
+                }
                 if x1 - x0 >= 16.0 && y1 - y0 >= 16.0 {
                     let mesaj = uyg.bolge_ayarla((x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64));
                     uyg.bildir(&mesaj, None, false);

@@ -57,3 +57,39 @@ pub fn varsayilan_kayit_klasoru() -> PathBuf {
     }
     ev().join("Videos").join(UYGULAMA_ADI)
 }
+
+pub const VIDEO_UZANTILARI: [&str; 8] = ["mp4", "webm", "avi", "mov", "mkv", "gif", "wmv", "m4v"];
+
+/// Bekleme ekranı ya da kaynak dosyası video mu (uzantıya göre).
+pub fn video_mu(yol: &str) -> bool {
+    !yol.is_empty()
+        && Path::new(yol)
+            .extension()
+            .map(|u| VIDEO_UZANTILARI.contains(&u.to_string_lossy().to_lowercase().as_str()))
+            .unwrap_or(false)
+}
+
+/// Video kaynakları veri klasörüne kopyalanır: kullanıcı dosyayı taşısa da kaynak bozulmaz.
+pub fn video_kopyala(kaynak: &Path) -> std::io::Result<PathBuf> {
+    let hedef_klasor = veri_klasoru().join("kaynaklar");
+    std::fs::create_dir_all(&hedef_klasor)?;
+    let ust = kaynak.canonicalize().ok().and_then(|p| p.parent().map(Path::to_path_buf));
+    if ust.is_some() && ust == hedef_klasor.canonicalize().ok() {
+        return Ok(kaynak.to_path_buf());
+    }
+    let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let uzanti = kaynak.extension().map(|u| u.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let hedef = hedef_klasor.join(format!("video_{ms}.{uzanti}"));
+    std::fs::copy(kaynak, &hedef)?;
+    Ok(hedef)
+}
+
+#[cfg(test)]
+mod testler {
+    #[test]
+    fn video_uzantisi() {
+        assert!(super::video_mu("a/b.MP4"));
+        assert!(!super::video_mu("a/b.png"));
+        assert!(!super::video_mu(""));
+    }
+}

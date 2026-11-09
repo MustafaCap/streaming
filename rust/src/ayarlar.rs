@@ -178,6 +178,14 @@ impl Ayarlar {
         a
     }
 
+    /// Diske yazmayan geçici ayarlar (testler için): geçici klasörde benzersiz bir dosyaya yazar.
+    pub fn bellekte(veri: Value) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static N: AtomicU64 = AtomicU64::new(0);
+        let dosya = std::env::temp_dir().join(format!("rizeon-gecici-{}-{}.json", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
+        Ayarlar { dosya, veri }
+    }
+
     pub fn yukle(&mut self) {
         let varsayilan = varsayilan();
         let mut kullanici = Value::Object(Map::new());

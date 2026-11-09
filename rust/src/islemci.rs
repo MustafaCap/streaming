@@ -110,3 +110,95 @@ fn sureler() -> (f64, f64, usize) {
     }
     (kendi, cocuk, sayi)
 }
+
+/// Ekran kartı kullanımı: Windows performans sayaçlarından 3D motorlarının kullanımı (Görev
+/// Yöneticisi'ndeki "GPU" sütunuyla aynı kaynak). Sayaç yoksa `oku` None döner, arayüz "GPU –" yazar.
+pub struct GpuSayaci {
+    #[cfg(windows)]
+    sorgu: windows::Win32::System::Performance::PDH_HQUERY,
+    #[cfg(windows)]
+    sayac: windows::Win32::System::Performance::PDH_HCOUNTER,
+}
+
+// PDH tutamaçları iş parçacığına bağlı değildir
+unsafe impl Send for GpuSayaci {}
+
+impl GpuSayaci {
+    #[cfg(windows)]
+    pub fn new() -> Option<Self> {
+        use windows::core::w;
+        use windows::Win32::System::Performance::*;
+        unsafe {
+            let mut sorgu = PDH_HQUERY::default();
+            if PdhOpenQueryW(windows::core::PCWSTR::null(), 0, &mut sorgu) != 0 {
+                return None;
+            }
+            let mut sayac = PDH_HCOUNTER::default();
+            if PdhAddEnglishCounterW(sorgu, w!("\\GPU Engine(*engtype_3D)\\Utilization Percentage"), 0, &mut sayac) != 0 {
+                PdhCloseQuery(sorgu);
+                return None;
+            }
+            PdhCollectQueryData(sorgu); // ilk örnek (oran için iki örnek gerekir)
+            Some(GpuSayaci { sorgu, sayac })
+        }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Option<Self> {
+        None
+    }
+
+    /// Yüzde (aynı motoru kullanan işlemler toplanır; en yoğun motor, en çok %100).
+    #[cfg(windows)]
+    pub fn oku(&mut self) -> Option<f64> {
+        use windows::Win32::System::Performance::*;
+        unsafe {
+            if PdhCollectQueryData(self.sorgu) != 0 {
+                return None;
+            }
+            let (mut boyut, mut adet) = (0u32, 0u32);
+            let kod = PdhGetFormattedCounterArrayW(self.sayac, PDH_FMT_DOUBLE, &mut boyut, &mut adet, None);
+            if kod != PDH_MORE_DATA || boyut == 0 {
+                return None;
+            }
+            // 8 bayt hizalı tampon
+            let mut tampon = vec![0u64; (boyut as usize).div_ceil(8)];
+            let p = tampon.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W;
+            if PdhGetFormattedCounterArrayW(self.sayac, PDH_FMT_DOUBLE, &mut boyut, &mut adet, Some(p)) != 0 {
+                return None;
+            }
+            let mut motorlar: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+            for i in 0..adet as usize {
+                let o = &*p.add(i);
+                if o.FmtValue.CStatus != 0 {
+                    continue;
+                }
+                let ad = o.szName.to_string().unwrap_or_default();
+                let motor = ad.find("luid_").map(|n| ad[n..].to_string()).unwrap_or(ad);
+                *motorlar.entry(motor).or_default() += o.FmtValue.Anonymous.doubleValue;
+            }
+            Some(motorlar.values().cloned().fold(0.0, f64::max).min(100.0))
+        }
+    }
+
+    #[cfg(not(windows))]
+    pub fn oku(&mut self) -> Option<f64> {
+        None
+    }
+}
+
+impl Drop for GpuSayaci {
+    fn drop(&mut self) {
+        #[cfg(windows)]
+        unsafe {
+            windows::Win32::System::Performance::PdhCloseQuery(self.sorgu);
+        }
+    }
+}
+
+/// Alt satırdaki "CPU %x · GPU %y · n FPS" (Python core/sistem_olcer.py).
+pub fn alt_bilgi_metni(cpu: Option<f64>, gpu: Option<f64>, fps: f32) -> String {
+    let c = cpu.map(|c| format!("CPU %{:.0}", c.min(100.0))).unwrap_or_else(|| "CPU –".into());
+    let g = gpu.map(|g| format!("GPU %{g:.0}")).unwrap_or_else(|| "GPU –".into());
+    format!("{c} · {g} · {fps:.0} FPS")
+}

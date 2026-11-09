@@ -15,6 +15,7 @@ pub mod kayit;
 pub mod kisayol;
 pub mod obs_kamera;
 pub mod sahne;
+pub mod ses_modlari;
 pub mod ses;
 pub mod surum;
 pub mod tekrar;

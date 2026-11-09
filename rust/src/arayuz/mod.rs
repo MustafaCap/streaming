@@ -1,12 +1,28 @@
 //! Arayüz (egui): ana pencere, mini bar, ayarlar, tepsi. Python ui/ klasörünün karşılığı.
 //!
-//! Arayüz video hattını ve ses motorunu asla beklemez: önizleme için hattın son karesini alır,
-//! durumu DurumDeposu'ndan okur. Komutlar Uygulama::komut'a gider (kısayollarla aynı yol).
+//! Ana pencere (Python ui/main_window.py) çerçevesizdir, kendi başlık çubuğuyla:
+//!   logo RizeOn · ☰ Gelişmiş · Kayıt klasörü · Son 15 sn'yi kaydet · Mini bar · Ayarlar · _ □ ×
+//!
+//! Sade görünüm: önizleme, kontrol barı ve ses mikseri.
+//! Gelişmiş (☰, ilk açılışta açık, sonra hatırlanır): solda Sahneler ve Kaynaklar, sağda mikserin altında anahtarlar.
+//!
+//!   orta : "Göster  Ekran 1 ⌄" (her monitör, Pencere seç…, Bölge seç…) · sahne adı, çözünürlük, FPS
+//!          16:9 önizleme (kamera fareyle sürüklenir)
+//!          kontrol barı: Mikrofon · Sistem sesi · Kamera | Bölge · Kalem | Kayıt | Panik
+//!   alt  : CPU · GPU · FPS · Çıkış
+//!
+//! Pencere daralınca sütunlar alt alta dizilir. Arayüz video hattını ve ses motorunu asla beklemez:
+//! önizleme için hattın son karesini alır, durumu DurumDeposu'ndan okur. Komutlar Uygulama::komut'a
+//! gider (kısayollarla aynı yol).
 
 mod ayar_penceresi;
+mod bilesen;
+mod diyalog;
 mod katman;
-mod secici;
 mod mini;
+mod paneller;
+mod secici;
+mod simge;
 mod tema;
 #[cfg(windows)]
 mod tepsi;
@@ -15,37 +31,64 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, Color32, RichText};
+use eframe::egui::{self, Align2, CursorIcon, Pos2, Rect, ResizeDirection, Sense, Stroke, Ui, Vec2, ViewportCommand};
+use serde_json::json;
 
 use rizeon::durum::Durum;
+use rizeon::islemci::{GpuSayaci, IslemciOlcer};
 use rizeon::kare::KareRef;
-use rizeon::sahne::Kaynak;
 use rizeon::tek_kopya::TekKopya;
+use rizeon::tekrar;
 use rizeon::uygulama::{Komut, Uygulama};
-use rizeon::{tekrar, surum};
 
-fn kisalt(s: &str, n: usize) -> String {
-    if s.chars().count() <= n {
-        s.to_string()
-    } else {
-        s.chars().take(n - 1).collect::<String>() + "…"
-    }
+use bilesen::{ipucu, kisalt};
+use diyalog::{Amac, Diyalog};
+use paneller::Istek;
+use tema::beyaz;
+
+const SOL_GENISLIK: f32 = 230.0;
+const SAG_GENISLIK: f32 = 264.0;
+const BOSLUK: f32 = 16.0;
+/// pencere kenarından boyutlandırma payı (px)
+const KENAR: f32 = 6.0;
+const MIN_SADE: [f32; 2] = [760.0, 560.0];
+const MIN_GELISMIS: [f32; 2] = [900.0, 600.0];
+const BASLIK_YUK: f32 = 40.0;
+/// kontrol barı yüksekliği: 60 px karo + 6 px iç boşluk + 1 px kenarlık (üst ve alt)
+const KONTROL_YUK: f32 = 74.0;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Duzen {
+    Genis,
+    Dar,
+    CokDar,
 }
 
 pub fn calistir(uyg: Arc<Uygulama>, tek: TekKopya) -> eframe::Result {
-    let simge = image::load_from_memory(include_bytes!("../../../kurulum/uygulama.ico"))
-        .ok()
-        .map(|r| {
-            let r = r.into_rgba8();
-            let (w, h) = r.dimensions();
-            egui::IconData { rgba: r.into_raw(), width: w, height: h }
-        });
-    let mut vp = egui::ViewportBuilder::default().with_title("RizeOn").with_inner_size([1180.0, 760.0]).with_min_inner_size([760.0, 520.0]);
-    if let Some(s) = simge {
+    let gelismis = uyg.ayarlar.lock().unwrap().mantik("ui.advanced", true);
+    let mut vp = egui::ViewportBuilder::default()
+        .with_title("RizeOn")
+        .with_decorations(false)
+        .with_inner_size([1320.0, 820.0])
+        .with_min_inner_size(if gelismis { MIN_GELISMIS } else { MIN_SADE });
+    if let Some(s) = simge::logo_ikonu() {
         vp = vp.with_icon(Arc::new(s));
     }
     let secenek = eframe::NativeOptions { viewport: vp, ..Default::default() };
     eframe::run_native("RizeOn", secenek, Box::new(move |cc| Ok(Box::new(Pencere::new(cc, uyg, tek)))))
+}
+
+fn tus_metni(uyg: &Uygulama, komut: &str) -> String {
+    let a = uyg.ayarlar.lock().unwrap();
+    a.veri.get("hotkeys").and_then(|h| h.get(komut)).and_then(|v| v.as_str()).map(rizeon::kisayol::tus_metni).unwrap_or_default()
+}
+
+/// Önizlemede sürüklenen kamera: imleçle kutu merkezi arasındaki fark ve kutu boyutu.
+struct Surukleme {
+    dx: f32,
+    dy: f32,
+    w: f32,
+    h: f32,
 }
 
 struct Pencere {
@@ -60,17 +103,29 @@ struct Pencere {
     katman: katman::Katman,
     secici: secici::PencereSecici,
     ayarlar: ayar_penceresi::AyarPenceresi,
-    yeniden_adlandir: Option<(usize, String)>,
+    sahneler: paneller::SahnelerPaneli,
+    kaynaklar: paneller::KaynaklarPaneli,
+    mikser: paneller::MikserPaneli,
+    anahtarlar: paneller::AnahtarPaneli,
+    diyalog: Option<Diyalog>,
+    istek: Option<Istek>,
+    gelismis: bool,
+    surukleme: Option<Surukleme>,
+    logo: Option<egui::TextureHandle>,
+    olcer: IslemciOlcer,
+    gpu: Option<GpuSayaci>,
+    alt_bilgi: String,
+    son_olcum: Instant,
     gizli: bool,
     tepsiye: bool,
+    ilk_kuculme: bool,
     cikiyor: bool,
     #[cfg_attr(not(windows), allow(dead_code))]
-    yakalamadan_gizlendi: bool,
+    hazirlandi: bool,
     #[cfg(windows)]
     tepsi: Option<tepsi::Tepsi>,
     #[cfg(windows)]
     kisayollar: Option<rizeon::kisayol::KisayolYoneticisi>,
-    kisayol_surumu: u64,
     durum: Durum,
 }
 
@@ -94,15 +149,31 @@ impl Pencere {
                 })
                 .ok();
         }
-        let (onizleme_fps, tepsiye) = {
+        let (onizleme_fps, tepsiye, gelismis) = {
             let a = uyg.ayarlar.lock().unwrap();
-            (a.sayi("ui.preview_fps", 15).clamp(5, 30) as f32, a.mantik("ui.minimize_to_tray", true))
+            (a.sayi("ui.preview_fps", 15).clamp(5, 30) as f32, a.mantik("ui.minimize_to_tray", true), a.mantik("ui.advanced", true))
         };
+        let mut olcer = IslemciOlcer::new();
+        let mut gpu = GpuSayaci::new();
+        let alt_bilgi = rizeon::islemci::alt_bilgi_metni(Some(olcer.olc().uygulama), gpu.as_mut().and_then(|g| g.oku()), 0.0);
         let mut p = Pencere {
             mini: mini::MiniBar::default(),
             katman: katman::Katman::default(),
             secici: secici::PencereSecici::default(),
             ayarlar: ayar_penceresi::AyarPenceresi::default(),
+            sahneler: Default::default(),
+            kaynaklar: Default::default(),
+            mikser: Default::default(),
+            anahtarlar: Default::default(),
+            diyalog: None,
+            istek: None,
+            gelismis,
+            surukleme: None,
+            logo: simge::logo(&cc.egui_ctx),
+            olcer,
+            gpu,
+            alt_bilgi,
+            son_olcum: Instant::now(),
             durum: uyg.depo.al(),
             uyg,
             _tek: tek,
@@ -110,16 +181,15 @@ impl Pencere {
             son_kare: None,
             son_onizleme: Instant::now(),
             onizleme_fps,
-            yeniden_adlandir: None,
             gizli: false,
             tepsiye,
+            ilk_kuculme: true,
             cikiyor: false,
-            yakalamadan_gizlendi: false,
+            hazirlandi: false,
             #[cfg(windows)]
             tepsi: None,
             #[cfg(windows)]
             kisayollar: None,
-            kisayol_surumu: 0,
         };
         #[cfg(windows)]
         {
@@ -158,12 +228,10 @@ impl Pencere {
             };
             y.grup_ayarla("genel", tuslar);
         }
-        self.kisayol_surumu += 1;
     }
 
     fn tus(&self, komut: &str) -> String {
-        let a = self.uyg.ayarlar.lock().unwrap();
-        a.veri.get("hotkeys").and_then(|h| h.get(komut)).and_then(|v| v.as_str()).map(rizeon::kisayol::tus_metni).unwrap_or_default()
+        tus_metni(&self.uyg, komut)
     }
 
     /// Kısayol ya da tepsiden gelen arayüz istekleri (pencereyi göster, mini bar, çıkış).
@@ -173,22 +241,35 @@ impl Pencere {
             match k {
                 Komut::AnaPencere => {
                     self.gizli = false;
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    self.mini.acik = false;
+                    ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+                    ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
+                    ctx.send_viewport_cmd(ViewportCommand::Focus);
                 }
                 Komut::MiniBar => self.mini.acik = !self.mini.acik,
                 Komut::Bolge => self.katman.bolge_sec(&self.uyg),
                 Komut::Kalem => self.katman.kalem_ac_kapat(&self.uyg),
                 Komut::KalemTemizle => self.uyg.k.cizim.temizle(),
                 Komut::KaynakSec => self.secici.ac(),
-                Komut::Cikis => {
-                    self.cikiyor = true;
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
+                Komut::Cikis => self.cikmayi_onayla(),
                 _ => {}
             }
         }
+    }
+
+    /// Tepsi menüsü / alt satırdaki Çıkış: kayıt sürüyorsa önce sorar.
+    fn cikmayi_onayla(&mut self) {
+        if self.durum.kayit == "açık" {
+            self.diyalog = Some(Diyalog::soru("Çıkış", "Kayıt sürüyor. Uygulama tamamen kapatılsın mı?\nKayıt durdurulup kaydedilir.", Amac::Cikis));
+        } else {
+            self.cikiyor = true;
+        }
+    }
+
+    fn mini_moda_gec(&mut self, ctx: &egui::Context) {
+        self.mini.acik = true;
+        self.gizli = true;
+        ctx.send_viewport_cmd(ViewportCommand::Visible(false));
     }
 
     fn onizlemeyi_guncelle(&mut self, ctx: &egui::Context) {
@@ -212,342 +293,507 @@ impl Pencere {
         ctx.request_repaint_after(aralik);
     }
 
-    fn ust_cubuk(&mut self, ui: &mut egui::Ui) {
-        let d = self.durum.clone();
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("RizeOn").strong().size(16.0));
-            ui.label(RichText::new(format!("· {}", d.sahne_adi)).color(tema::YAZI2));
-            if d.panik {
-                ui.label(RichText::new("PANİK").strong().color(tema::YAZI));
+    fn gelismis_ayarla(&mut self, ctx: &egui::Context, acik: bool) {
+        self.gelismis = acik;
+        ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::from(if acik { MIN_GELISMIS } else { MIN_SADE })));
+        self.uyg.ayarla("ui.advanced", acik.into());
+    }
+
+    // ------------------------------------------------------------ başlık çubuğu
+
+    /// Windows başlık düğmesi (46×40): üzerine gelince açık gri, kapat düğmesi kırmızı.
+    fn pencere_dugmesi(ui: &mut Ui, simge_adi: &'static str, ad: &str, kapat: bool) -> egui::Response {
+        let (r, resp) = ui.allocate_exact_size(Vec2::new(46.0, BASLIK_YUK), Sense::click());
+        let uzerinde = resp.hovered() || resp.is_pointer_button_down_on();
+        if uzerinde {
+            ui.painter().rect_filled(r, 0.0, if kapat { tema::KAPAT } else { beyaz(0.07) });
+        }
+        simge::ortaya(ui, simge_adi, if uzerinde { tema::BEYAZ } else { tema::YAZI2 }, 14.0, r, false);
+        resp.on_hover_text(ad)
+    }
+
+    fn baslik_cubugu(&mut self, ui: &mut Ui) {
+        let ctx = ui.ctx().clone();
+        let r = ui.max_rect();
+        let buyuk = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
+        // boş yerden sürükleyince pencere taşınır, çift tıklayınca ekranı kaplar
+        let arka = ui.interact(r, ui.scope_id().with("baslik-arka"), Sense::click_and_drag());
+        if arka.double_clicked() {
+            ctx.send_viewport_cmd(ViewportCommand::Maximized(!buyuk));
+        } else if arka.drag_started_by(egui::PointerButton::Primary) {
+            ctx.send_viewport_cmd(ViewportCommand::StartDrag);
+        }
+        let y = r.bottom() - 0.5;
+        ui.painter().line_segment([Pos2::new(r.left(), y), Pos2::new(r.right(), y)], Stroke::new(1.0, egui::Color32::from_white_alpha(15)));
+
+        ui.horizontal_centered(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            ui.add_space(12.0 - 4.0);
+            if let Some(l) = &self.logo {
+                ui.add(egui::Image::new((l.id(), Vec2::splat(18.0))));
             }
+            ui.add_space(4.0);
+            bilesen::etiket(ui, "RizeOn", tema::KUCUK_PX, tema::YAZI2);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Ayarlar").clicked() {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                if Self::pencere_dugmesi(ui, "kapat", "Kapat", true).clicked() {
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
+                }
+                let (s, a) = if buyuk { ("geri_yukle", "Önceki boyuta getir") } else { ("buyut", "Ekranı kapla") };
+                if Self::pencere_dugmesi(ui, s, a, false).clicked() {
+                    ctx.send_viewport_cmd(ViewportCommand::Maximized(!buyuk));
+                }
+                if Self::pencere_dugmesi(ui, "kucult", "Simge durumuna küçült", false).clicked() {
+                    ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+                }
+                ui.add_space(8.0);
+                if bilesen::SimgeDugme::new("ayarlar").boyut(28.0, 16.0).goster(ui).on_hover_text("Ayarlar").clicked() {
                     self.ayarlar.ac(&self.uyg);
                 }
-                if ui.button("Kayıtlar").on_hover_text("Kayıt klasörünü aç").clicked() {
+                ui.add_space(2.0);
+                ui.spacing_mut().item_spacing.x = 4.0;
+                if bilesen::hap(ui, "Mini bar", false, true).on_hover_text("Ana pencereyi gizle, her zaman üstte duran küçük bara geç").clicked() {
+                    self.mini_moda_gec(&ctx);
+                }
+                let (tekrar_acik, sure) = {
+                    let a = self.uyg.ayarlar.lock().unwrap();
+                    (a.mantik("record.replay", true), a.sayi("record.replay_seconds", 15))
+                };
+                if tekrar_acik {
+                    let etiket = tekrar::sure_etiketi(sure);
+                    let metin = if etiket.ends_with("dk") { format!("{etiket}'yı kaydet") } else { format!("{etiket}'yi kaydet") };
+                    let etkin = self.uyg.tekrar.acik() && !self.uyg.tekrar.kaydediliyor();
+                    let r = bilesen::hap(ui, &metin, false, etkin)
+                        .on_hover_text(ipucu(&format!("{etiket} MP4 olarak kaydedilir (bellekte tutulur, diske sürekli yazılmaz)"), &self.tus("anlik_kayit.kaydet")));
+                    if r.clicked() {
+                        let m = self.uyg.komut(Komut::TekrarKaydet);
+                        if !m.is_empty() {
+                            self.uyg.bildir(&m, None, false);
+                        }
+                    }
+                }
+                if bilesen::hap(ui, "Kayıt klasörü", false, true)
+                    .on_hover_text("Kayıtların, son 2 dk kayıtlarının ve ekran görüntülerinin olduğu klasörü açar")
+                    .clicked()
+                {
                     let k = rizeon::uygulama::kayit_klasoru(&self.uyg.ayarlar.lock().unwrap());
                     let _ = std::fs::create_dir_all(&k);
                     #[cfg(windows)]
                     rizeon::win::ac(&k);
                 }
-                if ui.button("Mini bar").clicked() {
-                    self.mini.acik = !self.mini.acik;
+                if bilesen::hap(ui, "☰ Gelişmiş", self.gelismis, true).on_hover_text("Sahneler, kaynaklar ve ses anahtarları").clicked() {
+                    let acik = !self.gelismis;
+                    self.gelismis_ayarla(&ctx, acik);
                 }
-                if ui.add(egui::Button::new("Kalem").selected(self.katman.kalem_acik())).on_hover_text(format!("Ekrana çiz {}", self.tus("kalem.ac_kapat"))).clicked() {
-                    self.katman.kalem_ac_kapat(&self.uyg);
-                }
-                let kaynak = match d.kaynak_turu.as_str() {
-                    "pencere" => format!("Pencere: {}", kisalt(&d.kaynak_adi, 28)),
-                    _ if !d.bolge.is_empty() => format!("Bölge {}", d.bolge),
-                    _ => "Tüm ekran".to_string(),
-                };
-                ui.menu_button(format!("{kaynak} ▾"), |ui| {
-                    for (i, m) in rizeon::yakalama::monitorler().iter().enumerate() {
-                        if ui.button(format!("Ekran {} ({}×{})", i + 1, m.w, m.h)).clicked() {
-                            let mesaj = self.uyg.monitor_sec(i);
-                            self.uyg.bildir(&mesaj, None, false);
-                            ui.close();
-                        }
-                    }
-                    if ui.button(format!("Bölge seç… {}", self.tus("bolge.sec"))).clicked() {
-                        self.katman.bolge_sec(&self.uyg);
-                        ui.close();
-                    }
-                    if ui.button("Pencere seç…").clicked() {
-                        self.secici.ac();
-                        ui.close();
-                    }
-                });
-                ui.label(RichText::new(format!("{:.0} fps", d.fps)).color(tema::SOLUK).small());
-                let vc = match d.sanal_kamera.as_str() {
-                    "açık" => "Sanal kamera açık",
-                    "yok" => "OBS sanal kamera yok",
-                    "kapalı" => "Sanal kamera duraklatıldı",
-                    _ => "Sanal kamera hatası",
-                };
-                ui.label(RichText::new(vc).color(tema::YAZI2).small()).on_hover_text(&d.son_hata);
-                let vb = match d.sanal_mikrofon.as_str() {
-                    "açık" => "VB-Cable açık",
-                    "yok" => "VB-Cable yok",
-                    "kapalı" => "Ses duraklatıldı",
-                    _ => "VB-Cable hatası",
-                };
-                ui.label(RichText::new(vb).color(tema::YAZI2).small()).on_hover_text(&d.ses_hatasi);
             });
         });
     }
 
-    fn sahne_paneli(&mut self, ui: &mut egui::Ui) {
-        let sahneler = self.uyg.k.sahneler.liste();
-        let aktif = self.uyg.k.sahneler.indeks();
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("Sahneler").color(tema::YAZI2));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.small_button("+").on_hover_text("Yeni sahne").clicked() && self.uyg.k.sahneler.ekle().is_some() {
-                    self.uyg.sahneleri_kaydet();
-                }
-            });
+    /// Çerçevesiz pencereyi kenarlarından boyutlandırma (Windows'un kendi boyutlandırmasıyla).
+    fn kenar_boyutlandir(&self, ctx: &egui::Context) {
+        let (buyuk, tam) = ctx.input(|i| (i.viewport().maximized.unwrap_or(false), i.viewport().fullscreen.unwrap_or(false)));
+        if buyuk || tam || ctx.dragged_id().is_some() {
+            return;
+        }
+        let Some(p) = ctx.input(|i| i.pointer.hover_pos()) else { return };
+        let r = ctx.content_rect();
+        let (sol, sag) = (p.x <= r.left() + KENAR, p.x >= r.right() - KENAR);
+        let (ust, alt) = (p.y <= r.top() + KENAR, p.y >= r.bottom() - KENAR);
+        let yon = match (sol, sag, ust, alt) {
+            (true, _, true, _) => ResizeDirection::NorthWest,
+            (_, true, true, _) => ResizeDirection::NorthEast,
+            (true, _, _, true) => ResizeDirection::SouthWest,
+            (_, true, _, true) => ResizeDirection::SouthEast,
+            (true, ..) => ResizeDirection::West,
+            (_, true, ..) => ResizeDirection::East,
+            (_, _, true, _) => ResizeDirection::North,
+            (_, _, _, true) => ResizeDirection::South,
+            _ => return,
+        };
+        ctx.set_cursor_icon(match yon {
+            ResizeDirection::NorthWest | ResizeDirection::SouthEast => CursorIcon::ResizeNwSe,
+            ResizeDirection::NorthEast | ResizeDirection::SouthWest => CursorIcon::ResizeNeSw,
+            ResizeDirection::West | ResizeDirection::East => CursorIcon::ResizeHorizontal,
+            _ => CursorIcon::ResizeVertical,
         });
-        let mut sil = None;
-        for (i, s) in sahneler.iter().enumerate() {
-            if let Some((j, ad)) = &mut self.yeniden_adlandir {
-                if *j == i {
-                    let r = ui.text_edit_singleline(ad);
-                    if r.lost_focus() {
-                        let ad = ad.clone();
-                        self.uyg.k.sahneler.yeniden_adlandir(i, &ad);
-                        self.uyg.sahneleri_kaydet();
-                        self.yeniden_adlandir = None;
-                    } else {
-                        r.request_focus();
-                    }
-                    continue;
-                }
-            }
-            let ipucu = if i < 9 { self.tus(&format!("sahne.sec:{}", i + 1)) } else { String::new() };
-            let r = ui.selectable_label(i == aktif, format!("{}  {}", i + 1, s.ad));
-            let r = if ipucu.is_empty() { r } else { r.on_hover_text(ipucu) };
-            if r.clicked() {
-                self.uyg.komut(Komut::Sahne(i));
-            }
-            r.context_menu(|ui| {
-                if ui.button("Yeniden adlandır").clicked() {
-                    self.yeniden_adlandir = Some((i, s.ad.clone()));
-                    ui.close();
-                }
-                if ui.add_enabled(sahneler.len() > 1, egui::Button::new("Sil")).clicked() {
-                    sil = Some(i);
-                    ui.close();
-                }
-            });
+        if ctx.input(|i| i.pointer.primary_pressed()) {
+            ctx.send_viewport_cmd(ViewportCommand::BeginResize(yon));
         }
-        if let Some(i) = sil {
-            if self.uyg.k.sahneler.sil(i) {
-                self.uyg.sahneleri_kaydet();
-            }
-        }
-        ui.add_space(12.0);
-        self.kaynak_paneli(ui);
     }
 
-    fn kaynak_paneli(&mut self, ui: &mut egui::Ui) {
-        let sahne = self.uyg.k.sahneler.aktif();
-        let mut degisti = false;
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("Kaynaklar").color(tema::YAZI2));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.menu_button("+", |ui| {
-                    if ui.button("Metin (alt bant)").clicked() {
-                        let mut a = serde_json::Map::new();
-                        a.insert("text".into(), "Adın Soyadın".into());
-                        degisti |= self.uyg.k.sahneler.kaynak_ekle(Kaynak::yeni("metin", "", a));
-                        ui.close();
-                    }
-                    if ui.button("Görsel (logo)…").clicked() {
-                        let mut a = serde_json::Map::new();
-                        a.insert("path".into(), "".into());
-                        degisti |= self.uyg.k.sahneler.kaynak_ekle(Kaynak::yeni("gorsel", "", a));
-                        ui.close();
-                    }
-                    if ui.button("Bekleme ekranı").clicked() {
-                        degisti |= self.uyg.k.sahneler.kaynak_ekle(Kaynak::yeni("bekleme", "", Default::default()));
-                        ui.close();
-                    }
-                    if !sahne.kamera_var() && ui.button("Kamera").clicked() {
-                        let mut a = serde_json::Map::new();
-                        a.insert("ana".into(), true.into());
-                        a.insert("yer".into(), "kose".into());
-                        degisti |= self.uyg.k.sahneler.kaynak_ekle(Kaynak::yeni("kamera", "Webcam", a));
-                        ui.close();
-                    }
-                });
-            });
-        });
-        let n = sahne.kaynaklar.len();
-        for (i, k) in sahne.kaynaklar.iter().enumerate() {
-            ui.horizontal(|ui| {
-                let mut g = k.gorunur;
-                if ui.checkbox(&mut g, "").on_hover_text("Göster / gizle").changed() {
-                    degisti |= self.uyg.k.sahneler.kaynak_degistir(&k.kimlik, |x| x.gorunur = g);
-                }
-                let ad = if k.tur == "metin" { format!("{} · {}", k.ad, k.metin("text")) } else { k.ad.clone() };
-                ui.label(RichText::new(ad).color(if k.gorunur { tema::YAZI } else { tema::SOLUK }));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button("…", |ui| {
-                        if i > 0 && ui.button("Öne al").clicked() {
-                            degisti |= self.uyg.k.sahneler.kaynak_tasi(&k.kimlik, -1);
-                            ui.close();
-                        }
-                        if i + 1 < n && ui.button("Arkaya al").clicked() {
-                            degisti |= self.uyg.k.sahneler.kaynak_tasi(&k.kimlik, 1);
-                            ui.close();
-                        }
-                        if k.tur == "metin" {
-                            let mut m = k.metin("text");
-                            ui.label("Yazı:");
-                            if ui.text_edit_singleline(&mut m).changed() {
-                                degisti |= self.uyg.k.sahneler.kaynak_degistir(&k.kimlik, |x| {
-                                    x.ayar.insert("text".into(), m.clone().into());
+    // ------------------------------------------------------------ gövde
+
+    /// Kontrol barının en geniş hâli (kayıt sürerken): sütunlar kayıt başlayınca yer değiştirmesin.
+    fn kontrol_genisligi(ui: &Ui) -> f32 {
+        let kg = bilesen::kayit_grubu_genisligi(ui, 0, 40.0, true, true);
+        6.0 * tema::KARO.0 + kg + 3.0 * 9.0 + 9.0 * 4.0 + 12.0 + 2.0
+    }
+
+    fn govde(&mut self, ui: &mut Ui) {
+        let gorunen = ui.available_size();
+        egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+            egui::Frame::new().inner_margin(BOSLUK as i8).show(ui, |ui| {
+                ui.spacing_mut().item_spacing = Vec2::splat(BOSLUK);
+                let ic = (gorunen.x - 2.0 * BOSLUK).max(100.0);
+                let orta_min = Self::kontrol_genisligi(ui);
+                let gerekli = orta_min + if self.gelismis { SOL_GENISLIK + BOSLUK } else { 0.0 } + SAG_GENISLIK + BOSLUK;
+                let duzen = if ic >= gerekli {
+                    Duzen::Genis
+                } else if ic >= SOL_GENISLIK + BOSLUK + SAG_GENISLIK {
+                    Duzen::Dar
+                } else {
+                    Duzen::CokDar
+                };
+                let orta_min_yuk = 32.0 + 12.0 + 180.0 + 12.0 + KONTROL_YUK;
+                let yuk_icin = |w: f32| 32.0 + 12.0 + (w * 9.0 / 16.0).round() + 12.0 + KONTROL_YUK;
+                let ust_alta = egui::Layout::top_down(egui::Align::Min);
+                match duzen {
+                    Duzen::Genis => {
+                        let h = (gorunen.y - 2.0 * BOSLUK).max(orta_min_yuk);
+                        ui.horizontal_top(|ui| {
+                            let mut orta_w = ic - SAG_GENISLIK - BOSLUK;
+                            if self.gelismis {
+                                orta_w -= SOL_GENISLIK + BOSLUK;
+                                ui.allocate_ui_with_layout(Vec2::new(SOL_GENISLIK, h), ust_alta, |ui| {
+                                    ui.set_width(SOL_GENISLIK);
+                                    self.sol_sutun(ui);
                                 });
                             }
-                        }
-                        if k.tur == "gorsel" {
-                            let mut m = k.metin("path");
-                            ui.label("Dosya yolu (PNG/JPG):");
-                            if ui.text_edit_singleline(&mut m).changed() {
-                                degisti |= self.uyg.k.sahneler.kaynak_degistir(&k.kimlik, |x| {
-                                    x.ayar.insert("path".into(), m.clone().into());
+                            ui.allocate_ui_with_layout(Vec2::new(orta_w, h), ust_alta, |ui| self.orta_sutun(ui, orta_w, h));
+                            ui.allocate_ui_with_layout(Vec2::new(SAG_GENISLIK, h), ust_alta, |ui| {
+                                ui.set_width(SAG_GENISLIK);
+                                self.sag_sutun(ui);
+                            });
+                        });
+                    }
+                    Duzen::Dar => {
+                        self.orta_sutun(ui, ic, yuk_icin(ic));
+                        ui.horizontal_top(|ui| {
+                            let w = if self.gelismis { (ic - BOSLUK) / 2.0 } else { ic };
+                            if self.gelismis {
+                                ui.allocate_ui_with_layout(Vec2::new(w, 0.0), ust_alta, |ui| {
+                                    ui.set_width(w);
+                                    self.sol_sutun(ui);
                                 });
                             }
+                            ui.allocate_ui_with_layout(Vec2::new(w, 0.0), ust_alta, |ui| {
+                                ui.set_width(w);
+                                self.sag_sutun(ui);
+                            });
+                        });
+                    }
+                    Duzen::CokDar => {
+                        self.orta_sutun(ui, ic, yuk_icin(ic));
+                        if self.gelismis {
+                            ui.allocate_ui_with_layout(Vec2::new(ic, 0.0), ust_alta, |ui| {
+                                ui.set_width(ic);
+                                self.sol_sutun(ui);
+                            });
                         }
-                        if k.tur == "kamera" {
-                            let mut tam = k.tam();
-                            if ui.checkbox(&mut tam, "Tam ekran").changed() {
-                                degisti |= self.uyg.k.sahneler.kaynak_degistir(&k.kimlik, |x| {
-                                    x.ayar.insert("yer".into(), if tam { "tam" } else { "kose" }.into());
-                                });
-                            }
-                        }
-                        if !k.ana() && ui.button("Kaldır").clicked() {
-                            degisti |= self.uyg.k.sahneler.kaynak_sil(&k.kimlik);
-                            ui.close();
-                        }
-                    });
-                });
+                        ui.allocate_ui_with_layout(Vec2::new(ic, 0.0), ust_alta, |ui| {
+                            ui.set_width(ic);
+                            self.sag_sutun(ui);
+                        });
+                    }
+                }
             });
-        }
-        if degisti {
-            self.uyg.sahneleri_kaydet();
-        }
-    }
-
-    fn seviye(ui: &mut egui::Ui, seviye: f32, genislik: f32) {
-        let (r, _) = ui.allocate_exact_size(egui::vec2(genislik, 4.0), egui::Sense::hover());
-        let p = ui.painter();
-        p.rect_filled(r, 2.0, tema::IZ);
-        let db = rizeon::ses::db(seviye);
-        let oran = ((db + 60.0) / 60.0).clamp(0.0, 1.0);
-        let mut dolu = r;
-        dolu.set_width(r.width() * oran);
-        p.rect_filled(dolu, 2.0, tema::SES);
-    }
-
-    /// Gürültü azaltma ve bas-konuş anahtarları (mikrofon sütununun altında).
-    fn mikrofon_secenekleri(&mut self, ui: &mut egui::Ui, d: &Durum) {
-        ui.horizontal(|ui| {
-            #[cfg(windows)]
-            {
-                let mut g = self.uyg.ses.gurultu_acik();
-                if ui.checkbox(&mut g, RichText::new("Gürültü azalt").small()).on_hover_text("Klavye, fan ve uğultu sesini bastırır (RNNoise)").changed() {
-                    self.uyg.ses.gurultu_ayarla(g);
-                    self.uyg.ayarla("audio.noise_suppression", g.into());
-                }
-            }
-            let mut ptt = self.uyg.ayarlar.lock().unwrap().mantik("audio.ptt", false);
-            let tus = self.tus("bas_konus");
-            let ipucu = if tus.is_empty() { "Önce Ayarlar > Kısayollar'da bas-konuş tuşu seç".to_string() } else { format!("{tus} basılıyken mikrofon açık") };
-            if ui.checkbox(&mut ptt, RichText::new("Bas-konuş").small()).on_hover_text(ipucu).changed() {
-                self.uyg.ayarla("audio.ptt", ptt.into());
-                if let Err(e) = self.uyg.bas_konusu_uygula() {
-                    self.uyg.ayarla("audio.ptt", false.into());
-                    self.uyg.bildir(&format!("Bas-konuş açılamadı: {e}"), None, false);
-                }
-            }
-            if d.bas_konus {
-                let (m, r) = if d.konusuyor { ("konuşuyor", tema::SES) } else { ("susuyor", tema::SOLUK) };
-                ui.label(RichText::new(m).small().color(r));
-            }
         });
     }
 
-    fn kontrol_cubugu(&mut self, ui: &mut egui::Ui) {
+    fn sol_sutun(&mut self, ui: &mut Ui) {
+        ui.spacing_mut().item_spacing.y = 12.0;
+        let uyg = self.uyg.clone();
+        let tus = |k: &str| tus_metni(&uyg, k);
+        self.sahneler.goster(ui, &self.uyg, &tus);
+        if let Some(i) = self.kaynaklar.goster(ui, &self.uyg) {
+            self.istek = Some(i);
+        }
+    }
+
+    fn sag_sutun(&mut self, ui: &mut Ui) {
+        ui.spacing_mut().item_spacing.y = 12.0;
         let d = self.durum.clone();
-        let seviyeler = self.uyg.mikser.lock().unwrap().seviyeler();
-        let sev = |a: &str| seviyeler.iter().find(|(k, _)| k == a).map(|(_, v)| *v).unwrap_or(0.0);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 14.0;
-            // Ses kanalları
-            for (anahtar, ad, sessiz, komut, ayar, yol) in [
-                ("mikrofon", "Mikrofon", d.mikrofon_sessiz, Komut::Mikrofon, "ses.mikrofon", "audio.mic_gain"),
-                ("sistem", "Bilgisayar sesi", d.sistem_sessiz, Komut::Sistem, "ses.sistem", "audio.system_gain"),
-            ] {
-                ui.vertical(|ui| {
-                    ui.set_width(170.0);
-                    ui.horizontal(|ui| {
-                        let metin = if sessiz { format!("{ad} kapalı") } else { ad.to_string() };
-                        if ui
-                            .add(egui::Button::new(metin).selected(!sessiz))
-                            .on_hover_text(format!("Aç/kapat {}", self.tus(ayar)))
-                            .clicked()
-                        {
-                            self.uyg.komut(komut.clone());
-                        }
-                    });
-                    Self::seviye(ui, if sessiz { 0.0 } else { sev(anahtar) }, 160.0);
-                    let mut kazanc = self.uyg.mikser.lock().unwrap().kanal_oku(anahtar).map(|k| k.kazanc()).unwrap_or(1.0);
-                    let r = ui.add(egui::Slider::new(&mut kazanc, 0.0..=2.0).show_value(false));
-                    if r.changed() {
-                        if let Some(k) = self.uyg.mikser.lock().unwrap().kanal(anahtar) {
-                            k.kazanc_ayarla(kazanc);
-                        }
-                    }
-                    if r.drag_stopped() || (r.changed() && !r.dragged()) {
-                        self.uyg.ayarla(yol, (kazanc as f64).into());
-                    }
-                    let alt = if anahtar == "mikrofon" { &d.mikrofon_adi } else { &d.sistem_kaynagi };
-                    ui.label(RichText::new(alt).small().color(tema::SOLUK));
-                    if anahtar == "mikrofon" {
-                        self.mikrofon_secenekleri(ui, &d);
-                    }
-                });
+        if let Some(i) = self.mikser.goster(ui, &self.uyg, &d) {
+            self.istek = Some(i);
+        }
+        if self.gelismis {
+            if let Some(i) = self.anahtarlar.goster(ui, &self.uyg) {
+                self.istek = Some(i);
             }
-            ui.separator();
-            // Kamera
-            let kamera_sahnede = self.uyg.k.kamera_sahnede();
-            let kamera = self.uyg.kamera_gorunur_acik();
-            let r = ui.add_enabled(kamera_sahnede, egui::Button::new(if kamera { "Kamera açık" } else { "Kamera kapalı" }).selected(kamera));
-            let r = if kamera_sahnede { r.on_hover_text(self.tus("kamera.ac_kapat")) } else { r.on_disabled_hover_text("Bu sahnede kamera yok") };
+        }
+    }
+
+    /// Göster satırı, önizleme ve kontrol barı. Önizleme 16:9 kalır, bar hemen altında durur.
+    fn orta_sutun(&mut self, ui: &mut Ui, w: f32, h: f32) {
+        let (alan, _) = ui.allocate_exact_size(Vec2::new(w, h), Sense::hover());
+        let o = alan.min;
+        let mut satir = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_size(o, Vec2::new(w, 32.0))).layout(egui::Layout::left_to_right(egui::Align::Center)));
+        self.goster_satiri(&mut satir);
+
+        let bos = (h - 32.0 - 12.0 - 12.0 - KONTROL_YUK).max(180.0);
+        let ph = (w * 9.0 / 16.0).round().min(bos);
+        let kutu = Rect::from_min_size(o + Vec2::new(0.0, 44.0), Vec2::new(w, ph));
+        let cerceve = self.onizleme_ciz(ui, kutu);
+
+        let ky = o.y + 44.0 + cerceve.height().round() + 12.0;
+        self.kontrol_bari(ui, Rect::from_min_size(Pos2::new(o.x, ky), Vec2::new(w, KONTROL_YUK)));
+    }
+
+    fn goster_metni(&self, d: &Durum) -> String {
+        if !d.bolge.is_empty() {
+            return "Seçili bölge".into();
+        }
+        if d.kaynak_turu == "pencere" {
+            return kisalt(if d.kaynak_adi.is_empty() { "Pencere" } else { &d.kaynak_adi }, 22);
+        }
+        format!("Ekran {}", self.uyg.k.ayar.lock().unwrap().monitor + 1)
+    }
+
+    fn goster_satiri(&mut self, ui: &mut Ui) {
+        let d = self.durum.clone();
+        let metin = self.goster_metni(&d);
+        let font = tema::yazi(tema::GOVDE_PX);
+        let g1 = ui.painter().layout_no_wrap("Göster".into(), font.clone(), tema::YAZI2);
+        let g2 = ui.painter().layout_no_wrap(metin.clone(), font, tema::YAZI);
+        let gen = 12.0 + g1.size().x + 8.0 + g2.size().x + 8.0 + 14.0 + 12.0;
+        let (r, resp) = ui.allocate_exact_size(Vec2::new(gen.round(), 32.0), Sense::click());
+        let resp = resp.on_hover_cursor(CursorIcon::PointingHand).on_hover_text("Göster: neyin paylaşılacağını seç");
+        let p = ui.painter();
+        p.rect(r.shrink(0.5), 16.0, tema::PANEL, Stroke::new(1.0, beyaz(tema::A_KENARLIK)), egui::StrokeKind::Middle);
+        bilesen::zemin(ui, r, 16.0, false, false, &resp, true);
+        let p = ui.painter();
+        p.galley(Pos2::new(r.left() + 12.0, r.center().y - g1.size().y / 2.0), g1.clone(), tema::YAZI2);
+        p.galley(Pos2::new(r.left() + 12.0 + g1.size().x + 8.0, r.center().y - g2.size().y / 2.0), g2, tema::YAZI);
+        simge::simge(ui, "asagi", tema::YAZI2, 14.0, Pos2::new(r.right() - 26.0, r.center().y - 7.0), false);
+
+        egui::Popup::menu(&resp).frame(bilesen::menu_cercevesi()).align(egui::RectAlign::BOTTOM_START).show(|ui| {
+            ui.set_min_width(240.0);
+            let monitor = self.uyg.k.ayar.lock().unwrap().monitor;
+            let tum_ekran = d.kaynak_turu == "ekran" && d.bolge.is_empty();
+            let monitorler = rizeon::yakalama::monitorler();
+            let n = monitorler.len().max(1);
+            for i in 0..n {
+                let aciklama = monitorler.get(i).map(|m| format!("Tüm ekran · {}×{}", m.w, m.h)).unwrap_or_else(|| "Tüm ekran".into());
+                if bilesen::menu_ogesi(ui, &format!("Ekran {}", i + 1), &aciklama, tum_ekran && i == monitor).clicked() {
+                    self.uyg.monitor_sec(i);
+                }
+            }
+            if bilesen::menu_ogesi(ui, "Pencere seç…", "Sadece bir uygulama", d.kaynak_turu == "pencere").clicked() {
+                self.secici.ac();
+            }
+            let tus = self.tus("bolge.sec");
+            let aciklama = if tus.is_empty() { "Kutu çiz".to_string() } else { format!("Kutu çiz · {tus}") };
+            if bilesen::menu_ogesi(ui, "Bölge seç…", &aciklama, !d.bolge.is_empty()).clicked() {
+                self.katman.bolge_sec(&self.uyg);
+            }
+        });
+
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let ad = if d.sahne_adi.is_empty() { self.uyg.k.sahneler.aktif().ad.clone() } else { d.sahne_adi.clone() };
+            bilesen::etiket(ui, &format!("{ad} · {}p · {} FPS", self.uyg.k.yukseklik, self.uyg.k.fps), tema::KUCUK_PX, tema::SOLUK);
+        });
+    }
+
+    /// Görünen köşe kamerası (çıkış pikselinde x, y, w, h). Sürüklenip taşınabilir.
+    fn kamera_kutusu(&self) -> Option<(f32, f32, f32, f32)> {
+        let k = &self.uyg.k;
+        if k.panik.load(Ordering::Relaxed) || !k.kamera_istegi.load(Ordering::Relaxed) {
+            return None;
+        }
+        let sahne = k.sahneler.aktif();
+        sahne.kaynaklar.iter().find(|x| x.tur == "kamera" && x.ana() && x.gorunur && !x.tam())?;
+        let (x, y, w, h) = k.ayar.lock().unwrap().yer.dikdortgen(k.genislik, k.yukseklik);
+        Some((x as f32, y as f32, w as f32, h as f32))
+    }
+
+    /// Karşı tarafın gördüğü 16:9 görüntü; köşedeki kamera fareyle sürüklenip taşınır.
+    fn onizleme_ciz(&mut self, ui: &mut Ui, kutu: Rect) -> Rect {
+        let (gw, gh) = (self.uyg.k.genislik as f32, self.uyg.k.yukseklik.max(1) as f32);
+        let oran = gw / gh;
+        let w = kutu.width().min(kutu.height() * oran);
+        let r = Rect::from_center_size(kutu.center(), Vec2::new(w, w / oran));
+        let resp = ui.interact(r, ui.scope_id().with("onizleme"), Sense::drag());
+        ui.painter().rect_filled(r, 8.0, tema::ONIZLEME);
+        if let Some(t) = &self.onizleme {
+            egui::Image::new((t.id(), r.size())).corner_radius(8).paint_at(ui, r);
+        }
+        let cikis = |p: Pos2| -> Option<(f32, f32)> {
+            let (x, y) = ((p.x - r.left()) / r.width(), (p.y - r.top()) / r.height());
+            ((0.0..=1.0).contains(&x) && (0.0..=1.0).contains(&y)).then_some((x * gw, y * gh))
+        };
+        let kamera = self.kamera_kutusu();
+        let ustunde = |p: Option<Pos2>| -> Option<(f32, f32, (f32, f32, f32, f32))> {
+            let (cx, cy) = cikis(p?)?;
+            let k = kamera?;
+            (cx >= k.0 && cx <= k.0 + k.2 && cy >= k.1 && cy <= k.1 + k.3).then_some((cx, cy, k))
+        };
+        if resp.drag_started_by(egui::PointerButton::Primary) {
+            if let Some((cx, cy, (x, y, w, h))) = ustunde(resp.interact_pointer_pos()) {
+                self.surukleme = Some(Surukleme { dx: cx - (x + w / 2.0), dy: cy - (y + h / 2.0), w, h });
+            }
+        }
+        if let Some(s) = &self.surukleme {
+            ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
+            if let Some((px, py)) = resp.interact_pointer_pos().and_then(cikis) {
+                let cx = (px - s.dx).clamp(s.w / 2.0, gw - s.w / 2.0) / gw;
+                let cy = (py - s.dy).clamp(s.h / 2.0, gh - s.h / 2.0) / gh;
+                self.uyg.k.ayar.lock().unwrap().yer.konum = Some((cx as f64, cy as f64));
+            }
+            if resp.drag_stopped() || !resp.dragged() {
+                self.surukleme = None;
+                if let Some((x, y)) = self.uyg.k.ayar.lock().unwrap().yer.konum {
+                    let yuvarla = |v: f64| (v * 10000.0).round() / 10000.0;
+                    self.uyg.ayarla("camera.position", json!([yuvarla(x), yuvarla(y)]));
+                }
+            }
+        } else if ustunde(resp.hover_pos()).is_some() {
+            ui.ctx().set_cursor_icon(CursorIcon::Grab);
+            resp.on_hover_text("Kamerayı fareyle sürükleyip taşı");
+        }
+        r
+    }
+
+    fn kontrol_bari(&mut self, ui: &mut Ui, r: Rect) {
+        let d = self.durum.clone();
+        ui.painter().rect(r.shrink(0.5), 12.0, tema::PANEL, Stroke::new(1.0, beyaz(tema::A_KENARLIK_INCE)), egui::StrokeKind::Middle);
+        let kayitta = d.kayit == "açık";
+        let kayit_gen = if kayitta { bilesen::kayit_grubu_genisligi(ui, d.kayit_suresi, 40.0, true, true) } else { tema::KARO.0 };
+        let icerik = 6.0 * tema::KARO.0 + kayit_gen + 3.0 * 9.0 + 9.0 * 4.0;
+        let x0 = (r.center().x - icerik / 2.0).max(r.left() + 7.0).round();
+        let ic = Rect::from_min_size(Pos2::new(x0, r.top() + 7.0), Vec2::new(icerik, 60.0));
+        let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(ic).layout(egui::Layout::left_to_right(egui::Align::Center)));
+        let ui = &mut ui;
+        ui.spacing_mut().item_spacing.x = 4.0;
+
+        let mik = d.mikrofon_sessiz;
+        if bilesen::karo(ui, Some("mikrofon"), if mik { "Sessizde" } else { "Mikrofon" }, mik, false, true)
+            .on_hover_text(ipucu(if mik { "Mikrofonu aç" } else { "Mikrofonu kapat" }, &self.tus("ses.mikrofon")))
+            .clicked()
+        {
+            self.uyg.komut(Komut::Mikrofon);
+        }
+        let sis = d.sistem_sessiz;
+        if bilesen::karo(ui, Some("ses"), "Sistem sesi", sis, false, true)
+            .on_hover_text(ipucu(if sis { "Sistem sesini aç" } else { "Sistem sesini kapat" }, &self.tus("ses.sistem")))
+            .clicked()
+        {
+            self.uyg.komut(Komut::Sistem);
+        }
+        let kamera_sahnede = self.uyg.k.kamera_sahnede();
+        let kamera = self.uyg.kamera_gorunur_acik();
+        let r = bilesen::karo(ui, Some("kamera"), "Kamera", !kamera, false, kamera_sahnede);
+        let r = if kamera_sahnede {
+            r.on_hover_text(ipucu(if kamera { "Kamerayı kapat" } else { "Kamerayı aç" }, &self.tus("kamera.ac_kapat")))
+        } else {
+            r.on_hover_text("Bu sahnede kamera yok. Kaynaklar'dan Kamera ekleyebilirsin.")
+        };
+        if r.clicked() {
+            self.uyg.komut(Komut::Kamera);
+        }
+        bilesen::dikey_ayrac(ui, 60.0);
+        if bilesen::karo(ui, Some("bolge"), "Bölge", false, !d.bolge.is_empty(), true)
+            .on_hover_text(ipucu("Bölge: ekranın bir kısmını yakınlaştır ya da vurgula", &self.tus("bolge.sec")))
+            .clicked()
+        {
+            let m = self.uyg.komut(Komut::Bolge);
+            if !m.is_empty() {
+                self.uyg.bildir(&m, None, false);
+            }
+            if d.bolge.is_empty() {
+                self.katman.bolge_sec(&self.uyg);
+            }
+        }
+        if bilesen::karo(ui, Some("kalem"), "Kalem", false, self.katman.kalem_acik(), true)
+            .on_hover_text(ipucu("Kalem: ekranın üstüne çiz", &self.tus("kalem.ac_kapat")))
+            .clicked()
+        {
+            self.katman.kalem_ac_kapat(&self.uyg);
+        }
+        bilesen::dikey_ayrac(ui, 60.0);
+        if kayitta {
+            let s = bilesen::kayit_grubu(ui, d.kayit_suresi, d.kayit_duraklatildi, 40.0, true, true, &self.tus("kayit.duraklat"), &self.tus("kayit.ac_kapat"));
+            if s.duraklat {
+                self.uyg.komut(Komut::KayitDuraklat);
+            }
+            if s.bitir {
+                self.uyg.komut(Komut::Kayit);
+            }
+        } else {
+            let hazirlaniyor = self.uyg.kayitci.bitiyor();
+            let r = bilesen::karo(ui, Some("kayit"), "Kayıt", false, false, !hazirlaniyor);
+            let r = if hazirlaniyor { r.on_hover_text("Önceki kayıt kaydediliyor…") } else { r.on_hover_text(ipucu("Kaydı başlat", &self.tus("kayit.ac_kapat"))) };
             if r.clicked() {
-                self.uyg.komut(Komut::Kamera);
-            }
-            ui.separator();
-            // Kayıt
-            if d.kayit == "açık" {
-                let sn = d.kayit_suresi;
-                let renk = if d.kayit_duraklatildi { tema::SOLUK } else { tema::KAYIT };
-                ui.label(RichText::new("●").color(renk));
-                ui.label(RichText::new(format!("{:02}:{:02}:{:02}", sn / 3600, sn / 60 % 60, sn % 60)).monospace());
-                if ui.button(if d.kayit_duraklatildi { "Devam" } else { "Duraklat" }).on_hover_text(self.tus("kayit.duraklat")).clicked() {
-                    self.uyg.komut(Komut::KayitDuraklat);
-                }
-                if ui.button("Bitir").on_hover_text(self.tus("kayit.ac_kapat")).clicked() {
-                    self.uyg.komut(Komut::Kayit);
-                }
-            } else {
-                let hazirlaniyor = self.uyg.kayitci.bitiyor();
-                let r = ui.add_enabled(!hazirlaniyor, egui::Button::new(if hazirlaniyor { "Kayıt hazırlanıyor…" } else { "Kaydı başlat" }));
-                if r.on_hover_text(self.tus("kayit.ac_kapat")).clicked() {
-                    let m = self.uyg.komut(Komut::Kayit);
-                    if m.starts_with("Kayıt başlamadı") {
-                        self.uyg.bildir(&m, None, false);
-                    }
-                }
-            }
-            let etiket = tekrar::sure_etiketi(self.uyg.tekrar.sure_sn() as i64);
-            let r = ui.add_enabled(self.uyg.tekrar.acik() && !self.uyg.tekrar.kaydediliyor(), egui::Button::new(etiket));
-            if r.on_hover_text(format!("Anlık tekrarı kaydet {}", self.tus("anlik_kayit.kaydet"))).clicked() {
-                let m = self.uyg.komut(Komut::TekrarKaydet);
-                if !m.is_empty() {
+                let m = self.uyg.komut(Komut::Kayit);
+                if m.starts_with("Kayıt başlamadı") {
                     self.uyg.bildir(&m, None, false);
                 }
             }
-            if ui.button("Ekran görüntüsü").on_hover_text(self.tus("ekran.goruntusu")).clicked() {
-                self.uyg.komut(Komut::EkranGoruntusu);
+        }
+        bilesen::dikey_ayrac(ui, 60.0);
+        if bilesen::karo(ui, None, "Panik", false, d.panik, true)
+            .on_hover_text(ipucu("Panik: tüm çıkışı anında durdurur, bekleme ekranına geçer", &self.tus("panik")))
+            .clicked()
+        {
+            self.uyg.komut(Komut::Panik);
+        }
+    }
+
+    fn alt_satir(&mut self, ui: &mut Ui) {
+        if self.son_olcum.elapsed() >= Duration::from_secs(1) {
+            self.son_olcum = Instant::now();
+            let cpu = self.olcer.olc().uygulama;
+            let gpu = self.gpu.as_mut().and_then(|g| g.oku());
+            self.alt_bilgi = rizeon::islemci::alt_bilgi_metni(Some(cpu), gpu, self.durum.fps);
+        }
+        ui.ctx().request_repaint_after(Duration::from_secs(1));
+        let r = ui.max_rect().expand2(Vec2::new(12.0, 0.0));
+        let y = r.top() + 0.5;
+        ui.painter().line_segment([Pos2::new(r.left(), y), Pos2::new(r.right(), y)], Stroke::new(1.0, egui::Color32::from_white_alpha(15)));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.spacing_mut().item_spacing.x = 8.0;
+            if bilesen::hap(ui, "Çıkış", false, true).on_hover_text("RizeOn'u tamamen kapat (tepside de kalmaz)").clicked() {
+                self.cikmayi_onayla();
             }
-            if ui.add(egui::Button::new("Panik").selected(d.panik)).on_hover_text(format!("Bekleme ekranı + ses kapalı {}", self.tus("panik"))).clicked() {
-                self.uyg.komut(Komut::Panik);
-            }
+            bilesen::etiket(ui, &self.alt_bilgi, tema::EN_KUCUK_PX, tema::SOLUK);
         });
+    }
+
+    // ------------------------------------------------------------ istekler
+
+    fn istek_isle(&mut self) {
+        if let Some(i) = self.istek.take() {
+            match i {
+                Istek::Diyalog(d) => self.diyalog = Some(d),
+                Istek::PencereSecKaynak => self.secici.kaynak_ac(true),
+                Istek::BolgeSecKaynak => self.katman.kaynak_bolgesi_sec(&self.uyg),
+                Istek::AyarlarAc(_sekme) => self.ayarlar.ac(&self.uyg),
+            }
+        }
+        if let Some(baslik) = self.secici.secilen_kaynak.take() {
+            let a = json!({ "title": baslik });
+            self.istek = paneller::KaynaklarPaneli::ekle(&self.uyg, "pencere", a.as_object().cloned().unwrap_or_default());
+        }
+        if let Some((monitor, rect, piksel)) = self.katman.secilen_kaynak.take() {
+            let a = json!({ "monitor": monitor, "rect": rect, "pixels": piksel });
+            self.istek = paneller::KaynaklarPaneli::ekle(&self.uyg, "bolge", a.as_object().cloned().unwrap_or_default());
+        }
+    }
+
+    #[cfg(windows)]
+    fn pencereyi_hazirla(&mut self, frame: &eframe::Frame) {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        if self.hazirlandi {
+            return;
+        }
+        if let Ok(h) = frame.window_handle() {
+            if let RawWindowHandle::Win32(w) = h.as_raw() {
+                // önizleme kendini yakalamasın (sonsuz ayna), karşı tarafa gitmesin
+                rizeon::win::yakalamadan_gizle(w.hwnd.get(), true);
+                // Windows 11: çerçevesiz pencerenin köşeleri 8 px yuvarlak
+                rizeon::win::koseleri_yuvarla(w.hwnd.get());
+                self.hazirlandi = true;
+            }
+        }
     }
 
     fn bildirimler(&mut self, ctx: &egui::Context) {
@@ -559,7 +805,7 @@ impl Pencere {
         let liste: Vec<_> = b.iter().cloned().collect();
         drop(b);
         egui::Area::new(egui::Id::unique("bildirimler"))
-            .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -150.0))
+            .anchor(Align2::CENTER_BOTTOM, egui::vec2(0.0, -150.0))
             .show(ctx, |ui| {
                 for x in liste {
                     egui::Frame::popup(ui.style()).fill(tema::YUZEN).show(ui, |ui| {
@@ -583,21 +829,6 @@ impl Pencere {
             });
         ctx.request_repaint_after(Duration::from_millis(500));
     }
-
-    #[cfg(windows)]
-    fn pencereyi_gizle_yakalamadan(&mut self, frame: &eframe::Frame) {
-        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-        if self.yakalamadan_gizlendi {
-            return;
-        }
-        if let Ok(h) = frame.window_handle() {
-            if let RawWindowHandle::Win32(w) = h.as_raw() {
-                // önizleme kendini yakalamasın (sonsuz ayna), karşı tarafa gitmesin
-                rizeon::win::yakalamadan_gizle(w.hwnd.get(), true);
-                self.yakalamadan_gizlendi = true;
-            }
-        }
-    }
 }
 
 impl eframe::App for Pencere {
@@ -608,12 +839,25 @@ impl eframe::App for Pencere {
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.istekleri_isle(ctx);
+        if self.cikiyor {
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        }
         let kapat_istendi = ctx.input(|i| i.viewport().close_requested());
         if kapat_istendi && !self.cikiyor && self.tepsiye {
-            // Pencere kapanınca tepside çalışmaya devam (kamera/mikrofon arka planda)
-            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
-            self.gizli = true;
+            // Kapat düğmesi uygulamayı kapatmaz; saatin yanına (sistem tepsisine) küçülür.
+            ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+            if self.durum.kayit == "açık" {
+                // Kayıt sürüyor: görünür kalsın, mini bardan durdurulsun.
+                self.mini_moda_gec(ctx);
+                self.uyg.bildir("Kayıt sürüyor · mini bardan durdurabilirsin", None, false);
+            } else {
+                ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+                self.gizli = true;
+                if self.ilk_kuculme {
+                    self.ilk_kuculme = false;
+                    self.uyg.bildir("RizeOn tepside çalışıyor · kısayollar açık, kamera kapalı", None, false);
+                }
+            }
         }
         let gorunur = !self.gizli;
         self.uyg.k.onizleme_gorunur.store(gorunur, Ordering::Relaxed);
@@ -626,36 +870,34 @@ impl eframe::App for Pencere {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         #[cfg(windows)]
-        self.pencereyi_gizle_yakalamadan(frame);
+        self.pencereyi_hazirla(frame);
         let _ = frame;
         self.durum = self.uyg.depo.al();
-        self.onizlemeyi_guncelle(&ctx);
-        egui::Panel::top("ust").frame(egui::Frame::new().fill(tema::ZEMIN).inner_margin(10)).show(ui, |ui| self.ust_cubuk(ui));
-        egui::Panel::bottom("kontrol").frame(egui::Frame::new().fill(tema::PANEL).inner_margin(12)).show(ui, |ui| self.kontrol_cubugu(ui));
-        egui::Panel::left("sahneler")
-            .default_size(230.0)
-            .frame(egui::Frame::new().fill(tema::PANEL).inner_margin(12))
-            .show(ui, |ui| egui::ScrollArea::vertical().show(ui, |ui| self.sahne_paneli(ui)));
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(tema::ZEMIN).inner_margin(12)).show(ui, |ui| {
-            let alan = ui.available_rect_before_wrap();
-            let (w, h) = (self.uyg.k.genislik as f32, self.uyg.k.yukseklik as f32);
-            let olcek = (alan.width() / w).min(alan.height() / h);
-            let boyut = egui::vec2(w * olcek, h * olcek);
-            let r = egui::Rect::from_center_size(alan.center(), boyut);
-            ui.painter().rect_filled(r, 8.0, tema::ONIZLEME);
-            if let Some(t) = &self.onizleme {
-                egui::Image::new((t.id(), boyut)).corner_radius(8).paint_at(ui, r);
+        if !self.gizli {
+            self.onizlemeyi_guncelle(&ctx);
+        }
+        egui::Panel::top("baslik")
+            .exact_size(BASLIK_YUK)
+            .resizable(false)
+            .show_separator_line(false)
+            .frame(egui::Frame::new().fill(tema::ZEMIN))
+            .show(ui, |ui| self.baslik_cubugu(ui));
+        egui::Panel::bottom("alt")
+            .exact_size(31.0)
+            .resizable(false)
+            .show_separator_line(false)
+            .frame(egui::Frame::new().fill(tema::ZEMIN).inner_margin(egui::Margin { left: 12, right: 12, top: 0, bottom: 0 }))
+            .show(ui, |ui| self.alt_satir(ui));
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(tema::ZEMIN)).show(ui, |ui| self.govde(ui));
+        self.kenar_boyutlandir(&ctx);
+        self.istek_isle();
+        if let Some((amac, metin)) = diyalog::goster(&ctx, &mut self.diyalog) {
+            match amac {
+                Amac::Cikis => self.cikiyor = true,
+                Amac::Bilgi => {}
+                a => paneller::diyalog_sonucu(&self.uyg, a, metin),
             }
-            let d = &self.durum;
-            let alt = format!(
-                "{} · {} · kare {:.1} ms{}",
-                d.sahne_adi,
-                if d.yakalama_yontemi.is_empty() { "ekran yok".to_string() } else { d.yakalama_yontemi.clone() },
-                d.kare_suresi_ms,
-                if self.uyg.tekrar.acik() { format!(" · tekrar {:.0} MB", self.uyg.tekrar.bellek() as f64 / 1e6) } else { String::new() }
-            );
-            ui.painter().text(r.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, alt, egui::FontId::proportional(11.5), Color32::from_white_alpha(140));
-        });
+        }
         self.bildirimler(&ctx);
         self.mini.goster(&ctx, &self.uyg, &self.durum);
         self.katman.goster(&ctx, &self.uyg);
@@ -667,6 +909,5 @@ impl eframe::App for Pencere {
             self.tepsiye = a.mantik("ui.minimize_to_tray", true);
             self.onizleme_fps = a.sayi("ui.preview_fps", 15).clamp(5, 30) as f32;
         }
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(format!("RizeOn {}", surum::SURUM)));
     }
 }

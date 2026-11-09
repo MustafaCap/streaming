@@ -14,10 +14,18 @@ pub struct PencereSecici {
     #[cfg(windows)]
     liste: Vec<rizeon::yakalama::pencere::PencereBilgisi>,
     ara: String,
+    /// true: seçilen pencere Göster'e değil, sahneye kaynak olarak eklenir
+    kaynak_icin: bool,
+    pub secilen_kaynak: Option<String>,
 }
 
 impl PencereSecici {
     pub fn ac(&mut self) {
+        self.kaynak_ac(false);
+    }
+
+    pub fn kaynak_ac(&mut self, kaynak_icin: bool) {
+        self.kaynak_icin = kaynak_icin;
         self.acik = true;
         self.ara.clear();
         self.yenile();
@@ -71,7 +79,10 @@ impl PencereSecici {
                 ui.label("Pencere yakalama sadece Windows'ta var");
             });
         });
-        if let Some((h, b)) = sec {
+        if let (Some((_, b)), true) = (&sec, self.kaynak_icin) {
+            self.secilen_kaynak = Some(b.clone());
+            self.acik = false;
+        } else if let Some((h, b)) = sec {
             let m = uyg.pencere_sec(h, &b);
             uyg.bildir(&m, None, false);
             self.acik = false;

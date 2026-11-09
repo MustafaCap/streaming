@@ -117,6 +117,44 @@ pub fn yakalamadan_gizle(hwnd: isize, gizle: bool) -> bool {
     unsafe { SetWindowDisplayAffinity(HWND(hwnd as _), if gizle { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
 }
 
+/// Windows 11: çerçevesiz pencerenin köşeleri de sistem gibi yuvarlak olsun (8 px).
+pub fn koseleri_yuvarla(hwnd: isize) -> bool {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND};
+    let deger = DWMWCP_ROUND;
+    unsafe {
+        DwmSetWindowAttribute(HWND(hwnd as _), DWMWA_WINDOW_CORNER_PREFERENCE, &deger as *const _ as *const _, std::mem::size_of_val(&deger) as u32)
+            .is_ok()
+    }
+}
+
+/// Windows'un dosya açma penceresi. `filtre`: (ad, "*.png;*.jpg").
+pub fn dosya_sec(baslik: &str, filtre: &[(&str, &str)]) -> Option<PathBuf> {
+    use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
+    use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
+    use windows::Win32::UI::Shell::{FileOpenDialog, IFileOpenDialog, SIGDN_FILESYSPATH};
+    com_baslat();
+    unsafe {
+        let d: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        let adlar: Vec<HSTRING> = filtre.iter().map(|(a, _)| HSTRING::from(*a)).collect();
+        let desenler: Vec<HSTRING> = filtre.iter().map(|(_, d)| HSTRING::from(*d)).collect();
+        let ozler: Vec<COMDLG_FILTERSPEC> = adlar
+            .iter()
+            .zip(&desenler)
+            .map(|(a, d)| COMDLG_FILTERSPEC { pszName: PCWSTR(a.as_ptr()), pszSpec: PCWSTR(d.as_ptr()) })
+            .collect();
+        if !ozler.is_empty() {
+            let _ = d.SetFileTypes(&ozler);
+        }
+        let _ = d.SetTitle(&HSTRING::from(baslik));
+        d.Show(None).ok()?;
+        let oge = d.GetResult().ok()?;
+        let yol = oge.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let s = yol.to_string().ok();
+        windows::Win32::System::Com::CoTaskMemFree(Some(yol.0 as *const _));
+        s.map(PathBuf::from)
+    }
+}
+
 /// Bu süreçteki, başlığı verilen üst düzey pencereyi bulur.
 pub fn pencere_bul(baslik: &str) -> Option<isize> {
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetWindowThreadProcessId};
