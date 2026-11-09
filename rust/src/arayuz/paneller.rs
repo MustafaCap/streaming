@@ -402,9 +402,6 @@ pub fn bekleme_uygula(uyg: &Arc<Uygulama>, yol: &str) {
 pub fn diyalog_sonucu(uyg: &Arc<Uygulama>, amac: Amac, metin: String) {
     let m = metin.trim().to_string();
     match amac {
-        Amac::SahneAdi(i) if !m.is_empty() => {
-            uyg.k.sahneler.yeniden_adlandir(i, &m);
-        }
         Amac::KaynakAdi(kim) if !m.is_empty() => {
             uyg.k.sahneler.kaynak_degistir(&kim, |k| k.ad = m.chars().take(60).collect());
         }

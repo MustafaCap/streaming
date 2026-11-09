@@ -8,7 +8,6 @@ use super::tema;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Amac {
-    SahneAdi(usize),
     KaynakAdi(String),
     KaynakMetni(String),
     YeniMetin,

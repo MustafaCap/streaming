@@ -223,7 +223,7 @@ impl Pencere {
             Ok("hakkinda") => p.hakkinda.acik = true,
             Ok("yardim") => p.yardim.ac(""),
             Ok("secici") => p.secici.ac(),
-            Ok("ayarlar") => p.ayarlar.ac(&p.uyg),
+            Ok(a) if a.starts_with("ayarlar") => p.ayarlari_ac(a.strip_prefix("ayarlar:")),
             Ok("bildirim") => p.uyg.bildirim_ekle(rizeon::uygulama::Bildirim {
                 metin: "Mikrofon kapandı".into(),
                 tus: "Ctrl+Shift+M".into(),
@@ -234,6 +234,15 @@ impl Pencere {
             _ => {}
         }
         p
+    }
+
+    /// Ayarlar penceresini açar; kaydedilemeyen kısayollar tabloda ⚠ ile görünür.
+    fn ayarlari_ac(&mut self, sekme: Option<&str>) {
+        #[cfg(windows)]
+        {
+            self.ayarlar.basarisiz = self.kisayollar.as_ref().map(|k| k.hatalar.lock().unwrap().keys().cloned().collect()).unwrap_or_default();
+        }
+        self.ayarlar.ac_sekme(&self.uyg, sekme);
     }
 
     fn kisayollari_kur(&mut self) {
@@ -389,7 +398,7 @@ impl Pencere {
                 }
                 ui.add_space(8.0);
                 if bilesen::SimgeDugme::new("ayarlar").boyut(28.0, 16.0).goster(ui).on_hover_text("Ayarlar").clicked() {
-                    self.ayarlar.ac(&self.uyg);
+                    self.ayarlari_ac(None);
                 }
                 ui.add_space(2.0);
                 ui.spacing_mut().item_spacing.x = 4.0;
@@ -801,7 +810,7 @@ impl Pencere {
                 Istek::Diyalog(d) => self.diyalog = Some(d),
                 Istek::PencereSecKaynak => self.secici.kaynak_ac(true),
                 Istek::BolgeSecKaynak => self.katman.kaynak_bolgesi_sec(&self.uyg),
-                Istek::AyarlarAc(_sekme) => self.ayarlar.ac(&self.uyg),
+                Istek::AyarlarAc(sekme) => self.ayarlari_ac(Some(sekme)),
             }
         }
         if let Some(baslik) = self.secici.secilen_kaynak.take() {
@@ -963,7 +972,7 @@ impl eframe::App for Pencere {
         self.bildirim.goster(&ctx, &self.uyg);
         match self.bildirim.istenen.take() {
             Some(rizeon::uygulama::BildirimEylemi::Yardim) => self.yardim.ac(&self.cikis_sorunu.clone()),
-            Some(rizeon::uygulama::BildirimEylemi::Ayarlar(_)) => self.ayarlar.ac(&self.uyg),
+            Some(rizeon::uygulama::BildirimEylemi::Ayarlar(s)) => self.ayarlari_ac(Some(s)),
             _ => {}
         }
         self.hakkinda.goster(&ctx);
@@ -971,12 +980,21 @@ impl eframe::App for Pencere {
         self.mini.goster(&ctx, &self.uyg, &self.durum);
         self.katman.goster(&ctx, &self.uyg);
         self.secici.goster(&ctx, &self.uyg);
-        if self.ayarlar.goster(&ctx, &self.uyg) {
+        let mut hakkinda_istendi = false;
+        if self.ayarlar.goster(&ctx, &self.uyg, &mut hakkinda_istendi) {
             // kısayollar değişmiş olabilir
             self.kisayollari_kur();
-            let a = self.uyg.ayarlar.lock().unwrap();
-            self.tepsiye = a.mantik("ui.minimize_to_tray", true);
-            self.onizleme_fps = a.sayi("ui.preview_fps", 15).clamp(5, 30) as f32;
+            {
+                let a = self.uyg.ayarlar.lock().unwrap();
+                self.tepsiye = a.mantik("ui.minimize_to_tray", true);
+                self.onizleme_fps = a.sayi("ui.preview_fps", 15).clamp(5, 30) as f32;
+            }
+            if let Some(m) = self.ayarlar.bilgi.take() {
+                self.diyalog = Some(Diyalog::bilgi("Ayarlar", &m));
+            }
+        }
+        if hakkinda_istendi {
+            self.hakkinda.acik = true;
         }
     }
 }

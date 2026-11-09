@@ -155,6 +155,30 @@ pub fn dosya_sec(baslik: &str, filtre: &[(&str, &str)]) -> Option<PathBuf> {
     }
 }
 
+/// Klasör seçme penceresi (Windows'un kendi penceresi).
+pub fn klasor_sec(baslik: &str, baslangic: Option<&Path>) -> Option<PathBuf> {
+    use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
+    use windows::Win32::UI::Shell::{FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, FOS_PICKFOLDERS, SIGDN_FILESYSPATH};
+    com_baslat();
+    unsafe {
+        let d: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        let s = d.GetOptions().unwrap_or_default();
+        let _ = d.SetOptions(s | FOS_PICKFOLDERS);
+        let _ = d.SetTitle(&HSTRING::from(baslik));
+        if let Some(b) = baslangic.filter(|b| b.is_dir()) {
+            if let Ok(oge) = SHCreateItemFromParsingName::<_, _, IShellItem>(&HSTRING::from(b.as_os_str()), None) {
+                let _ = d.SetFolder(&oge);
+            }
+        }
+        d.Show(None).ok()?;
+        let oge = d.GetResult().ok()?;
+        let yol = oge.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let s = yol.to_string().ok();
+        windows::Win32::System::Com::CoTaskMemFree(Some(yol.0 as *const _));
+        s.map(PathBuf::from)
+    }
+}
+
 /// Bu süreçteki, başlığı verilen üst düzey pencereyi bulur.
 pub fn pencere_bul(baslik: &str) -> Option<isize> {
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetWindowThreadProcessId};

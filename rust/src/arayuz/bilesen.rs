@@ -223,21 +223,6 @@ pub fn diyalog_dugmesi(ui: &mut Ui, metin: &str, varsayilan: bool) -> Response {
     resp
 }
 
-/// Çerçeveli hap (QPushButton#cerceveli).
-pub fn cerceveli(ui: &mut Ui, metin: &str) -> Response {
-    let font = tema::yazi(tema::KUCUK_PX);
-    let galeri = ui.painter().layout_no_wrap(metin.to_string(), font, Color32::WHITE);
-    let (r, resp) = ui.allocate_exact_size(Vec2::new(galeri.size().x + 24.0, 30.0), Sense::click());
-    let resp = imlec(resp, true);
-    if resp.hovered() {
-        ui.painter().rect_filled(r, 16.0, beyaz(tema::A_UZERINE));
-    }
-    ui.painter().rect_stroke(r, 16.0, Stroke::new(1.0, beyaz(tema::A_KENARLIK)), StrokeKind::Inside);
-    let renk = if resp.hovered() { tema::BEYAZ } else { tema::YAZI };
-    ui.painter().galley(Pos2::new(r.left() + 12.0, r.center().y - galeri.size().y / 2.0), galeri, renk);
-    resp
-}
-
 /// Bağlantı gibi küçük düğme (QPushButton#baglanti); `alti_cizili` ile altı çizili.
 pub fn baglanti(ui: &mut Ui, metin: &str, px: f32, renk: Color32, alti_cizili: bool) -> Response {
     let font = tema::yazi(px);
@@ -308,6 +293,12 @@ pub fn seviye_yumusat(onceki: f32, seviye: f32) -> f32 {
 
 /// Gri sürgü (Qt QSlider teması): 4 px iz, dolu kısım gri, 14 px tutamak. `deger` 0..=ust.
 pub fn surgu(ui: &mut Ui, deger: &mut i32, ust: i32) -> Response {
+    surgu_aralik(ui, deger, 0, ust)
+}
+
+/// `min..=max` aralığında kaydırıcı (Python QSlider karşılığı).
+pub fn surgu_aralik(ui: &mut Ui, deger: &mut i32, min: i32, max: i32) -> Response {
+    let aralik = (max - min).max(1);
     let (r, mut resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 20.0), Sense::click_and_drag());
     resp = imlec(resp, true);
     let sol = r.left() + 7.0;
@@ -315,7 +306,7 @@ pub fn surgu(ui: &mut Ui, deger: &mut i32, ust: i32) -> Response {
     if let Some(p) = resp.interact_pointer_pos() {
         if resp.dragged() || resp.clicked() || resp.is_pointer_button_down_on() {
             let oran = ((p.x - sol) / (sag - sol).max(1.0)).clamp(0.0, 1.0);
-            let yeni = (oran * ust as f32).round() as i32;
+            let yeni = min + (oran * aralik as f32).round() as i32;
             if yeni != *deger {
                 *deger = yeni;
                 resp.mark_changed();
@@ -325,7 +316,7 @@ pub fn surgu(ui: &mut Ui, deger: &mut i32, ust: i32) -> Response {
     if resp.hovered() {
         let tekerlek = ui.input(|i| i.smooth_scroll_delta.y);
         if tekerlek.abs() > 0.5 {
-            let yeni = (*deger + if tekerlek > 0.0 { 1 } else { -1 }).clamp(0, ust);
+            let yeni = (*deger + if tekerlek > 0.0 { 1 } else { -1 }).clamp(min, max);
             if yeni != *deger {
                 *deger = yeni;
                 resp.mark_changed();
@@ -335,7 +326,8 @@ pub fn surgu(ui: &mut Ui, deger: &mut i32, ust: i32) -> Response {
     let y = r.center().y;
     let iz = Rect::from_min_max(Pos2::new(r.left(), y - 2.0), Pos2::new(r.right(), y + 2.0));
     ui.painter().rect_filled(iz, 2.0, tema::IZ);
-    let x = sol + (sag - sol) * (*deger as f32 / ust.max(1) as f32);
+    let oran = ((*deger - min) as f32 / aralik as f32).clamp(0.0, 1.0);
+    let x = sol + (sag - sol) * oran;
     ui.painter().rect_filled(Rect::from_min_max(iz.min, Pos2::new(x, iz.max.y)), 2.0, tema::NOKTA);
     ui.painter().circle_filled(Pos2::new(x, y), 7.0, if resp.hovered() || resp.dragged() { tema::BEYAZ } else { tema::DUGME });
     resp
