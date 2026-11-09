@@ -7,7 +7,7 @@ on:
     paths:
       - "rust/**"
       - "config/settings.default.json"
-      - "kurulum/uygulama.ico"
+      - "kurulum/**"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
 
@@ -106,8 +106,57 @@ jobs:
           Write-Host "--- uygulama log'u ---"
           Get-Content olcum_veri\RizeOn\logs\rizeon.log -Tail 40 -ErrorAction SilentlyContinue
 
+      # Lisanslar + kurulum lisans sayfası + Store klasörü (rust/paket/paketle.py)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lisanslar ve Store klasörü
+        run: |
+          python -m pip install --quiet pillow
+          python rust/paket/paketle.py paket\RizeOn build
+          if ($LASTEXITCODE -ne 0) { throw "Paket hazırlanamadı" }
+
+      # Deneme sürümü kendi kimliğiyle kurulur: Python sürümünün (RizeOn) üstüne yazmaz, yan yana durur.
+      # İkisi aynı anda açılamaz (aynı tek kopya kilidi), ayarlar ortak.
+      - name: Kurulum programı (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup bulunamadı" }
+          $surum = Get-Content build\surum.txt
+          & $iscc /Q "/DSurum=$surum" "/DKaynak=..\paket\RizeOn" "/DLisansDosyasi=..\build\kurulum_lisans.txt" `
+            "/DCiktiAdi=RizeOn-rs-Kurulum" "/DUygulamaAdi=RizeOn (Rust deneme)" "/DKlasorAdi=RizeOn-rs" `
+            "/DAppKimlik={{4C2F8D17-9B3E-4A65-B0D2-6E1F7A93C584}" kurulum\kurulum.iss
+          if ($LASTEXITCODE -ne 0) { throw "Kurulum programı derlenemedi" }
+          New-Item -ItemType Directory -Force cikti | Out-Null
+          Move-Item Output\RizeOn-rs-Kurulum.exe cikti\
+          Get-Item cikti\RizeOn-rs-Kurulum.exe | Select-Object Name, Length
+
+      # Store'a yüklenmez (sadece deneme); Python sürümünün Store kimliğiyle paketlenir, sürüm 3.0.0.0.
+      - name: Store paketi (MSIX)
+        run: |
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $makeappx) { throw "makeappx.exe (Windows SDK) bulunamadı" }
+          & $makeappx.FullName pack /o /d build\msix /p cikti\RizeOn-rs-Store.msix
+          if ($LASTEXITCODE -ne 0) { throw "MSIX paketlenemedi" }
+          Get-Item cikti\RizeOn-rs-Store.msix | Select-Object Name, Length
+
       - uses: actions/upload-artifact@v4
         with:
           name: RizeOn-rs
           path: paket/RizeOn
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RizeOn-rs-Kurulum
+          path: cikti/RizeOn-rs-Kurulum.exe
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RizeOn-rs-Store
+          path: cikti/RizeOn-rs-Store.msix
           retention-days: 14

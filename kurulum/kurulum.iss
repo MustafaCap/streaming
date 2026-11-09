@@ -18,12 +18,30 @@
   #define Surum "0.0.0"
 #endif
 
-#define UygulamaAdi "RizeOn"
+; Rust sürümü (rust/paket) aynı betiği farklı değerlerle derler: /DKaynak=... /DAppKimlik=... vb.
+#ifndef Kaynak
+  #define Kaynak "..\dist\RizeOn"
+#endif
+#ifndef LisansDosyasi
+  #define LisansDosyasi "..\build\kurulum_lisans.txt"
+#endif
+#ifndef CiktiAdi
+  #define CiktiAdi "RizeOn-Kurulum"
+#endif
+#ifndef UygulamaAdi
+  #define UygulamaAdi "RizeOn"
+#endif
+#ifndef KlasorAdi
+  #define KlasorAdi "RizeOn"
+#endif
+#ifndef AppKimlik
+  #define AppKimlik "{{7E3B2A91-5C4D-4F8E-9A16-2D8B0C5E4F71}"
+#endif
 #define ExeAdi "RizeOn.exe"
 
 [Setup]
 ; AppId sabit kalmalı: yeni sürüm eskisinin üstüne kurulsun, ikinci kopya olmasın
-AppId={{7E3B2A91-5C4D-4F8E-9A16-2D8B0C5E4F71}
+AppId={#AppKimlik}
 AppName={#UygulamaAdi}
 AppVersion={#Surum}
 AppVerName={#UygulamaAdi} {#Surum}
@@ -37,7 +55,7 @@ VersionInfoCopyright=Copyright (C) 2026 Mustafa. GNU GPL sürüm 3 ile lisanslı
 VersionInfoProductName={#UygulamaAdi}
 VersionInfoProductVersion={#Surum}
 ; Klasör adı ASCII: bazı kütüphaneler Türkçe karakterli yolları sevmiyor
-DefaultDirName={autopf}\RizeOn
+DefaultDirName={autopf}\{#KlasorAdi}
 DefaultGroupName={#UygulamaAdi}
 DisableDirPage=no
 DisableProgramGroupPage=yes
@@ -48,11 +66,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 SetupIconFile=uygulama.ico
 ; Lisans sayfası: Türkçe özet + GPLv3 tam metni
-LicenseFile=..\build\kurulum_lisans.txt
+LicenseFile={#LisansDosyasi}
 UninstallDisplayIcon={app}\{#ExeAdi}
 UninstallDisplayName={#UygulamaAdi}
 OutputDir=..\Output
-OutputBaseFilename=RizeOn-Kurulum
+OutputBaseFilename={#CiktiAdi}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -76,7 +94,7 @@ Type: files; Name: "{autoprograms}\Yayın Uygulaması.lnk"
 Type: files; Name: "{autodesktop}\Yayın Uygulaması.lnk"
 
 [Files]
-Source: "..\dist\RizeOn\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#Kaynak}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#UygulamaAdi}"; Filename: "{app}\{#ExeAdi}"; Comment: "Ekran, kamera ve ses paylaşımı (sanal kamera + sanal mikrofon)"
