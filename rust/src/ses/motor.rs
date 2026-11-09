@@ -168,6 +168,38 @@ struct Denetci {
     coklu_kullanilamaz: bool,
     sistem_modu: String,
     acik_gosterildi: bool,
+    /// Uygulama bazlı yakalama (process loopback) önceki açılışta uygulamayı çökertmiş: bu sürümde
+    /// hoparlör loopback kullanılır. Bkz. `kilit_yolu`.
+    surec_sesi_yasak: bool,
+    kilit_zamani: Option<Instant>,
+}
+
+/// Uygulama bazlı ses yakalama ilk kez kurulurken bir kilit dosyası yazılır; 60 sn sorunsuz
+/// çalışınca silinir. Uygulama bu arada çökerse (Rust panik değil, Windows tarafında çökme:
+/// log'a hiçbir şey düşmez) bir sonraki açılışta dosya durur ve bu sürüm için hoparlör loopback'e
+/// geçilir. Böylece kullanıcı açılamayan bir uygulamayla kalmaz.
+fn kilit_yolu() -> std::path::PathBuf {
+    crate::yollar::log_klasoru().join("uygulama_sesi.kilit")
+}
+
+static YASAK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Düzgün kapanış: bu açılış çökmediyse kilit silinir (60 sn dolmadan kapatılsa da).
+pub fn temiz_cikis() {
+    if !YASAK.load(Ordering::Relaxed) {
+        let _ = std::fs::remove_file(kilit_yolu());
+    }
+}
+
+fn surec_sesi_onceden_coktu_mu() -> bool {
+    match std::fs::read_to_string(kilit_yolu()) {
+        Ok(s) if s.trim() == crate::surum::SURUM => true,
+        Ok(_) => {
+            let _ = std::fs::remove_file(kilit_yolu()); // eski sürümün kilidi
+            false
+        }
+        Err(_) => false,
+    }
 }
 
 fn mikrofon_listesi() -> Vec<wasapi::Cihaz> {
@@ -191,6 +223,15 @@ impl Denetci {
             coklu_kullanilamaz: false,
             sistem_modu,
             acik_gosterildi: false,
+            surec_sesi_yasak: {
+                let y = surec_sesi_onceden_coktu_mu();
+                YASAK.store(y, Ordering::Relaxed);
+                if y {
+                    log::warn!("Uygulama bazlı ses yakalama önceki açılışta uygulamayı kapattı; bu sürümde hoparlör loopback kullanılıyor");
+                }
+                y
+            },
+            kilit_zamani: None,
         }
     }
 
@@ -396,7 +437,14 @@ impl Denetci {
     }
 
     fn sistem_sesini_ayarla(&mut self) {
-        if self.sistem_modu == "all" {
+        if let Some(t) = self.kilit_zamani {
+            if t.elapsed() > Duration::from_secs(60) {
+                let _ = std::fs::remove_file(kilit_yolu());
+                self.kilit_zamani = None;
+                log::info!("Uygulama bazlı ses yakalama sorunsuz çalışıyor");
+            }
+        }
+        if self.sistem_modu == "all" || self.surec_sesi_yasak {
             self.surec = None;
             self.coklu_durdur();
             if self.hoparlor.is_none() {
@@ -436,6 +484,7 @@ impl Denetci {
             self.sistem_durumu("yok", &aciklama);
             return;
         };
+        self.kilit_yaz();
         match surec_sesi::surec_yakala(pid, haric, self.sistem_yazici(String::new())) {
             Ok(a) => {
                 self.surec = Some((a, (pid, haric)));
@@ -447,6 +496,14 @@ impl Denetci {
                 self.sistem_modu = "all".into();
                 self.hoparlor_loopback_ac();
             }
+        }
+    }
+
+    /// Bu açılışta ilk uygulama bazlı yakalamadan önce kilit yazılır (bkz. kilit_yolu).
+    fn kilit_yaz(&mut self) {
+        if self.kilit_zamani.is_none() && std::fs::metadata(kilit_yolu()).is_err() {
+            let _ = std::fs::write(kilit_yolu(), crate::surum::SURUM);
+            self.kilit_zamani = Some(Instant::now());
         }
     }
 
@@ -480,6 +537,9 @@ impl Denetci {
         }
         let mut yeniler: Vec<u32> = hedefler.iter().filter(|p| !self.surecler.contains_key(p) && !self.basarisiz.contains(p)).copied().collect();
         yeniler.sort();
+        if !yeniler.is_empty() {
+            self.kilit_yaz();
+        }
         for p in yeniler {
             match surec_sesi::surec_yakala(p, false, self.sistem_yazici(p.to_string())) {
                 Ok(a) => {
