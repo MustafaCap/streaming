@@ -203,6 +203,17 @@ impl Uygulama {
                     if let Err(e) = u.tekrar.baslat() {
                         log::warn!("Anlık tekrar başlamadı: {e}");
                     }
+                    // Seçilen donanım kodlayıcısı sürekli akışta hemen kapanırsa (test kodlamasını geçse de)
+                    // anlık tekrar her yerde çalışan mpeg4 ile bir kez daha denenir.
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    if !u.tekrar.acik() && u.tekrar.son_hata().contains("FFmpeg kapandı") {
+                        log::warn!("Anlık tekrar mpeg4 ile yeniden deneniyor");
+                        u.tekrar.durdur();
+                        u.tekrar.kodlayici_ayarla("mpeg4");
+                        if let Err(e) = u.tekrar.baslat() {
+                            log::warn!("Anlık tekrar yine başlamadı: {e}");
+                        }
+                    }
                     u.depo.guncelle(|d| d.tekrar_acik = u.tekrar.acik());
                 })
                 .ok();

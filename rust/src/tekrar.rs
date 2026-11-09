@@ -305,11 +305,29 @@ impl AnlikTekrar {
             .args(["-f", "mpegts", "-flush_packets", "1", "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            .stderr(Stdio::piped());
         let mut surec = match c.spawn() {
             Ok(s) => s,
             Err(e) => return hata(format!("FFmpeg başlatılamadı: {e}")),
         };
+        // FFmpeg'in hata çıktısının son satırları: kapanırsa nedeni log'a yazılır
+        let cikti: Arc<Mutex<std::collections::VecDeque<String>>> = Default::default();
+        if let Some(err) = surec.stderr.take() {
+            let cikti = cikti.clone();
+            std::thread::Builder::new()
+                .name("tekrar-hata".into())
+                .spawn(move || {
+                    use std::io::BufRead;
+                    for satir in std::io::BufReader::new(err).lines().map_while(Result::ok) {
+                        let mut c = cikti.lock().unwrap();
+                        c.push_back(satir);
+                        if c.len() > 4 {
+                            c.pop_front();
+                        }
+                    }
+                })
+                .ok();
+        }
         *self.ortak.bellek.lock().unwrap() = Bellek::default();
         let mut stdin = surec.stdin.take().unwrap();
         let mut stdout = surec.stdout.take().unwrap();
@@ -347,7 +365,13 @@ impl AnlikTekrar {
                         Ok(0) | Err(_) => {
                             // FFmpeg beklenmedik kapandı: tekrar kapalı sayılsın (düğme "hazır" görünmesin)
                             if o2.acik.swap(false, Ordering::SeqCst) {
-                                let m = "Anlık tekrar durdu: FFmpeg kapandı".to_string();
+                                std::thread::sleep(Duration::from_millis(200)); // hata çıktısı okunsun
+                                let neden = cikti.lock().unwrap().iter().cloned().collect::<Vec<_>>().join(" | ");
+                                let m = if neden.is_empty() {
+                                    "Anlık tekrar durdu: FFmpeg kapandı".to_string()
+                                } else {
+                                    format!("Anlık tekrar durdu: FFmpeg kapandı ({neden})")
+                                };
                                 log::warn!("{m}");
                                 *o2.son_hata.lock().unwrap() = m;
                             }
