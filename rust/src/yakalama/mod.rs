@@ -3,6 +3,8 @@ pub mod ekran;
 #[cfg(windows)]
 pub mod kamera;
 #[cfg(windows)]
+pub mod pencere;
+#[cfg(windows)]
 mod dxgi;
 #[cfg(windows)]
 mod gdi;

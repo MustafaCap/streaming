@@ -4,6 +4,8 @@
 //! durumu DurumDeposu'ndan okur. Komutlar Uygulama::komut'a gider (kısayollarla aynı yol).
 
 mod ayar_penceresi;
+mod katman;
+mod secici;
 mod mini;
 mod tema;
 #[cfg(windows)]
@@ -21,6 +23,14 @@ use rizeon::sahne::Kaynak;
 use rizeon::tek_kopya::TekKopya;
 use rizeon::uygulama::{Komut, Uygulama};
 use rizeon::{tekrar, surum};
+
+fn kisalt(s: &str, n: usize) -> String {
+    if s.chars().count() <= n {
+        s.to_string()
+    } else {
+        s.chars().take(n - 1).collect::<String>() + "…"
+    }
+}
 
 pub fn calistir(uyg: Arc<Uygulama>, tek: TekKopya) -> eframe::Result {
     let simge = image::load_from_memory(include_bytes!("../../../kurulum/uygulama.ico"))
@@ -47,6 +57,8 @@ struct Pencere {
     son_onizleme: Instant,
     onizleme_fps: f32,
     mini: mini::MiniBar,
+    katman: katman::Katman,
+    secici: secici::PencereSecici,
     ayarlar: ayar_penceresi::AyarPenceresi,
     yeniden_adlandir: Option<(usize, String)>,
     gizli: bool,
@@ -88,6 +100,8 @@ impl Pencere {
         };
         let mut p = Pencere {
             mini: mini::MiniBar::default(),
+            katman: katman::Katman::default(),
+            secici: secici::PencereSecici::default(),
             ayarlar: ayar_penceresi::AyarPenceresi::default(),
             durum: uyg.depo.al(),
             uyg,
@@ -164,6 +178,10 @@ impl Pencere {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
                 Komut::MiniBar => self.mini.acik = !self.mini.acik,
+                Komut::Bolge => self.katman.bolge_sec(&self.uyg),
+                Komut::Kalem => self.katman.kalem_ac_kapat(&self.uyg),
+                Komut::KalemTemizle => self.uyg.k.cizim.temizle(),
+                Komut::KaynakSec => self.secici.ac(),
                 Komut::Cikis => {
                     self.cikiyor = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -215,6 +233,31 @@ impl Pencere {
                 if ui.button("Mini bar").clicked() {
                     self.mini.acik = !self.mini.acik;
                 }
+                if ui.add(egui::Button::new("Kalem").selected(self.katman.kalem_acik())).on_hover_text(format!("Ekrana çiz {}", self.tus("kalem.ac_kapat"))).clicked() {
+                    self.katman.kalem_ac_kapat(&self.uyg);
+                }
+                let kaynak = match d.kaynak_turu.as_str() {
+                    "pencere" => format!("Pencere: {}", kisalt(&d.kaynak_adi, 28)),
+                    _ if !d.bolge.is_empty() => format!("Bölge {}", d.bolge),
+                    _ => "Tüm ekran".to_string(),
+                };
+                ui.menu_button(format!("{kaynak} ▾"), |ui| {
+                    for (i, m) in rizeon::yakalama::monitorler().iter().enumerate() {
+                        if ui.button(format!("Ekran {} ({}×{})", i + 1, m.w, m.h)).clicked() {
+                            let mesaj = self.uyg.monitor_sec(i);
+                            self.uyg.bildir(&mesaj, None, false);
+                            ui.close();
+                        }
+                    }
+                    if ui.button(format!("Bölge seç… {}", self.tus("bolge.sec"))).clicked() {
+                        self.katman.bolge_sec(&self.uyg);
+                        ui.close();
+                    }
+                    if ui.button("Pencere seç…").clicked() {
+                        self.secici.ac();
+                        ui.close();
+                    }
+                });
                 ui.label(RichText::new(format!("{:.0} fps", d.fps)).color(tema::SOLUK).small());
                 let vc = match d.sanal_kamera.as_str() {
                     "açık" => "Sanal kamera açık",
@@ -558,6 +601,11 @@ impl Pencere {
 }
 
 impl eframe::App for Pencere {
+    /// Saydam pencereler (mini bar, katman) için arka plan tamamen saydam temizlenir.
+    fn clear_color(&self, _v: &egui::Visuals) -> [f32; 4] {
+        [0.0; 4]
+    }
+
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.istekleri_isle(ctx);
         let kapat_istendi = ctx.input(|i| i.viewport().close_requested());
@@ -610,6 +658,8 @@ impl eframe::App for Pencere {
         });
         self.bildirimler(&ctx);
         self.mini.goster(&ctx, &self.uyg, &self.durum);
+        self.katman.goster(&ctx, &self.uyg);
+        self.secici.goster(&ctx, &self.uyg);
         if self.ayarlar.goster(&ctx, &self.uyg) {
             // kısayollar değişmiş olabilir
             self.kisayollari_kur();

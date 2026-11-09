@@ -32,6 +32,13 @@ pub enum Komut {
     CikisAcKapat,
     MiniBar,
     AnaPencere,
+    /// Bölge seç (bölge varsa tam ekrana döner)
+    Bolge,
+    /// Ne gösterilsin: tüm ekran ya da bir pencere
+    KaynakSec,
+    /// Kalem katmanını aç/kapat
+    Kalem,
+    KalemTemizle,
     Cikis,
 }
 
@@ -50,6 +57,10 @@ impl Komut {
             "panik" => Komut::Panik,
             "sahne.sec" => Komut::Sahne(param?.parse::<usize>().ok()?.checked_sub(1)?),
             "cikis.ac_kapat" => Komut::CikisAcKapat,
+            "bolge.sec" => Komut::Bolge,
+            "kaynak.sec" => Komut::KaynakSec,
+            "kalem.ac_kapat" => Komut::Kalem,
+            "kalem.temizle" => Komut::KalemTemizle,
             _ => return None,
         })
     }
@@ -383,6 +394,58 @@ impl Uygulama {
         }
     }
 
+    fn uyandir_arayuz(&self) {
+        if let Some(f) = self.uyandir.lock().unwrap().as_ref() {
+            f();
+        }
+    }
+
+    /// Sadece bu pencere gösterilsin (bölge kalkar).
+    pub fn pencere_sec(&self, hwnd: isize, baslik: &str) -> String {
+        *self.k.bolge.lock().unwrap() = None;
+        *self.k.pencere.lock().unwrap() = Some((hwnd, baslik.to_string()));
+        self.depo.guncelle(|d| {
+            d.kaynak_turu = "pencere".into();
+            d.kaynak_adi = baslik.into();
+            d.bolge.clear();
+        });
+        log::info!("Kaynak: pencere ({baslik})");
+        format!("Sadece bu pencere gösteriliyor: {baslik}")
+    }
+
+    /// Ekranın bir bölgesi gösterilsin (kaynak piksellerinde x, y, w, h). Pencere seçiliyse tüm ekrana döner.
+    pub fn bolge_ayarla(&self, b: (f64, f64, f64, f64)) -> String {
+        *self.k.pencere.lock().unwrap() = None;
+        *self.k.bolge.lock().unwrap() = Some(b);
+        let metin = format!("{}x{}", b.2.round(), b.3.round());
+        self.depo.guncelle(|d| {
+            d.kaynak_turu = "ekran".into();
+            d.kaynak_adi.clear();
+            d.bolge = metin.clone();
+        });
+        log::info!("Bölge: {b:?}");
+        format!("Bölge gösteriliyor ({metin}); tam ekran için tekrar bas")
+    }
+
+    /// Tüm ekrana dön (bölge ve pencere kalkar). `monitor` verilirse o ekran seçilir.
+    pub fn tam_ekran(&self) -> String {
+        *self.k.bolge.lock().unwrap() = None;
+        *self.k.pencere.lock().unwrap() = None;
+        self.depo.guncelle(|d| {
+            d.kaynak_turu = "ekran".into();
+            d.kaynak_adi.clear();
+            d.bolge.clear();
+        });
+        "Tüm ekran gösteriliyor".into()
+    }
+
+    pub fn monitor_sec(&self, monitor: usize) -> String {
+        self.ayarla("video.monitor", (monitor as u64).into());
+        self.k.ayar.lock().unwrap().monitor = monitor;
+        self.tam_ekran();
+        format!("Ekran {} gösteriliyor", monitor + 1)
+    }
+
     pub fn sahneleri_kaydet(&self) {
         let l = self.k.sahneler.sozluk_listesi();
         self.ayarla("scenes", l);
@@ -542,8 +605,17 @@ impl Uygulama {
                     Err(e) => format!("Ekran görüntüsü kaydedilemedi: {e}"),
                 }
             }
-            Komut::MiniBar | Komut::AnaPencere | Komut::Cikis => {
+            Komut::Bolge => {
+                if self.k.bolge.lock().unwrap().is_some() {
+                    return self.tam_ekran();
+                }
                 self.arayuz_istekleri.lock().unwrap().push_back(k);
+                self.uyandir_arayuz();
+                String::new()
+            }
+            Komut::MiniBar | Komut::AnaPencere | Komut::Cikis | Komut::KaynakSec | Komut::Kalem | Komut::KalemTemizle => {
+                self.arayuz_istekleri.lock().unwrap().push_back(k);
+                self.uyandir_arayuz();
                 String::new()
             }
         }

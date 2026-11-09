@@ -158,6 +158,30 @@ pub fn sigdir(kaynak: &Kare, genislik: u32, yukseklik: u32) -> Kare {
     tuval
 }
 
+/// Kaynağın bir bölgesini (x, y, w, h; kaynak pikselinde) çıkışa en-boy oranını koruyarak sığdırır
+/// (bölge seçme / yakınlaştırma). Bölge kaynağın dışına taşarsa içine çekilir.
+pub fn sigdir_bolge(kaynak: &Kare, bolge: (f64, f64, f64, f64), genislik: u32, yukseklik: u32) -> Kare {
+    let (bx, by, bw, bh) = bolge_sinirla(kaynak, bolge);
+    let (olcek, dx, dy) = sigdir_donusumu(bw.round() as u32, bh.round() as u32, genislik, yukseklik);
+    let yw = ((bw * olcek).round() as u32).clamp(1, genislik);
+    let yh = ((bh * olcek).round() as u32).clamp(1, yukseklik);
+    let kucuk = olcekle_bolge(kaynak, (bx, by, bw, bh), yw, yh);
+    if (yw, yh) == (genislik, yukseklik) {
+        return kucuk;
+    }
+    let mut tuval = Kare::siyah(genislik, yukseklik);
+    yapistir(&mut tuval, &kucuk, dx as i32, dy as i32);
+    tuval
+}
+
+/// Bölgeyi kaynağın içine çeker; en az 16x16.
+pub fn bolge_sinirla(kaynak: &Kare, (bx, by, bw, bh): (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
+    let (kw, kh) = (kaynak.w as f64, kaynak.h as f64);
+    let bw = bw.clamp(16.0_f64.min(kw), kw);
+    let bh = bh.clamp(16.0_f64.min(kh), kh);
+    (bx.clamp(0.0, kw - bw), by.clamp(0.0, kh - bh), bw, bh)
+}
+
 /// w x h alanı tam dolduracak şekilde ortadan kırpar ve ölçekler.
 pub fn kirp_doldur(kaynak: &Kare, w: u32, h: u32) -> Kare {
     let (kw, kh) = (kaynak.w as f64, kaynak.h as f64);

@@ -54,6 +54,14 @@ pub struct HatKontrol {
     pub onizleme_gorunur: AtomicBool,
     pub mini_gorunur: AtomicBool,
     pub ayar: Mutex<HatAyari>,
+    /// Sadece bir pencere gösteriliyorsa (hwnd, başlık); None: tüm ekran
+    pub pencere: Mutex<Option<(isize, String)>>,
+    /// Bölge seçme / yakınlaştırma: kaynak görüntünün (x, y, w, h) kısmı; None: tamamı
+    pub bolge: Mutex<Option<(f64, f64, f64, f64)>>,
+    /// Son ham kaynak karesinin boyutu (bölge seçerken ekran koordinatına çevirmek için)
+    pub kaynak_boyutu: Mutex<(u32, u32)>,
+    /// Kalem çizimleri (monitöre oranlı); ekran kaynağının üstüne çizilir
+    pub cizim: Arc<crate::cizim::CizimDeposu>,
     son_kare: Mutex<KareRef>,
     calis: AtomicBool,
 }
@@ -81,23 +89,57 @@ impl HatKontrol {
     }
 }
 
+/// Görüntü kaynağı: tüm ekran ya da tek pencere.
+enum Kaynak {
+    Ekran(EkranKaynagi),
+    #[cfg(windows)]
+    Pencere(crate::yakalama::pencere::PencereKaynagi),
+}
+
+impl Kaynak {
+    fn grab(&mut self) -> Option<KareRef> {
+        match self {
+            Kaynak::Ekran(e) => e.grab(),
+            #[cfg(windows)]
+            Kaynak::Pencere(p) => p.grab(),
+        }
+    }
+    fn yontem(&self) -> &'static str {
+        match self {
+            Kaynak::Ekran(e) => e.yontem(),
+            #[cfg(windows)]
+            Kaynak::Pencere(p) => p.yontem(),
+        }
+    }
+    fn imlec(&self) -> Option<(f32, f32)> {
+        match self {
+            Kaynak::Ekran(e) => e.imlec(),
+            #[cfg(windows)]
+            Kaynak::Pencere(p) => p.imlec(),
+        }
+    }
+}
+
+type KaynakAnahtari = (usize, String, Option<isize>);
+
 struct EkranOnbellek {
     ham: KareRef,
-    imza: (Option<(i32, i32)>, bool, u32, u32),
+    imza: (Option<(i32, i32)>, bool, u32, u32, Option<(i64, i64, i64, i64)>, u64),
     cikis: KareRef,
 }
 
 /// Hattın kendi iş parçacığına ait olanlar.
 struct Ic {
     k: Arc<HatKontrol>,
-    kaynak: EkranKaynagi,
-    kaynak_ayari: (usize, String),
+    kaynak: Kaynak,
+    kaynak_ayari: KaynakAnahtari,
     #[cfg(windows)]
     kamera: Option<crate::yakalama::kamera::WebcamKaynagi>,
     cikis: Option<ObsSanalKamera>,
     cikis_sonraki: Option<Instant>,
     onbellek: Option<EkranOnbellek>,
     gorseller: HashMap<String, Option<KareRef>>,
+    kare_sayaci: u64,
 }
 
 impl Ic {
@@ -144,10 +186,29 @@ impl Ic {
         }
     }
 
+    fn sayac_kare(&mut self) -> u64 {
+        self.kare_sayaci = self.kare_sayaci.wrapping_add(1);
+        self.kare_sayaci
+    }
+
+    fn kaynak_ac(anahtar: &KaynakAnahtari) -> Kaynak {
+        #[cfg(windows)]
+        if let Some(h) = anahtar.2 {
+            return Kaynak::Pencere(crate::yakalama::pencere::PencereKaynagi::yeni(h, ""));
+        }
+        Kaynak::Ekran(EkranKaynagi::yeni(anahtar.0, &anahtar.1))
+    }
+
     fn ekran_karesi(&mut self, ayar: &HatAyari) -> Option<KareRef> {
-        if self.kaynak_ayari != (ayar.monitor, ayar.yakalama.clone()) {
-            self.kaynak = EkranKaynagi::yeni(ayar.monitor, &ayar.yakalama);
-            self.kaynak_ayari = (ayar.monitor, ayar.yakalama.clone());
+        let pencere = self.k.pencere.lock().unwrap().clone();
+        let anahtar: KaynakAnahtari = (ayar.monitor, ayar.yakalama.clone(), pencere.as_ref().map(|p| p.0));
+        if self.kaynak_ayari != anahtar {
+            self.kaynak = Self::kaynak_ac(&anahtar);
+            #[cfg(windows)]
+            if let (Kaynak::Pencere(p), Some((_, baslik))) = (&mut self.kaynak, &pencere) {
+                p.baslik = baslik.clone();
+            }
+            self.kaynak_ayari = anahtar;
             self.onbellek = None;
         }
         let Some(ham) = self.kaynak.grab() else {
@@ -158,6 +219,7 @@ impl Ic {
             self.onbellek = None;
             return None;
         };
+        *self.k.kaynak_boyutu.lock().unwrap() = (ham.w, ham.h);
         let yontem = self.kaynak.yontem();
         self.k.depo.guncelle(|d| {
             if d.ekran_kaynagi != "çalışıyor" || d.yakalama_yontemi != yontem {
@@ -166,17 +228,43 @@ impl Ic {
             }
         });
         let (w, h) = (self.k.genislik, self.k.yukseklik);
+        let bolge = (*self.k.bolge.lock().unwrap()).map(|b| kare::bolge_sinirla(&ham, b));
         let konum = if ayar.imlec_goster { self.kaynak.imlec() } else { None };
-        let imza = (konum.map(|(x, y)| (x as i32, y as i32)), ayar.imlec_goster, w, h);
+        let bolge_imza = bolge.map(|(a, b, c, d)| (a as i64, b as i64, c as i64, d as i64));
+        // Kalem: çizim yoksa hiçbir iş yapılmaz; varsa sürümü önbellek imzasına girer
+        let ekran_modu = pencere.is_none();
+        let cizimler = (ekran_modu && !self.k.cizim.bos()).then(|| self.k.cizim.anlik());
+        let cizim_surumu = match &cizimler {
+            // lazer izi her karede solar: önbellek kullanılmasın
+            Some((_, lazer, _)) if !lazer.is_empty() => u64::MAX - self.sayac_kare(),
+            Some(_) => self.k.cizim.surum(),
+            None => 0,
+        };
+        let imza = (konum.map(|(x, y)| (x as i32, y as i32)), ayar.imlec_goster, w, h, bolge_imza, cizim_surumu);
         if let Some(o) = &self.onbellek {
             if Arc::ptr_eq(&o.ham, &ham) && o.imza == imza {
                 return Some(o.cikis.clone()); // ekran ve fare yerinde: hiçbir iş yapılmaz
             }
         }
-        let mut cikis = kare::sigdir(&ham, w, h);
+        let (mut cikis, bx, by, bw, bh) = match bolge {
+            Some((bx, by, bw, bh)) => (kare::sigdir_bolge(&ham, (bx, by, bw, bh), w, h), bx, by, bw, bh),
+            None => (kare::sigdir(&ham, w, h), 0.0, 0.0, ham.w as f64, ham.h as f64),
+        };
+        if let Some((sekiller, lazer, lazer_rengi)) = &cizimler {
+            let (olcek, dx, dy) = kare::sigdir_donusumu(bw.round() as u32, bh.round() as u32, w, h);
+            let (hw, hh) = (ham.w as f64, ham.h as f64);
+            crate::cizim::ciz(
+                &mut cikis,
+                sekiller,
+                lazer,
+                *lazer_rengi,
+                |x, y| (((x as f64 * hw - bx) * olcek + dx as f64) as f32, ((y as f64 * hh - by) * olcek + dy as f64) as f32),
+                (hh * olcek) as f32,
+            );
+        }
         if let Some((x, y)) = konum {
-            let (olcek, dx, dy) = kare::sigdir_donusumu(ham.w, ham.h, w, h);
-            let (cx, cy) = (x as f64 * olcek + dx as f64, y as f64 * olcek + dy as f64);
+            let (olcek, dx, dy) = kare::sigdir_donusumu(bw.round() as u32, bh.round() as u32, w, h);
+            let (cx, cy) = ((x as f64 - bx) * olcek + dx as f64, (y as f64 - by) * olcek + dy as f64);
             if cx > -30.0 && cx < w as f64 && cy > -30.0 && cy < h as f64 {
                 kare::imlec_ciz(&mut cikis, cx as f32, cy as f32, 22.0);
             }
@@ -377,6 +465,10 @@ impl VideoHatti {
             onizleme_gorunur: AtomicBool::new(true),
             mini_gorunur: AtomicBool::new(false),
             ayar: Mutex::new(ayar),
+            pencere: Mutex::new(None),
+            bolge: Mutex::new(None),
+            kaynak_boyutu: Mutex::new((0, 0)),
+            cizim: Arc::new(crate::cizim::CizimDeposu::new()),
             son_kare: Mutex::new(Kare::siyah(genislik, yukseklik).arc()),
             calis: AtomicBool::new(false),
         });
@@ -391,14 +483,15 @@ impl VideoHatti {
         let ayar = self.k.ayar.lock().unwrap().clone();
         let ic = Ic {
             k: self.k.clone(),
-            kaynak: EkranKaynagi::yeni(ayar.monitor, &ayar.yakalama),
-            kaynak_ayari: (ayar.monitor, ayar.yakalama.clone()),
+            kaynak: Kaynak::Ekran(EkranKaynagi::yeni(ayar.monitor, &ayar.yakalama)),
+            kaynak_ayari: (ayar.monitor, ayar.yakalama.clone(), None),
             #[cfg(windows)]
             kamera: None,
             cikis: None,
             cikis_sonraki: None,
             onbellek: None,
             gorseller: HashMap::new(),
+            kare_sayaci: 0,
         };
         self.is = std::thread::Builder::new().name("video-hatti".into()).spawn(move || ic.dongu()).ok();
     }

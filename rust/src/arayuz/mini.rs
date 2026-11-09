@@ -58,8 +58,8 @@ impl MiniBar {
             }
         }
         let boyut = match (self.genis, kayitta) {
-            (true, true) => [470.0, 46.0],
-            (true, false) => [330.0, 46.0],
+            (true, true) => [548.0, 46.0],
+            (true, false) => [408.0, 46.0],
             (false, _) => [190.0, 42.0],
         };
         let mut vb = egui::ViewportBuilder::default()
@@ -243,6 +243,21 @@ impl MiniBar {
             if m.starts_with("Ekran görüntüsü kaydedilemedi") {
                 uyg.bildir(&m, None, false);
             }
+        }
+        let bolge = !d.bolge.is_empty();
+        if ui
+            .add(egui::Button::new(RichText::new("⛶").size(15.0).color(if bolge { tema::SES } else { tema::YAZI })).frame(false).min_size(egui::vec2(34.0, 32.0)))
+            .on_hover_text(if bolge { "Bölgeyi kaldır, tüm ekrana dön" } else { "Ekranın bir bölgesini seç" })
+            .clicked()
+        {
+            uyg.komut(Komut::Bolge);
+        }
+        if ui
+            .add(egui::Button::new(RichText::new("✏").size(15.0).color(if d.kalem_acik { tema::SES } else { tema::YAZI })).frame(false).min_size(egui::vec2(34.0, 32.0)))
+            .on_hover_text(if d.kalem_acik { "Kalemi kapat" } else { "Ekrana çiz / yaz" })
+            .clicked()
+        {
+            uyg.komut(Komut::Kalem);
         }
     }
 

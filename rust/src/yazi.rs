@@ -41,6 +41,26 @@ fn satir_olc(f: &FontVec, boy: f32, metin: &str) -> f32 {
     x
 }
 
+/// Tek satırlık yazıyı sol üst köşesi (x, y) olacak şekilde yazar (kalem yazı aracı).
+pub fn yazi_sol_ust(kare: &mut Kare, metin: &str, sol_ust: (f32, f32), boy: f32, renk: [u8; 3]) {
+    let Some(f) = font() else { return };
+    let sf = f.as_scaled(PxScale::from(boy));
+    let gen = satir_olc(f, boy, metin);
+    let h = sf.ascent() - sf.descent();
+    yazi_yaz(kare, metin, ((sol_ust.0 + gen / 2.0) as i32, (sol_ust.1 + h / 2.0) as i32), boy, renk);
+}
+
+/// Yazının (genişlik, yükseklik) piksel cinsinden; yazı tipi yoksa kaba tahmin.
+pub fn yazi_boyutu(metin: &str, boy: f32) -> (f32, f32) {
+    match font() {
+        Some(f) => {
+            let sf = f.as_scaled(PxScale::from(boy));
+            (satir_olc(f, boy, metin), sf.ascent() - sf.descent())
+        }
+        None => (metin.chars().count() as f32 * boy * 0.55, boy * 1.3),
+    }
+}
+
 /// Kareye ortalanmış (çok satırlı olabilir) yazı yazar, yerinde.
 pub fn yazi_yaz(kare: &mut Kare, metin: &str, merkez: (i32, i32), boy: f32, renk: [u8; 3]) {
     let Some(f) = font() else { return };
