@@ -40,6 +40,11 @@ pub enum Komut {
     Kalem,
     KalemTemizle,
     Cikis,
+    /// Hakkında penceresi (tepsi menüsü)
+    Hakkinda,
+    /// "Nasıl düzeltilir?" (sanal çıkış sorunu)
+    Yardim,
+    KayitKlasoru,
 }
 
 impl Komut {
@@ -61,17 +66,32 @@ impl Komut {
             "kaynak.sec" => Komut::KaynakSec,
             "kalem.ac_kapat" => Komut::Kalem,
             "kalem.temizle" => Komut::KalemTemizle,
+            "kayit.klasor" => Komut::KayitKlasoru,
+            "pencere.mini" => Komut::MiniBar,
             _ => return None,
         })
     }
 }
 
-/// Ekranın altında kısa süre görünen bildirim; isteğe bağlı bir dosya ("Aç" / "Klasörde göster").
+/// Bildirimdeki tıklanabilir bağlantı.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BildirimEylemi {
+    Ac(PathBuf),
+    KlasordeGoster(PathBuf),
+    /// "Nasıl düzeltilir?" (sanal kamera / mikrofon yardımı)
+    Yardim,
+    /// "Ayarlar" (alınamayan kısayollar)
+    Ayarlar(&'static str),
+}
+
+/// Sağ altta kısa süre görünen bildirim: "Mikrofon kapandı · Ctrl+Shift+M" ya da "… · Aç".
 #[derive(Clone, Debug)]
 pub struct Bildirim {
     pub metin: String,
-    pub dosya: Option<PathBuf>,
-    pub klasorde: bool,
+    pub tus: String,
+    pub eylem: Option<BildirimEylemi>,
+    /// kısayol bildirimi mi (ui.toasts kapalıyken gösterilmez)
+    pub kisayol: bool,
     pub zaman: Instant,
 }
 
@@ -284,9 +304,14 @@ impl Uygulama {
     }
 
     pub fn bildir(&self, metin: &str, dosya: Option<PathBuf>, klasorde: bool) {
-        log::info!("{metin}");
+        let eylem = dosya.map(|d| if klasorde { BildirimEylemi::KlasordeGoster(d) } else { BildirimEylemi::Ac(d) });
+        self.bildirim_ekle(Bildirim { metin: metin.into(), tus: String::new(), eylem, kisayol: false, zaman: Instant::now() });
+    }
+
+    pub fn bildirim_ekle(&self, x: Bildirim) {
+        log::info!("{}", x.metin);
         let mut b = self.bildirimler.lock().unwrap();
-        b.push_back(Bildirim { metin: metin.into(), dosya, klasorde, zaman: Instant::now() });
+        b.push_back(x);
         while b.len() > 4 {
             b.pop_front();
         }
@@ -614,7 +639,7 @@ impl Uygulama {
                 self.uyandir_arayuz();
                 String::new()
             }
-            Komut::MiniBar | Komut::AnaPencere | Komut::Cikis | Komut::KaynakSec | Komut::Kalem | Komut::KalemTemizle => {
+            Komut::MiniBar | Komut::AnaPencere | Komut::Cikis | Komut::KaynakSec | Komut::Kalem | Komut::KalemTemizle | Komut::Hakkinda | Komut::Yardim | Komut::KayitKlasoru => {
                 self.arayuz_istekleri.lock().unwrap().push_back(k);
                 self.uyandir_arayuz();
                 String::new()

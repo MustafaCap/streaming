@@ -21,7 +21,7 @@ mod diyalog;
 mod katman;
 mod mini;
 mod paneller;
-mod secici;
+mod pencereler;
 mod simge;
 mod tema;
 #[cfg(windows)]
@@ -31,7 +31,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, Align2, CursorIcon, Pos2, Rect, ResizeDirection, Sense, Stroke, Ui, Vec2, ViewportCommand};
+use eframe::egui::{self, CursorIcon, Pos2, Rect, ResizeDirection, Sense, Stroke, Ui, Vec2, ViewportCommand};
 use serde_json::json;
 
 use rizeon::durum::Durum;
@@ -101,7 +101,16 @@ struct Pencere {
     onizleme_fps: f32,
     mini: mini::MiniBar,
     katman: katman::Katman,
-    secici: secici::PencereSecici,
+    secici: pencereler::PencereSecici,
+    hakkinda: pencereler::Hakkinda,
+    yardim: pencereler::Yardim,
+    bildirim: pencereler::BildirimPenceresi,
+    /// sanal çıkış sorunu ("" = yok); değişince bildirilir
+    cikis_sorunu: String,
+    pencere_koptu: bool,
+    #[cfg_attr(not(windows), allow(dead_code))]
+    tepsi_surumu: u64,
+    son_hata: String,
     ayarlar: ayar_penceresi::AyarPenceresi,
     sahneler: paneller::SahnelerPaneli,
     kaynaklar: paneller::KaynaklarPaneli,
@@ -160,7 +169,14 @@ impl Pencere {
         let mut p = Pencere {
             mini: mini::MiniBar::default(),
             katman: katman::Katman::default(),
-            secici: secici::PencereSecici::default(),
+            secici: Default::default(),
+            hakkinda: Default::default(),
+            yardim: Default::default(),
+            bildirim: Default::default(),
+            cikis_sorunu: String::new(),
+            pencere_koptu: false,
+            tepsi_surumu: u64::MAX,
+            son_hata: String::new(),
             ayarlar: ayar_penceresi::AyarPenceresi::default(),
             sahneler: Default::default(),
             kaynaklar: Default::default(),
@@ -198,6 +214,25 @@ impl Pencere {
             p.tepsi = tepsi::Tepsi::kur(cc.egui_ctx.clone(), p.uyg.clone());
         }
         p.kisayollari_kur();
+        // Geliştirme: ekran görüntüsü karşılaştırması için bir pencereyi açık başlat (RIZEON_AC=hakkinda|yardim|secici|ayarlar|bildirim)
+        if std::env::var("RIZEON_AC").is_ok() {
+            // ana pencere kenara çekilsin, açılan pencere görünsün
+            cc.egui_ctx.send_viewport_cmd(ViewportCommand::OuterPosition(egui::pos2(1600.0, 0.0)));
+        }
+        match std::env::var("RIZEON_AC").as_deref() {
+            Ok("hakkinda") => p.hakkinda.acik = true,
+            Ok("yardim") => p.yardim.ac(""),
+            Ok("secici") => p.secici.ac(),
+            Ok("ayarlar") => p.ayarlar.ac(&p.uyg),
+            Ok("bildirim") => p.uyg.bildirim_ekle(rizeon::uygulama::Bildirim {
+                metin: "Mikrofon kapandı".into(),
+                tus: "Ctrl+Shift+M".into(),
+                eylem: None,
+                kisayol: false,
+                zaman: Instant::now(),
+            }),
+            _ => {}
+        }
         p
     }
 
@@ -210,7 +245,8 @@ impl Pencere {
                     if let Some(k) = Komut::coz(ad) {
                         let m = uyg.komut(k);
                         if !m.is_empty() {
-                            uyg.bildir(&m, None, false);
+                            let tus = tus_metni(&uyg, ad);
+                            uyg.bildirim_ekle(rizeon::uygulama::Bildirim { metin: m, tus, eylem: None, kisayol: true, zaman: Instant::now() });
                         }
                     }
                 })
@@ -254,6 +290,9 @@ impl Pencere {
                 Komut::KalemTemizle => self.uyg.k.cizim.temizle(),
                 Komut::KaynakSec => self.secici.ac(),
                 Komut::Cikis => self.cikmayi_onayla(),
+                Komut::Hakkinda => self.hakkinda.acik = true,
+                Komut::Yardim => self.yardim.ac(&self.cikis_sorunu.clone()),
+                Komut::KayitKlasoru => self.kayit_klasorunu_ac(),
                 _ => {}
             }
         }
@@ -378,10 +417,7 @@ impl Pencere {
                     .on_hover_text("Kayıtların, son 2 dk kayıtlarının ve ekran görüntülerinin olduğu klasörü açar")
                     .clicked()
                 {
-                    let k = rizeon::uygulama::kayit_klasoru(&self.uyg.ayarlar.lock().unwrap());
-                    let _ = std::fs::create_dir_all(&k);
-                    #[cfg(windows)]
-                    rizeon::win::ac(&k);
+                    self.kayit_klasorunu_ac();
                 }
                 if bilesen::hap(ui, "☰ Gelişmiş", self.gelismis, true).on_hover_text("Sahneler, kaynaklar ve ses anahtarları").clicked() {
                     let acik = !self.gelismis;
@@ -795,38 +831,45 @@ impl Pencere {
         }
     }
 
-    fn bildirimler(&mut self, ctx: &egui::Context) {
-        let mut b = self.uyg.bildirimler.lock().unwrap();
-        b.retain(|x| x.zaman.elapsed() < Duration::from_secs(6));
-        if b.is_empty() {
-            return;
+    fn kayit_klasorunu_ac(&self) {
+        let k = rizeon::uygulama::kayit_klasoru(&self.uyg.ayarlar.lock().unwrap());
+        let _ = std::fs::create_dir_all(&k);
+        #[cfg(windows)]
+        rizeon::win::ac(&k);
+    }
+
+    /// Durum değişikliklerinden doğan bildirimler (Python shell._durumu_goster).
+    fn durum_bildirimleri(&mut self) {
+        let d = &self.durum;
+        let koptu = d.kaynak_turu == "pencere" && d.ekran_kaynagi == "koptu";
+        if koptu && !self.pencere_koptu {
+            // Tüm ekrana kendiliğinden dönülmez: yayında başka bir şey görünmesin
+            self.uyg.bildir("Seçilen pencere kapandı · Göster menüsünden yenisini seç", None, false);
         }
-        let liste: Vec<_> = b.iter().cloned().collect();
-        drop(b);
-        egui::Area::new(egui::Id::unique("bildirimler"))
-            .anchor(Align2::CENTER_BOTTOM, egui::vec2(0.0, -150.0))
-            .show(ctx, |ui| {
-                for x in liste {
-                    egui::Frame::popup(ui.style()).fill(tema::YUZEN).show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(&x.metin);
-                            if let Some(d) = &x.dosya {
-                                let etiket = if x.klasorde { "Klasörde göster" } else { "Aç" };
-                                if ui.link(etiket).clicked() {
-                                    #[cfg(windows)]
-                                    if x.klasorde {
-                                        rizeon::win::klasorde_goster(d);
-                                    } else {
-                                        rizeon::win::ac(d);
-                                    }
-                                    let _ = d;
-                                }
-                            }
-                        });
-                    });
-                }
-            });
-        ctx.request_repaint_after(Duration::from_millis(500));
+        self.pencere_koptu = koptu;
+        let sorun = pencereler::cikis_sorunu(&d.sanal_kamera, &d.sanal_mikrofon);
+        if sorun != self.cikis_sorunu {
+            if !sorun.is_empty() {
+                self.uyg.bildirim_ekle(rizeon::uygulama::Bildirim {
+                    metin: sorun.clone(),
+                    tus: String::new(),
+                    eylem: Some(rizeon::uygulama::BildirimEylemi::Yardim),
+                    kisayol: false,
+                    zaman: Instant::now(),
+                });
+            }
+            #[cfg(windows)]
+            if let Some(t) = &mut self.tepsi {
+                t.sorun_ayarla(&sorun);
+            }
+            self.cikis_sorunu = sorun.clone();
+        }
+        // Sanal çıkış hataları yukarıdaki uyarıyla gösterildi; aynısı ikinci kez çıkmasın
+        let h = d.son_hata.clone();
+        if !h.is_empty() && h != self.son_hata && !(!sorun.is_empty() && (h.starts_with("Sanal") || h.starts_with("OBS"))) {
+            self.uyg.bildir(&h, None, false);
+        }
+        self.son_hata = h;
     }
 }
 
@@ -906,7 +949,25 @@ impl eframe::App for Pencere {
                 a => paneller::diyalog_sonucu(&self.uyg, a, metin),
             }
         }
-        self.bildirimler(&ctx);
+        self.durum_bildirimleri();
+        #[cfg(windows)]
+        {
+            let surum = self.uyg.depo.surum();
+            if surum != self.tepsi_surumu || self.son_olcum.elapsed() < Duration::from_millis(20) {
+                self.tepsi_surumu = surum;
+                if let Some(t) = &mut self.tepsi {
+                    t.durumu_goster(&self.durum, &self.uyg);
+                }
+            }
+        }
+        self.bildirim.goster(&ctx, &self.uyg);
+        match self.bildirim.istenen.take() {
+            Some(rizeon::uygulama::BildirimEylemi::Yardim) => self.yardim.ac(&self.cikis_sorunu.clone()),
+            Some(rizeon::uygulama::BildirimEylemi::Ayarlar(_)) => self.ayarlar.ac(&self.uyg),
+            _ => {}
+        }
+        self.hakkinda.goster(&ctx);
+        self.yardim.goster(&ctx);
         self.mini.goster(&ctx, &self.uyg, &self.durum);
         self.katman.goster(&ctx, &self.uyg);
         self.secici.goster(&ctx, &self.uyg);
