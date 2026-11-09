@@ -401,7 +401,8 @@ struct Gecis {
 /// Sahne listesi, aktif sahne ve süren geçiş (iş parçacığı güvenli).
 pub struct SahneYoneticisi {
     sahneler: Mutex<(Vec<Sahne>, usize)>,
-    pub gecis_sn: f32,
+    /// Geçiş süresi (ms); ayarlardan canlı değişir
+    gecis_ms: std::sync::atomic::AtomicU32,
     gecis: Mutex<Gecis>,
     surum: std::sync::atomic::AtomicU64,
 }
@@ -411,10 +412,18 @@ impl SahneYoneticisi {
         assert!(!sahneler.is_empty(), "En az bir sahne gerekli");
         SahneYoneticisi {
             sahneler: Mutex::new((sahneler, 0)),
-            gecis_sn: gecis_ms.max(0) as f32 / 1000.0,
+            gecis_ms: std::sync::atomic::AtomicU32::new(gecis_ms.clamp(0, 10_000) as u32),
             gecis: Mutex::new(Gecis { istek: false, baslangic: None, onceki: None }),
             surum: Default::default(),
         }
+    }
+
+    pub fn gecis_sn(&self) -> f32 {
+        self.gecis_ms.load(std::sync::atomic::Ordering::Relaxed) as f32 / 1000.0
+    }
+
+    pub fn gecis_ayarla(&self, ms: i64) {
+        self.gecis_ms.store(ms.clamp(0, 10_000) as u32, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn surum(&self) -> u64 {
@@ -443,7 +452,7 @@ impl SahneYoneticisi {
         }
         if indeks != g.1 {
             g.1 = indeks;
-            self.gecis.lock().unwrap().istek = self.gecis_sn > 0.0;
+            self.gecis.lock().unwrap().istek = self.gecis_sn() > 0.0;
             self.haber_ver();
         }
         true
@@ -473,7 +482,7 @@ impl SahneYoneticisi {
         if indeks < g.1 || g.1 >= g.0.len() {
             g.1 = g.1.saturating_sub(1);
         }
-        self.gecis.lock().unwrap().istek = self.gecis_sn > 0.0;
+        self.gecis.lock().unwrap().istek = self.gecis_sn() > 0.0;
         self.haber_ver();
         true
     }
@@ -553,7 +562,7 @@ impl SahneYoneticisi {
                 }
             }
             let Some(bas) = g.baslangic else { return yeni };
-            let t = if self.gecis_sn > 0.0 { bas.elapsed().as_secs_f32() / self.gecis_sn } else { 1.0 };
+            let t = if self.gecis_sn() > 0.0 { bas.elapsed().as_secs_f32() / self.gecis_sn() } else { 1.0 };
             if t >= 1.0 || g.onceki.is_none() {
                 g.baslangic = None;
                 g.onceki = None;

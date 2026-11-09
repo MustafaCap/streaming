@@ -24,6 +24,9 @@ pub mod yakalama;
 pub mod yazi;
 pub mod yollar;
 pub mod hat;
+pub mod ek_kaynaklar;
+pub mod video_oynatici;
+pub mod imlec_vurgusu;
 pub mod islemci;
 pub mod uygulama;
 

@@ -116,6 +116,7 @@ pub struct Uygulama {
 pub fn hat_ayari(a: &Ayarlar) -> HatAyari {
     HatAyari {
         imlec_goster: a.mantik("video.show_cursor", true),
+        imlec_vurgusu: a.mantik("video.cursor_highlight", false),
         bekleme_metni: a.al("standby_text").and_then(Value::as_str).unwrap_or("Birazdan döneceğim").to_string(),
         bekleme_gorseli: a.metin("standby_image"),
         yer: KameraYerlesimi::ayarlardan(a.al("camera").unwrap_or(&Value::Null)),
@@ -334,6 +335,7 @@ impl Uygulama {
     pub fn ayarlari_uygula(self: &Arc<Self>) {
         let a = self.ayarlar.lock().unwrap();
         *self.k.ayar.lock().unwrap() = hat_ayari(&a);
+        self.k.sahneler.gecis_ayarla(a.sayi("transition_ms", 300));
         {
             let mut m = self.mikser.lock().unwrap();
             m.kisma_acik = a.mantik("audio.ducking", false);

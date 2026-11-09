@@ -28,6 +28,8 @@ const CIKIS_YENIDEN_DENEME: Duration = Duration::from_secs(5);
 #[derive(Clone, Debug)]
 pub struct HatAyari {
     pub imlec_goster: bool,
+    /// Eski genel ayar (video.cursor_highlight); sahnedeki "İmleç vurgusu" kaynağı da açar
+    pub imlec_vurgusu: bool,
     pub bekleme_metni: String,
     pub bekleme_gorseli: String,
     pub yer: KameraYerlesimi,
@@ -125,7 +127,7 @@ type KaynakAnahtari = (usize, String, Option<isize>);
 
 struct EkranOnbellek {
     ham: KareRef,
-    imza: (Option<(i32, i32)>, bool, u32, u32, Option<(i64, i64, i64, i64)>, u64),
+    imza: (Option<(i32, i32)>, (bool, bool), u32, u32, Option<(i64, i64, i64, i64)>, u64),
     cikis: KareRef,
 }
 
@@ -139,8 +141,10 @@ struct Ic {
     cikis: Option<ObsSanalKamera>,
     cikis_sonraki: Option<Instant>,
     onbellek: Option<EkranOnbellek>,
-    gorseller: HashMap<String, Option<KareRef>>,
+    ek_kaynaklar: crate::ek_kaynaklar::EkKaynaklar,
+    bekleme_videosu: Arc<crate::video_oynatici::VideoOynatici>,
     kare_sayaci: u64,
+    vurgu: crate::imlec_vurgusu::ImlecVurgusu,
 }
 
 impl Ic {
@@ -200,7 +204,7 @@ impl Ic {
         Kaynak::Ekran(EkranKaynagi::yeni(anahtar.0, &anahtar.1))
     }
 
-    fn ekran_karesi(&mut self, ayar: &HatAyari) -> Option<KareRef> {
+    fn ekran_karesi(&mut self, ayar: &HatAyari, sahne: &sahne::Sahne) -> Option<KareRef> {
         let pencere = self.k.pencere.lock().unwrap().clone();
         let anahtar: KaynakAnahtari = (ayar.monitor, ayar.yakalama.clone(), pencere.as_ref().map(|p| p.0));
         if self.kaynak_ayari != anahtar {
@@ -230,20 +234,26 @@ impl Ic {
         });
         let (w, h) = (self.k.genislik, self.k.yukseklik);
         let bolge = (*self.k.bolge.lock().unwrap()).map(|b| kare::bolge_sinirla(&ham, b));
-        let konum = if ayar.imlec_goster { self.kaynak.imlec() } else { None };
+        let vurgu = ayar.imlec_vurgusu || sahne.imlec_vurgusu();
+        let imlec_iste = ayar.imlec_goster || vurgu;
+        let konum = if imlec_iste { self.kaynak.imlec() } else { None };
+        if vurgu {
+            self.vurgu.guncelle(konum);
+        }
+        let dalga = vurgu && self.vurgu.dalga_var();
         let bolge_imza = bolge.map(|(a, b, c, d)| (a as i64, b as i64, c as i64, d as i64));
         // Kalem: çizim yoksa hiçbir iş yapılmaz; varsa sürümü önbellek imzasına girer
         let ekran_modu = pencere.is_none();
-        let cizimler = (ekran_modu && !self.k.cizim.bos()).then(|| self.k.cizim.anlik());
+        let cizimler = (ekran_modu && sahne.kalem() && !self.k.cizim.bos()).then(|| self.k.cizim.anlik());
         let cizim_surumu = match &cizimler {
             // lazer izi her karede solar: önbellek kullanılmasın
             Some((_, lazer, _)) if !lazer.is_empty() => u64::MAX - self.sayac_kare(),
             Some(_) => self.k.cizim.surum(),
             None => 0,
         };
-        let imza = (konum.map(|(x, y)| (x as i32, y as i32)), ayar.imlec_goster, w, h, bolge_imza, cizim_surumu);
+        let imza = (konum.map(|(x, y)| (x as i32, y as i32)), (ayar.imlec_goster, vurgu), w, h, bolge_imza, cizim_surumu);
         if let Some(o) = &self.onbellek {
-            if Arc::ptr_eq(&o.ham, &ham) && o.imza == imza {
+            if Arc::ptr_eq(&o.ham, &ham) && o.imza == imza && !dalga {
                 return Some(o.cikis.clone()); // ekran ve fare yerinde: hiçbir iş yapılmaz
             }
         }
@@ -263,10 +273,15 @@ impl Ic {
                 (hh * olcek) as f32,
             );
         }
-        if let Some((x, y)) = konum {
+        if imlec_iste {
             let (olcek, dx, dy) = kare::sigdir_donusumu(bw.round() as u32, bh.round() as u32, w, h);
-            let (cx, cy) = ((x as f64 - bx) * olcek + dx as f64, (y as f64 - by) * olcek + dy as f64);
-            if cx > -30.0 && cx < w as f64 && cy > -30.0 && cy < h as f64 {
+            let donusum = |x: f64, y: f64| ((x - bx) * olcek + dx as f64, (y - by) * olcek + dy as f64);
+            let cikis_konumu = konum.map(|(x, y)| donusum(x as f64, y as f64)).filter(|&(cx, cy)| cx > -30.0 && cx < w as f64 && cy > -30.0 && cy < h as f64);
+            if vurgu {
+                let o = (olcek * ham.h as f64 / 1080.0).max(0.3) as f32;
+                self.vurgu.ciz(&mut cikis, cikis_konumu.map(|(x, y)| (x as f32, y as f32)), donusum, o);
+            }
+            if let (true, Some((cx, cy))) = (ayar.imlec_goster, cikis_konumu) {
                 kare::imlec_ciz(&mut cikis, cx as f32, cy as f32, 22.0);
             }
         }
@@ -317,24 +332,28 @@ impl Ic {
     }
 
     fn ek_kareler(&mut self, sahne: &sahne::Sahne) -> HashMap<String, KareRef> {
-        let mut ek = HashMap::new();
-        for k in sahne.kaynaklar.iter().filter(|k| k.gorunur && k.tur == "gorsel") {
-            let yol = k.metin("path");
-            let kare = self.gorseller.entry(yol.clone()).or_insert_with(|| kare::gorsel_oku(std::path::Path::new(&yol)).map(Kare::arc));
-            if let Some(kare) = kare {
-                ek.insert(k.kimlik.clone(), kare.clone());
-            }
-        }
-        if self.gorseller.len() > 16 {
-            self.gorseller.clear();
-        }
-        ek
+        let kamera = self.k.kamera_istegi.load(Ordering::Relaxed) && self.k.kamera_kullaniliyor();
+        self.ek_kaynaklar.kareler(sahne, kamera)
     }
 
     fn kare_uret(&mut self) -> KareRef {
         let (w, h) = (self.k.genislik, self.k.yukseklik);
         let ayar = self.k.ayar.lock().unwrap().clone();
-        let bekleme = || yazi::bekleme_karesi(w, h, &ayar.bekleme_metni, &ayar.bekleme_gorseli);
+        // bekleme ekranı: video seçildiyse döngüde oynar, yoksa görsel ya da yazı
+        let video = crate::yollar::video_mu(&ayar.bekleme_gorseli);
+        if !video && self.bekleme_videosu.acik_mi() {
+            self.bekleme_videosu.kapat();
+        }
+        let bekleme_videosu = self.bekleme_videosu.clone();
+        let bekleme = || {
+            if video {
+                bekleme_videosu
+                    .kare(&ayar.bekleme_gorseli, w, h)
+                    .unwrap_or_else(|| yazi::bilgi_karesi(w, h, &ayar.bekleme_metni, None))
+            } else {
+                yazi::bekleme_karesi(w, h, &ayar.bekleme_metni, &ayar.bekleme_gorseli)
+            }
+        };
         if self.k.panik.load(Ordering::Relaxed) {
             return bekleme(); // Panik: hiçbir kaynağa dokunmadan, geçiş beklemeden bekleme ekranı
         }
@@ -346,7 +365,7 @@ impl Ic {
                 d.sahne_adi = sahne.ad.clone();
             }
         });
-        let ekran = if sahne.ekran() { self.ekran_karesi(&ayar) } else { None };
+        let ekran = if sahne.ekran() { self.ekran_karesi(&ayar, &sahne) } else { None };
         let kamera = self.kamera_karesi(&sahne, &ayar);
         let ek = self.ek_kareler(&sahne);
         let girdi = SahneGirdisi {
@@ -421,6 +440,8 @@ impl Ic {
             }
         }
         self.cikis = None;
+        self.ek_kaynaklar.kapat();
+        self.bekleme_videosu.kapat();
         #[cfg(windows)]
         if let Some(mut c) = self.kamera.take() {
             c.durdur(true);
@@ -492,8 +513,10 @@ impl VideoHatti {
             cikis: None,
             cikis_sonraki: None,
             onbellek: None,
-            gorseller: HashMap::new(),
+            ek_kaynaklar: crate::ek_kaynaklar::EkKaynaklar::yeni(self.k.genislik, self.k.yukseklik, self.k.fps),
+            bekleme_videosu: Arc::new(crate::video_oynatici::VideoOynatici::yeni(self.k.fps)),
             kare_sayaci: 0,
+            vurgu: Default::default(),
         };
         self.is = std::thread::Builder::new().name("video-hatti".into()).spawn(move || ic.dongu()).ok();
     }
