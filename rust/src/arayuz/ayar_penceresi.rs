@@ -185,6 +185,7 @@ impl AyarPenceresi {
         };
         self.secim(ui, "kamera", "camera.device", &kam);
         self.onay(ui, "camera.mirror", false, "Aynala");
+        self.onay(ui, "camera.blur", false, "Arka planı bulanıklaştır");
         ui.add_space(8.0);
         ui.label("Köşe");
         self.secim(

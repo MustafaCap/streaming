@@ -5,6 +5,7 @@
 //! Hiçbir ağ kodu yoktur (Rust'ta ağ kitaplığı bağımlılığı da yok).
 
 pub mod ayarlar;
+pub mod bulanik;
 pub mod cizim;
 pub mod durum;
 pub mod ffmpeg;

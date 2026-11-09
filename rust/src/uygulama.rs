@@ -103,6 +103,7 @@ pub fn hat_ayari(a: &Ayarlar) -> HatAyari {
         yakalama: a.metin("video.capture_backend"),
         kamera_cihazi: a.sayi("camera.device", 0).max(0) as usize,
         kamera_ayna: a.mantik("camera.mirror", false),
+        kamera_bulanik: a.mantik("camera.blur", false),
     }
 }
 

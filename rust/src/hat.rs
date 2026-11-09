@@ -35,6 +35,7 @@ pub struct HatAyari {
     pub yakalama: String,
     pub kamera_cihazi: usize,
     pub kamera_ayna: bool,
+    pub kamera_bulanik: bool,
 }
 
 /// Arayüzün ve kısayolların hatla konuştuğu ortak kısım (iş parçacığı güvenli).
@@ -286,6 +287,7 @@ impl Ic {
         }
         let kam = self.kamera.get_or_insert_with(|| WebcamKaynagi::yeni(ayar.kamera_cihazi, 1280, 720, 30, ayar.kamera_ayna));
         kam.ayna.store(ayar.kamera_ayna, Ordering::Relaxed);
+        kam.bulanik.store(ayar.kamera_bulanik, Ordering::Relaxed);
         if gerekli && !kam.acik() {
             kam.baslat();
         } else if !gerekli && kam.acik() {

@@ -199,6 +199,8 @@ pub struct WebcamKaynagi {
     pub yukseklik: u32,
     pub fps: u32,
     pub ayna: Arc<AtomicBool>,
+    /// arka plan bulanıklaştırma açık mı (camera.blur)
+    pub bulanik: Arc<AtomicBool>,
     ortak: Arc<Ortak>,
     calis: Option<Arc<AtomicBool>>,
     is: Option<JoinHandle<()>>,
@@ -212,6 +214,7 @@ impl WebcamKaynagi {
             yukseklik,
             fps,
             ayna: Arc::new(AtomicBool::new(ayna)),
+            bulanik: Arc::new(AtomicBool::new(false)),
             ortak: Default::default(),
             calis: None,
             is: None,
@@ -240,7 +243,7 @@ impl WebcamKaynagi {
         // Her iş parçacığının kendi bayrağı: eskisi takıldıysa yeni bayrağı görüp çalışmaya devam edemez.
         let calis = Arc::new(AtomicBool::new(true));
         self.calis = Some(calis.clone());
-        let (ortak, ayna) = (self.ortak.clone(), self.ayna.clone());
+        let (ortak, ayna, bulanik) = (self.ortak.clone(), self.ayna.clone(), self.bulanik.clone());
         let (cihaz, w, h, f) = (self.cihaz, self.genislik, self.yukseklik, self.fps);
         self.is = std::thread::Builder::new()
             .name("webcam".into())
@@ -253,6 +256,7 @@ impl WebcamKaynagi {
                     }
                 };
                 let mut okuyucu: Option<Okuyucu> = None;
+                let mut bulaniklastirici: Option<crate::bulanik::ArkaPlanBulaniklastirici> = None;
                 while calis.load(Ordering::Relaxed) {
                     if okuyucu.is_none() {
                         match unsafe { ac(cihaz, w, h, f) } {
@@ -271,7 +275,10 @@ impl WebcamKaynagi {
                         }
                     }
                     match unsafe { kare_oku(okuyucu.as_ref().unwrap(), ayna.load(Ordering::Relaxed)) } {
-                        Ok(Some(k)) => {
+                        Ok(Some(mut k)) => {
+                            if bulanik.load(Ordering::Relaxed) {
+                                k = bulaniklastirici.get_or_insert_with(Default::default).isle(k);
+                            }
                             if calis.load(Ordering::Relaxed) {
                                 *ortak.kare.lock().unwrap() = Some((k.arc(), Instant::now()));
                             }
