@@ -120,6 +120,11 @@ def lisanslari_topla(hedef: Path) -> int:
             if "Apache-2.0" in lisans and apache:
                 (klasor / ad / "LICENSE-APACHE").write_text(apache, encoding="utf-8")
         satirlar.append((f"{p['name']} {p['version']}", lisans))
+    # Arka plan bulanıklaştırma modeli exe'ye gömülü (Google MediaPipe, Apache-2.0)
+    (klasor / "mediapipe-selfie-segmentation").mkdir()
+    shutil.copyfile(KOK / "models" / "LICENSE-mediapipe-Apache-2.0.txt",
+                    klasor / "mediapipe-selfie-segmentation" / "LICENSE-APACHE")
+    satirlar.append(("MediaPipe Selfie Segmentation modeli", "Apache-2.0"))
     if (hedef / "ffmpeg" / "LICENSE.txt").is_file():
         satirlar.append(("FFmpeg (ayrı program)", "LGPL-2.1-or-later  [ffmpeg/LICENSE.txt]"))
     genislik = max(len(a) for a, _ in satirlar) + 2
