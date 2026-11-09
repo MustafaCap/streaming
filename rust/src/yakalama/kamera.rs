@@ -69,6 +69,7 @@ struct Okuyucu {
     okuyucu: IMFSourceReader,
     w: u32,
     h: u32,
+    alttan_uste: bool,
 }
 
 impl Drop for Okuyucu {
@@ -133,7 +134,10 @@ unsafe fn ac(cihaz: usize, ist_w: u32, ist_h: u32, ist_fps: u32) -> Result<Okuyu
     okuyucu.SetCurrentMediaType(ILK_VIDEO, None, &cikis).map_err(|e| format!("RGB32 biçimi ayarlanamadı: {e}"))?;
     let gercek = okuyucu.GetCurrentMediaType(ILK_VIDEO).map_err(|e| e.to_string())?;
     let (w, h) = boyut(&gercek).ok_or("kare boyutu bilinmiyor")?;
-    Ok(Okuyucu { kaynak, okuyucu, w, h })
+    // Satır yönü: MF_MT_DEFAULT_STRIDE negatifse tampon alttan üste. Kaynak okuyucunun RGB32
+    // çıkışı belirtilmediğinde üstten alta gelir (alttan üste sanmak görüntüyü ters çeviriyordu).
+    let adim = gercek.GetUINT32(&MF_MT_DEFAULT_STRIDE).map(|v| v as i32).unwrap_or((w * 4) as i32);
+    Ok(Okuyucu { kaynak, okuyucu, w, h, alttan_uste: adim < 0 })
 }
 
 unsafe fn kare_oku(o: &Okuyucu, ayna: bool) -> Result<Option<Kare>, String> {
@@ -148,7 +152,12 @@ unsafe fn kare_oku(o: &Okuyucu, ayna: bool) -> Result<Option<Kare>, String> {
         return Err("kamera akışı bitti".into());
     }
     let Some(ornek) = ornek else { return Ok(None) };
-    let tampon = ornek.ConvertToContiguousBuffer().map_err(|e| e.to_string())?;
+    // Tek tampon varsa doğrudan al: IMF2DBuffer satır yönünü kendisi doğru verir
+    let tampon = match ornek.GetBufferCount() {
+        Ok(1) => ornek.GetBufferByIndex(0),
+        _ => ornek.ConvertToContiguousBuffer(),
+    }
+    .map_err(|e| e.to_string())?;
     let (w, h) = (o.w as usize, o.h as usize);
     let mut veri = vec![0u8; w * h * 4];
     let mut kopyala = |taban: *const u8, adim: isize| {
@@ -176,8 +185,11 @@ unsafe fn kare_oku(o: &Okuyucu, ayna: bool) -> Result<Option<Kare>, String> {
         let mut uzunluk = 0u32;
         tampon.Lock(&mut taban, None, Some(&mut uzunluk)).map_err(|e| e.to_string())?;
         if (uzunluk as usize) >= w * h * 4 {
-            // RGB32 düz tampon alttan üste: son satırdan başla
-            kopyala(taban.add((h - 1) * w * 4), -((w * 4) as isize));
+            if o.alttan_uste {
+                kopyala(taban.add((h - 1) * w * 4), -((w * 4) as isize));
+            } else {
+                kopyala(taban, (w * 4) as isize);
+            }
         }
         let _ = tampon.Unlock();
     }
