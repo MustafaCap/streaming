@@ -466,9 +466,8 @@ impl BildirimPenceresi {
         }
         let boyut = Self::boyut(ctx, &b);
         let ppp = ctx.native_pixels_per_point().unwrap_or(1.0).max(0.5);
-        let konum = rizeon::yakalama::monitorler().first().map(|m| {
-            Pos2::new((m.sol + m.w as i32) as f32 / ppp - boyut.x - 16.0, (m.ust + m.h as i32) as f32 / ppp - 48.0 - boyut.y - 16.0)
-        });
+        let _ = ppp;
+        let konum = calisma_alani(ctx).map(|g| Pos2::new(g.right() - boyut.x - 16.0, g.bottom() - boyut.y - 16.0));
         let mut vp = egui::ViewportBuilder::default()
             .with_title("RizeOn bildirim")
             .with_decorations(false)
@@ -536,6 +535,17 @@ impl BildirimPenceresi {
         }
         ctx.request_repaint_after(Duration::from_millis(if opaklik < 1.0 { 16 } else { 200 }));
     }
+}
+
+/// Ana ekranın çalışma alanı (görev çubuğu hariç; Qt availableGeometry karşılığı), nokta cinsinden.
+pub fn calisma_alani(ctx: &egui::Context) -> Option<egui::Rect> {
+    let ppp = ctx.native_pixels_per_point().unwrap_or(1.0).max(0.5);
+    #[cfg(windows)]
+    if let Some((l, t, r, b)) = rizeon::win::calisma_alani() {
+        return Some(egui::Rect::from_min_max(Pos2::new(l as f32 / ppp, t as f32 / ppp), Pos2::new(r as f32 / ppp, b as f32 / ppp)));
+    }
+    let m = rizeon::yakalama::monitorler().into_iter().next()?;
+    Some(egui::Rect::from_min_size(Pos2::new(m.sol as f32 / ppp, m.ust as f32 / ppp), Vec2::new(m.w as f32 / ppp, m.h as f32 / ppp - 48.0)))
 }
 
 fn eylem_adi(e: &BildirimEylemi) -> &'static str {

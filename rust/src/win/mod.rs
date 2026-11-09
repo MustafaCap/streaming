@@ -117,6 +117,15 @@ pub fn yakalamadan_gizle(hwnd: isize, gizle: bool) -> bool {
     unsafe { SetWindowDisplayAffinity(HWND(hwnd as _), if gizle { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
 }
 
+/// Ana ekranın çalışma alanı (görev çubuğu hariç), fiziksel piksel: (sol, üst, sağ, alt).
+pub fn calisma_alani() -> Option<(i32, i32, i32, i32)> {
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::UI::WindowsAndMessaging::{SystemParametersInfoW, SPI_GETWORKAREA, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS};
+    let mut r = RECT::default();
+    unsafe { SystemParametersInfoW(SPI_GETWORKAREA, 0, Some(&mut r as *mut RECT as *mut _), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0)) }.ok()?;
+    (r.right > r.left && r.bottom > r.top).then_some((r.left, r.top, r.right, r.bottom))
+}
+
 /// Önde bir oyun özel tam ekranda (exclusive fullscreen) mı çalışıyor? O modda saydam pencereler
 /// oyunun üstünde görünmeyebilir; kalem çizimleri yine yayına gider ama kullanıcı ekranda görmez.
 pub fn ozel_tam_ekran_mi() -> bool {

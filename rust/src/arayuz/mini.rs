@@ -55,12 +55,8 @@ impl MiniBar {
 
     /// Ana ekranın altında ortalı (görev çubuğunun üstünde).
     fn varsayilan_konum(ctx: &egui::Context, boyut: Vec2) -> Pos2 {
-        let ppp = ctx.native_pixels_per_point().unwrap_or(1.0).max(0.5);
-        match rizeon::yakalama::monitorler().first() {
-            Some(m) => egui::pos2(
-                m.sol as f32 / ppp + (m.w as f32 / ppp - boyut.x) / 2.0,
-                (m.ust + m.h as i32) as f32 / ppp - 48.0 - boyut.y - 60.0,
-            ),
+        match super::pencereler::calisma_alani(ctx) {
+            Some(g) => egui::pos2(g.left() + (g.width() - boyut.x) / 2.0, g.bottom() - boyut.y - 60.0),
             None => egui::pos2(500.0, 900.0),
         }
     }
