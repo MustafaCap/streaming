@@ -119,6 +119,7 @@ struct Pencere {
     gizli: bool,
     tepsiye: bool,
     ilk_kuculme: bool,
+    onceki_kayit: bool,
     cikiyor: bool,
     #[cfg_attr(not(windows), allow(dead_code))]
     hazirlandi: bool,
@@ -184,6 +185,7 @@ impl Pencere {
             gizli: false,
             tepsiye,
             ilk_kuculme: true,
+            onceki_kayit: false,
             cikiyor: false,
             hazirlandi: false,
             #[cfg(windows)]
@@ -246,7 +248,7 @@ impl Pencere {
                     ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
                     ctx.send_viewport_cmd(ViewportCommand::Focus);
                 }
-                Komut::MiniBar => self.mini.acik = !self.mini.acik,
+                Komut::MiniBar => self.mini_moda_gec(ctx),
                 Komut::Bolge => self.katman.bolge_sec(&self.uyg),
                 Komut::Kalem => self.katman.kalem_ac_kapat(&self.uyg),
                 Komut::KalemTemizle => self.uyg.k.cizim.temizle(),
@@ -425,7 +427,7 @@ impl Pencere {
 
     /// Kontrol barının en geniş hâli (kayıt sürerken): sütunlar kayıt başlayınca yer değiştirmesin.
     fn kontrol_genisligi(ui: &Ui) -> f32 {
-        let kg = bilesen::kayit_grubu_genisligi(ui, 0, 40.0, true, true);
+        let kg = bilesen::kayit_grubu_genisligi(ui.painter(), 0, 40.0, true, true);
         6.0 * tema::KARO.0 + kg + 3.0 * 9.0 + 9.0 * 4.0 + 12.0 + 2.0
     }
 
@@ -657,7 +659,7 @@ impl Pencere {
         let d = self.durum.clone();
         ui.painter().rect(r.shrink(0.5), 12.0, tema::PANEL, Stroke::new(1.0, beyaz(tema::A_KENARLIK_INCE)), egui::StrokeKind::Middle);
         let kayitta = d.kayit == "açık";
-        let kayit_gen = if kayitta { bilesen::kayit_grubu_genisligi(ui, d.kayit_suresi, 40.0, true, true) } else { tema::KARO.0 };
+        let kayit_gen = if kayitta { bilesen::kayit_grubu_genisligi(ui.painter(), d.kayit_suresi, 40.0, true, true) } else { tema::KARO.0 };
         let icerik = 6.0 * tema::KARO.0 + kayit_gen + 3.0 * 9.0 + 9.0 * 4.0;
         let x0 = (r.center().x - icerik / 2.0).max(r.left() + 7.0).round();
         let ic = Rect::from_min_size(Pos2::new(x0, r.top() + 7.0), Vec2::new(icerik, 60.0));
@@ -699,15 +701,12 @@ impl Pencere {
             if !m.is_empty() {
                 self.uyg.bildir(&m, None, false);
             }
-            if d.bolge.is_empty() {
-                self.katman.bolge_sec(&self.uyg);
-            }
         }
         if bilesen::karo(ui, Some("kalem"), "Kalem", false, self.katman.kalem_acik(), true)
             .on_hover_text(ipucu("Kalem: ekranın üstüne çiz", &self.tus("kalem.ac_kapat")))
             .clicked()
         {
-            self.katman.kalem_ac_kapat(&self.uyg);
+            self.uyg.komut(Komut::Kalem);
         }
         bilesen::dikey_ayrac(ui, 60.0);
         if kayitta {
@@ -859,6 +858,15 @@ impl eframe::App for Pencere {
                 }
             }
         }
+        // Kayıt kısayolla (başka bir uygulamadayken) başladıysa mini bar açılsın: kayıt sürdüğü görünsün
+        let kayitta = self.uyg.depo.al().kayit == "açık";
+        if kayitta && !self.onceki_kayit && !self.mini.acik {
+            let odakta = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+            if self.gizli || !odakta {
+                self.mini_moda_gec(ctx);
+            }
+        }
+        self.onceki_kayit = kayitta;
         let gorunur = !self.gizli;
         self.uyg.k.onizleme_gorunur.store(gorunur, Ordering::Relaxed);
         self.uyg.k.mini_gorunur.store(self.mini.acik, Ordering::Relaxed);

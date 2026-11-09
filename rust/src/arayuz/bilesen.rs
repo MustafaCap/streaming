@@ -408,8 +408,8 @@ pub struct KayitGrubuSonucu {
 }
 
 /// `kayit_grubu`nun genişliği (kontrol barını ortalamak için önceden gerekir).
-pub fn kayit_grubu_genisligi(ui: &Ui, saniye: u64, dugme_boyu: f32, bitir: bool, zeminli: bool) -> f32 {
-    let sg = ui.painter().layout_no_wrap(sure_metni(saniye), tema::yazi(tema::GOVDE_PX), Color32::WHITE);
+pub fn kayit_grubu_genisligi(p: &egui::Painter, saniye: u64, dugme_boyu: f32, bitir: bool, zeminli: bool) -> f32 {
+    let sg = p.layout_no_wrap(sure_metni(saniye), tema::yazi(tema::GOVDE_PX), Color32::WHITE);
     let nokta = if dugme_boyu >= 40.0 { 7.0 } else { 6.0 };
     let (sol, sag) = if zeminli { (8.0, 4.0) } else { (2.0, 0.0) };
     sol + 4.0 + nokta + 6.0 + 6.0 + sg.size().x + 6.0 + 2.0 + dugme_boyu + if bitir { 2.0 + dugme_boyu } else { 0.0 } + sag
