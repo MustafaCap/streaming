@@ -74,7 +74,11 @@ fn olcum(sn: u64, sonuc: Option<&str>) -> i32 {
         d.fps,
         d.kare_suresi_ms,
         d.yakalama_yontemi,
-        if uyg.tekrar.acik() { "açık" } else { "kapalı" }
+        if uyg.tekrar.acik() {
+            format!("açık, {:.0} sn / {:.0} MB tutuluyor", uyg.tekrar.tutulan_sure(), uyg.tekrar.bellek() as f64 / 1e6)
+        } else {
+            format!("kapalı ({})", uyg.tekrar.son_hata())
+        }
     );
     log::info!("Ölçüm: {}", metin.trim());
     print!("{metin}");

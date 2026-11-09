@@ -103,6 +103,8 @@ jobs:
           Get-Content olcum.txt
           "### CPU ölçümü (GitHub bulut makinesi)" >> $env:GITHUB_STEP_SUMMARY
           Get-Content olcum.txt >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "--- uygulama log'u ---"
+          Get-Content olcum_veri\RizeOn\logs\rizeon.log -Tail 40 -ErrorAction SilentlyContinue
 
       - uses: actions/upload-artifact@v4
         with:

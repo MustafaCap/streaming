@@ -344,7 +344,15 @@ impl AnlikTekrar {
                 let mut tampon = vec![0u8; 65536];
                 loop {
                     let n = match stdout.read(&mut tampon) {
-                        Ok(0) | Err(_) => break,
+                        Ok(0) | Err(_) => {
+                            // FFmpeg beklenmedik kapandı: tekrar kapalı sayılsın (düğme "hazır" görünmesin)
+                            if o2.acik.swap(false, Ordering::SeqCst) {
+                                let m = "Anlık tekrar durdu: FFmpeg kapandı".to_string();
+                                log::warn!("{m}");
+                                *o2.son_hata.lock().unwrap() = m;
+                            }
+                            break;
+                        }
                         Ok(n) => n,
                     };
                     for (p, veri) in ts.besle(&tampon[..n]) {
@@ -374,7 +382,8 @@ impl AnlikTekrar {
     /// Kapatır ve belleği boşaltır.
     pub fn durdur(&self) {
         let mut g = self.surec.lock().unwrap();
-        if !self.ortak.acik.swap(false, Ordering::SeqCst) {
+        // FFmpeg kendiliğinden kapandıysa acik zaten false; süreç yine de toplanır
+        if !self.ortak.acik.swap(false, Ordering::SeqCst) && g.is_none() {
             return;
         }
         {
