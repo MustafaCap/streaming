@@ -78,6 +78,8 @@ pub struct Uygulama {
     /// Arayüzün yapması gerekenler (mini bar, pencereyi göster, çıkış): kısayol iş parçacığından gelir.
     pub arayuz_istekleri: Mutex<VecDeque<Komut>>,
     pub uyandir: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
+    #[cfg(windows)]
+    bas_konus: Mutex<Option<crate::kisayol::BasKonus>>,
 }
 
 pub fn hat_ayari(a: &Ayarlar) -> HatAyari {
@@ -170,6 +172,8 @@ impl Uygulama {
             bildirimler: Default::default(),
             arayuz_istekleri: Default::default(),
             uyandir: Mutex::new(None),
+            #[cfg(windows)]
+            bas_konus: Mutex::new(None),
         });
         let zayif = Arc::downgrade(&u);
         u.kayitci.hata_olunca(Arc::new(move |mesaj| {
@@ -192,8 +196,12 @@ impl Uygulama {
         self.hat.lock().unwrap().baslat();
         #[cfg(windows)]
         {
+            self.ses.gurultu_ayarla(self.ayarlar.lock().unwrap().mantik("audio.noise_suppression", false));
             self.ses.baslat();
             self.ses.ac(true);
+        }
+        if let Err(e) = self.bas_konusu_uygula() {
+            self.bildir(&format!("Bas-konuş açılamadı: {e}"), None, false);
         }
         if self.ayarlar.lock().unwrap().mantik("record.replay", true) {
             let u = self.clone();
@@ -295,7 +303,10 @@ impl Uygulama {
             m.kisma_seviyesi = a.ondalik("audio.ducking_level", 0.3) as f32;
         }
         #[cfg(windows)]
-        self.ses.ayar_degistir(motor_ayari(&a));
+        {
+            self.ses.ayar_degistir(motor_ayari(&a));
+            self.ses.gurultu_ayarla(a.mantik("audio.noise_suppression", false));
+        }
         self.kayitci.klasor_ayarla(kayit_klasoru(&a));
         let kod = a.al("record.encoder").and_then(Value::as_str).unwrap_or("auto").to_string();
         self.kayitci.kodlayici_ayarla(&kod);
@@ -303,6 +314,9 @@ impl Uygulama {
         self.tekrar.sure_ayarla(a.sayi("record.replay_seconds", 15));
         let tekrar_istek = a.mantik("record.replay", true);
         drop(a);
+        if let Err(e) = self.bas_konusu_uygula() {
+            self.bildir(&format!("Bas-konuş açılamadı: {e}"), None, false);
+        }
         if tekrar_istek != self.tekrar.acik() {
             let u = self.clone();
             std::thread::spawn(move || {
@@ -315,6 +329,57 @@ impl Uygulama {
                 }
                 u.depo.guncelle(|d| d.tekrar_acik = u.tekrar.acik());
             });
+        }
+    }
+
+    /// Bas-konuş tuşu (hotkeys.bas_konus) ve anahtarı (audio.ptt) ayarlardan okunur: ikisi de varsa
+    /// mikrofon sadece tuş basılıyken açık. Tuş yoksa ya da anahtar kapalıysa mikrofon hep açık.
+    pub fn bas_konusu_uygula(self: &Arc<Self>) -> Result<(), String> {
+        let (acik, tus) = {
+            let a = self.ayarlar.lock().unwrap();
+            let tus = a.veri.get("hotkeys").and_then(|h| h.get("bas_konus")).and_then(Value::as_str).unwrap_or("").trim().to_string();
+            (a.mantik("audio.ptt", false), tus)
+        };
+        let kapiyi_ac = |u: &Uygulama| {
+            if let Some(k) = u.mikser.lock().unwrap().kanal("mikrofon") {
+                k.kapi = true;
+            }
+            u.depo.guncelle(|d| {
+                d.bas_konus = false;
+                d.konusuyor = false;
+            });
+        };
+        #[cfg(windows)]
+        {
+            let mut bk = self.bas_konus.lock().unwrap();
+            *bk = None;
+            kapiyi_ac(self);
+            if !acik {
+                return Ok(());
+            }
+            if tus.is_empty() {
+                return Err("Ayarlar > Kısayollar'da bas-konuş tuşu seçilmemiş".into());
+            }
+            let zayif = Arc::downgrade(self);
+            *bk = Some(crate::kisayol::BasKonus::baslat(&tus, move |basili| {
+                if let Some(u) = zayif.upgrade() {
+                    if let Some(k) = u.mikser.lock().unwrap().kanal("mikrofon") {
+                        k.kapi = basili;
+                    }
+                    u.depo.guncelle(|d| {
+                        d.bas_konus = true;
+                        d.konusuyor = basili;
+                    });
+                }
+            })?);
+            log::info!("Bas-konuş açık ({tus})");
+            Ok(())
+        }
+        #[cfg(not(windows))]
+        {
+            kapiyi_ac(self);
+            let _ = (acik, tus);
+            Ok(())
         }
     }
 

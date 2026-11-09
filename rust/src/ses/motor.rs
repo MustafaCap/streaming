@@ -40,6 +40,8 @@ struct Ic {
     calis: AtomicBool,
     yeniden: AtomicBool,
     cihaz_listesi: Mutex<Vec<String>>,
+    /// mikrofon sesine gürültü azaltma uygulansın mı
+    gurultu: Arc<AtomicBool>,
 }
 
 pub struct SesMotoru {
@@ -63,6 +65,7 @@ impl SesMotoru {
                 calis: AtomicBool::new(false),
                 yeniden: AtomicBool::new(false),
                 cihaz_listesi: Default::default(),
+                gurultu: Arc::new(AtomicBool::new(false)),
             }),
             is: Mutex::new(None),
         }
@@ -124,6 +127,15 @@ impl SesMotoru {
             *a = yeni;
             self.ic.yeniden.store(true, Ordering::SeqCst);
         }
+    }
+
+    /// Gürültü azaltmayı aç/kapat (mikrofon yeniden açılmadan, bir sonraki blokta geçerli).
+    pub fn gurultu_ayarla(&self, acik: bool) {
+        self.ic.gurultu.store(acik, Ordering::SeqCst);
+    }
+
+    pub fn gurultu_acik(&self) -> bool {
+        self.ic.gurultu.load(Ordering::Relaxed)
     }
 
     pub fn yenile(&self) {
@@ -313,7 +325,18 @@ impl Denetci {
             }
         }
         let mikser = self.ic.mikser.clone();
+        let gurultu_acik = self.ic.gurultu.clone();
+        let mut gurultu: Option<super::gurultu::GurultuAzaltici> = None;
         match wasapi::cihaz_yakala(&cihaz.kimlik, false, move |blok| {
+            // Gürültü azaltma mikser kilidinin dışında (10 ms ses için ~0,1 ms)
+            let temiz;
+            let blok = if gurultu_acik.load(Ordering::Relaxed) {
+                temiz = gurultu.get_or_insert_with(Default::default).isle(blok, 2);
+                &temiz[..]
+            } else {
+                gurultu = None;
+                blok
+            };
             if let Some(k) = mikser.lock().unwrap().kanal("mikrofon") {
                 k.tampon("", ORNEKLEME).yaz(blok, 2);
             }

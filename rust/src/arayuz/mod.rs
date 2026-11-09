@@ -389,6 +389,34 @@ impl Pencere {
         p.rect_filled(dolu, 2.0, tema::SES);
     }
 
+    /// Gürültü azaltma ve bas-konuş anahtarları (mikrofon sütununun altında).
+    fn mikrofon_secenekleri(&mut self, ui: &mut egui::Ui, d: &Durum) {
+        ui.horizontal(|ui| {
+            #[cfg(windows)]
+            {
+                let mut g = self.uyg.ses.gurultu_acik();
+                if ui.checkbox(&mut g, RichText::new("Gürültü azalt").small()).on_hover_text("Klavye, fan ve uğultu sesini bastırır (RNNoise)").changed() {
+                    self.uyg.ses.gurultu_ayarla(g);
+                    self.uyg.ayarla("audio.noise_suppression", g.into());
+                }
+            }
+            let mut ptt = self.uyg.ayarlar.lock().unwrap().mantik("audio.ptt", false);
+            let tus = self.tus("bas_konus");
+            let ipucu = if tus.is_empty() { "Önce Ayarlar > Kısayollar'da bas-konuş tuşu seç".to_string() } else { format!("{tus} basılıyken mikrofon açık") };
+            if ui.checkbox(&mut ptt, RichText::new("Bas-konuş").small()).on_hover_text(ipucu).changed() {
+                self.uyg.ayarla("audio.ptt", ptt.into());
+                if let Err(e) = self.uyg.bas_konusu_uygula() {
+                    self.uyg.ayarla("audio.ptt", false.into());
+                    self.uyg.bildir(&format!("Bas-konuş açılamadı: {e}"), None, false);
+                }
+            }
+            if d.bas_konus {
+                let (m, r) = if d.konusuyor { ("konuşuyor", tema::SES) } else { ("susuyor", tema::SOLUK) };
+                ui.label(RichText::new(m).small().color(r));
+            }
+        });
+    }
+
     fn kontrol_cubugu(&mut self, ui: &mut egui::Ui) {
         let d = self.durum.clone();
         let seviyeler = self.uyg.mikser.lock().unwrap().seviyeler();
@@ -425,6 +453,9 @@ impl Pencere {
                     }
                     let alt = if anahtar == "mikrofon" { &d.mikrofon_adi } else { &d.sistem_kaynagi };
                     ui.label(RichText::new(alt).small().color(tema::SOLUK));
+                    if anahtar == "mikrofon" {
+                        self.mikrofon_secenekleri(ui, &d);
+                    }
                 });
             }
             ui.separator();

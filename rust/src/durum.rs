@@ -31,6 +31,10 @@ pub struct Durum {
     pub kayit_suresi: u64,
     pub kayit_duraklatildi: bool,
     pub tekrar_acik: bool,
+    /// bas-konuş açık mı (tuş ayarlı ve anahtar açık)
+    pub bas_konus: bool,
+    /// bas-konuş tuşu şu an basılı mı
+    pub konusuyor: bool,
     pub kaynak_turu: String,
     pub kaynak_adi: String,
 }
@@ -64,6 +68,8 @@ impl Default for Durum {
             kayit_suresi: 0,
             kayit_duraklatildi: false,
             tekrar_acik: false,
+            bas_konus: false,
+            konusuyor: false,
             kaynak_turu: "ekran".into(),
             kaynak_adi: String::new(),
         }

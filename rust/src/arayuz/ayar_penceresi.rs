@@ -21,6 +21,7 @@ const KOMUT_ADLARI: &[(&str, &str)] = &[
     ("anlik_kayit.kaydet", "Son saniyeleri kaydet (anlık tekrar)"),
     ("ekran.goruntusu", "Ekran görüntüsü al"),
     ("panik", "Panik (bekleme ekranı)"),
+    ("bas_konus", "Bas-konuş tuşu (basılı tut)"),
 ];
 
 #[derive(Clone, Copy, PartialEq, Default)]
@@ -145,6 +146,8 @@ impl AyarPenceresi {
         let mut mik: Vec<(Value, String)> = vec![(json!(""), "Windows varsayılanı".into())];
         mik.extend(self.mikrofonlar.iter().map(|m| (json!(m), m.clone())));
         self.secim(ui, "mikrofon", "audio.mic_device", &mik);
+        self.onay(ui, "audio.noise_suppression", false, "Gürültü azaltma (klavye, fan, uğultu)");
+        self.onay(ui, "audio.ptt", false, "Bas-konuş (Kısayollar'daki tuş basılıyken mikrofon açık)");
         self.onay(ui, "audio.ducking", false, "Konuşunca bilgisayar sesini kıs");
         let mut sev = al(&self.taslak, "audio.ducking_level").as_f64().unwrap_or(0.3);
         if ui.add(egui::Slider::new(&mut sev, 0.0..=1.0).text("kısma seviyesi")).changed() {
@@ -221,7 +224,7 @@ impl AyarPenceresi {
     }
 
     fn kisayollar(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new("Örnek: Ctrl+Shift+R. Boş bırakırsan kısayol olmaz.").small().color(tema::YAZI2));
+        ui.label(RichText::new("Örnek: Ctrl+Shift+R, Fare4, Ctrl+Fare5. Boş bırakırsan kısayol olmaz.").small().color(tema::YAZI2));
         let mut adlar: Vec<(String, String)> = KOMUT_ADLARI.iter().map(|(k, a)| (k.to_string(), a.to_string())).collect();
         for i in 1..=9 {
             adlar.push((format!("sahne.sec:{i}"), format!("Sahne {i}")));
@@ -251,7 +254,7 @@ impl AyarPenceresi {
         if let Some(h) = self.taslak.get("hotkeys").and_then(Value::as_object) {
             for (komut, v) in h {
                 let Some(t) = v.as_str().filter(|t| !t.trim().is_empty()) else { continue };
-                if Komut::coz(komut).is_none() {
+                if Komut::coz(komut).is_none() && komut != "bas_konus" {
                     continue;
                 }
                 let tus = rizeon::kisayol::tus_coz(t).map_err(|_| format!("Geçersiz kısayol: {t}"))?;

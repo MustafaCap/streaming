@@ -1,4 +1,5 @@
 //! Ses: mikser (cihazsız, test edilebilir) ve Windows ses motoru (WASAPI).
+pub mod gurultu;
 pub mod karistirici;
 #[cfg(windows)]
 pub mod motor;

@@ -12,6 +12,10 @@ pub struct GecersizTus(pub String);
 
 fn ozel_tus(k: &str) -> Option<u32> {
     Some(match k {
+        // Fare tuşları (orta tuş, yan tuşlar): RegisterHotKey desteklemez, durumları yoklanır
+        "fare3" | "mouse3" => 0x04,
+        "fare4" | "mouse4" => 0x05,
+        "fare5" | "mouse5" => 0x06,
         "del" | "delete" => 0x2E,
         "ins" | "insert" => 0x2D,
         "enter" => 0x0D,
@@ -93,8 +97,21 @@ pub fn tus_metni(metin: &str) -> String {
         .join("+")
 }
 
+/// Fare tuşu mu (VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2)?
+pub fn fare_tusu(vk: u32) -> bool {
+    matches!(vk, 0x04..=0x06)
+}
+
+/// Tuş (değiştiricileriyle) şu an basılı mı? `basili(vk)` tek bir sanal tuşun durumunu verir.
+/// Değiştiriciler tam eşleşmeli: Ctrl+Fare4 için Ctrl basılı olmalı, Shift basılı olmamalı.
+pub fn birlesim_basili(mods: u32, vk: u32, basili: impl Fn(u32) -> bool) -> bool {
+    let istenen = [(MOD_CONTROL, 0x11), (MOD_ALT, 0x12), (MOD_SHIFT, 0x10)];
+    let win = basili(0x5B) || basili(0x5C);
+    basili(vk) && istenen.iter().all(|(m, v)| (mods & m != 0) == basili(*v)) && ((mods & MOD_WIN != 0) == win)
+}
+
 #[cfg(windows)]
-pub use crate::win::kisayol::KisayolYoneticisi;
+pub use crate::win::kisayol::{BasKonus, KisayolYoneticisi};
 
 #[cfg(test)]
 mod testler {
@@ -102,6 +119,12 @@ mod testler {
     #[test]
     fn cozumleme() {
         assert_eq!(tus_coz("Ctrl+Shift+R"), Ok((MOD_CONTROL | MOD_SHIFT, 0x52)));
+        assert_eq!(tus_coz("Fare4"), Ok((0, 0x05)));
+        assert!(fare_tusu(tus_coz("Ctrl+Fare5").unwrap().1));
+        let basili = |vk: u32| vk == 0x05 || vk == 0x11;
+        assert!(birlesim_basili(MOD_CONTROL, 0x05, basili));
+        assert!(!birlesim_basili(0, 0x05, basili));
+        assert!(!birlesim_basili(MOD_CONTROL | MOD_SHIFT, 0x05, basili));
         assert_eq!(tus_coz("ctrl + shift+1"), Ok((MOD_CONTROL | MOD_SHIFT, 0x31)));
         assert_eq!(tus_coz("F6"), Ok((0, 0x75)));
         assert_eq!(tus_coz("Del"), Ok((0, 0x2E)));
