@@ -59,8 +59,8 @@ pub struct HatKontrol {
     pub ayar: Mutex<HatAyari>,
     /// Sadece bir pencere gösteriliyorsa (hwnd, başlık); None: tüm ekran
     pub pencere: Mutex<Option<(isize, String)>>,
-    /// Bölge seçme / yakınlaştırma: kaynak görüntünün (x, y, w, h) kısmı; None: tamamı
-    pub bolge: Mutex<Option<(f64, f64, f64, f64)>>,
+    /// Bölge seçme: yumuşak yakınlaştırma / vurgulama (monitöre oranla)
+    pub bolge: crate::bolge::BolgeSecimi,
     /// Son ham kaynak karesinin boyutu (bölge seçerken ekran koordinatına çevirmek için)
     pub kaynak_boyutu: Mutex<(u32, u32)>,
     /// Kalem çizimleri (monitöre oranlı); ekran kaynağının üstüne çizilir
@@ -127,7 +127,7 @@ type KaynakAnahtari = (usize, String, Option<isize>);
 
 struct EkranOnbellek {
     ham: KareRef,
-    imza: (Option<(i32, i32)>, (bool, bool), u32, u32, Option<(i64, i64, i64, i64)>, u64),
+    imza: (Option<(i32, i32)>, (bool, bool), u32, u32, [i64; 9], u64),
     cikis: KareRef,
 }
 
@@ -233,7 +233,7 @@ impl Ic {
             }
         });
         let (w, h) = (self.k.genislik, self.k.yukseklik);
-        let bolge = (*self.k.bolge.lock().unwrap()).map(|b| kare::bolge_sinirla(&ham, b));
+        let gorunum = self.k.bolge.gorunum();
         let vurgu = ayar.imlec_vurgusu || sahne.imlec_vurgusu();
         let imlec_iste = ayar.imlec_goster || vurgu;
         let konum = if imlec_iste { self.kaynak.imlec() } else { None };
@@ -241,7 +241,7 @@ impl Ic {
             self.vurgu.guncelle(konum);
         }
         let dalga = vurgu && self.vurgu.dalga_var();
-        let bolge_imza = bolge.map(|(a, b, c, d)| (a as i64, b as i64, c as i64, d as i64));
+        let bolge_imza = gorunum.imza();
         // Kalem: çizim yoksa hiçbir iş yapılmaz; varsa sürümü önbellek imzasına girer
         let ekran_modu = pencere.is_none();
         let cizimler = (ekran_modu && sahne.kalem() && !self.k.cizim.bos()).then(|| self.k.cizim.anlik());
@@ -257,25 +257,28 @@ impl Ic {
                 return Some(o.cikis.clone()); // ekran ve fare yerinde: hiçbir iş yapılmaz
             }
         }
-        let (mut cikis, bx, by, bw, bh) = match bolge {
-            Some((bx, by, bw, bh)) => (kare::sigdir_bolge(&ham, (bx, by, bw, bh), w, h), bx, by, bw, bh),
-            None => (kare::sigdir(&ham, w, h), 0.0, 0.0, ham.w as f64, ham.h as f64),
+        let (mut cikis, (bx, by, olcek, dx, dy)) = if gorunum.tam_mi() {
+            let (o, dx, dy) = kare::sigdir_donusumu(ham.w, ham.h, w, h);
+            (kare::sigdir(&ham, w, h), (0.0, 0.0, o, dx as f64, dy as f64))
+        } else {
+            crate::bolge::uygula(&ham, &gorunum, w, h, self.k.bolge.karartma_gucu)
         };
+        let donusum = |x: f64, y: f64| ((x - bx) * olcek + dx, (y - by) * olcek + dy);
         if let Some((sekiller, lazer, lazer_rengi)) = &cizimler {
-            let (olcek, dx, dy) = kare::sigdir_donusumu(bw.round() as u32, bh.round() as u32, w, h);
             let (hw, hh) = (ham.w as f64, ham.h as f64);
             crate::cizim::ciz(
                 &mut cikis,
                 sekiller,
                 lazer,
                 *lazer_rengi,
-                |x, y| (((x as f64 * hw - bx) * olcek + dx as f64) as f32, ((y as f64 * hh - by) * olcek + dy as f64) as f32),
+                |x, y| {
+                    let (a, b) = donusum(x as f64 * hw, y as f64 * hh);
+                    (a as f32, b as f32)
+                },
                 (hh * olcek) as f32,
             );
         }
         if imlec_iste {
-            let (olcek, dx, dy) = kare::sigdir_donusumu(bw.round() as u32, bh.round() as u32, w, h);
-            let donusum = |x: f64, y: f64| ((x - bx) * olcek + dx as f64, (y - by) * olcek + dy as f64);
             let cikis_konumu = konum.map(|(x, y)| donusum(x as f64, y as f64)).filter(|&(cx, cy)| cx > -30.0 && cx < w as f64 && cy > -30.0 && cy < h as f64);
             if vurgu {
                 let o = (olcek * ham.h as f64 / 1080.0).max(0.3) as f32;
@@ -489,7 +492,7 @@ impl VideoHatti {
             mini_gorunur: AtomicBool::new(false),
             ayar: Mutex::new(ayar),
             pencere: Mutex::new(None),
-            bolge: Mutex::new(None),
+            bolge: Default::default(),
             kaynak_boyutu: Mutex::new((0, 0)),
             cizim: Arc::new(crate::cizim::CizimDeposu::new()),
             son_kare: Mutex::new(Kare::siyah(genislik, yukseklik).arc()),

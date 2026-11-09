@@ -117,6 +117,13 @@ pub fn yakalamadan_gizle(hwnd: isize, gizle: bool) -> bool {
     unsafe { SetWindowDisplayAffinity(HWND(hwnd as _), if gizle { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
 }
 
+/// Önde bir oyun özel tam ekranda (exclusive fullscreen) mı çalışıyor? O modda saydam pencereler
+/// oyunun üstünde görünmeyebilir; kalem çizimleri yine yayına gider ama kullanıcı ekranda görmez.
+pub fn ozel_tam_ekran_mi() -> bool {
+    use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
+    unsafe { SHQueryUserNotificationState() }.map(|d| d == QUNS_RUNNING_D3D_FULL_SCREEN).unwrap_or(false)
+}
+
 /// Windows 11: çerçevesiz pencerenin köşeleri de sistem gibi yuvarlak olsun (8 px).
 pub fn koseleri_yuvarla(hwnd: isize) -> bool {
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND};

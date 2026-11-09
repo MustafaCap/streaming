@@ -136,6 +136,9 @@ struct Pencere {
     tepsi: Option<tepsi::Tepsi>,
     #[cfg(windows)]
     kisayollar: Option<rizeon::kisayol::KisayolYoneticisi>,
+    /// "kalem" kısayol grubu (1-7, Ctrl+Z, Del, Esc) şu an alınmış mı
+    #[cfg(windows)]
+    kalem_tuslari: bool,
     durum: Durum,
 }
 
@@ -208,6 +211,8 @@ impl Pencere {
             tepsi: None,
             #[cfg(windows)]
             kisayollar: None,
+            #[cfg(windows)]
+            kalem_tuslari: false,
         };
         #[cfg(windows)]
         {
@@ -223,6 +228,20 @@ impl Pencere {
             Ok("hakkinda") => p.hakkinda.acik = true,
             Ok("yardim") => p.yardim.ac(""),
             Ok("secici") => p.secici.ac(),
+            Ok("bolgesec") => {
+                let _ = p.katman.bolge_ac_kapat(&p.uyg);
+            }
+            Ok("kalem") => {
+                let _ = p.katman.kalem_ac_kapat(&p.uyg);
+            }
+            Ok("bolge") => {
+                p.uyg.bolge_sec([0.2, 0.25, 0.4, 0.35], "vurgula");
+                let _ = p.katman.kalem_ac_kapat(&p.uyg);
+                p.uyg.k.cizim.basla("kare", rizeon::cizim::RENKLER[1], 0.3, 0.35, 1.0);
+                p.uyg.k.cizim.surukle(0.45, 0.5);
+                p.uyg.k.cizim.bitir();
+                p.uyg.k.cizim.yazi_ekle(rizeon::cizim::RENKLER[2], 0.3, 0.52, "Deneme yazısı", 1.0);
+            }
             Ok(a) if a.starts_with("ayarlar") => p.ayarlari_ac(a.strip_prefix("ayarlar:")),
             Ok("bildirim") => p.uyg.bildirim_ekle(rizeon::uygulama::Bildirim {
                 metin: "Mikrofon kapandı".into(),
@@ -277,6 +296,31 @@ impl Pencere {
         }
     }
 
+    /// Kalem açıkken (yazı yazılmıyorken) kalem tuşları genel kısayol olarak alınır; kapanınca bırakılır.
+    #[cfg(windows)]
+    fn kalem_tuslarini_esle(&mut self) {
+        let istenen = self.katman.kalem_tuslari_istenen();
+        if istenen == self.kalem_tuslari {
+            return;
+        }
+        let Some(y) = self.kisayollar.as_ref() else { return };
+        if istenen {
+            let mut tuslar: std::collections::HashMap<String, String> = {
+                let a = self.uyg.ayarlar.lock().unwrap();
+                a.veri
+                    .get("pen_hotkeys")
+                    .and_then(|v| v.as_object())
+                    .map(|m| m.iter().filter(|(k, _)| Komut::coz(k).is_some()).filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_string()))).collect())
+                    .unwrap_or_default()
+            };
+            tuslar.entry("kalem.kapat".into()).or_insert_with(|| "Esc".into());
+            y.grup_ayarla("kalem", tuslar);
+        } else {
+            y.grubu_kaldir("kalem");
+        }
+        self.kalem_tuslari = istenen;
+    }
+
     fn tus(&self, komut: &str) -> String {
         tus_metni(&self.uyg, komut)
     }
@@ -294,9 +338,28 @@ impl Pencere {
                     ctx.send_viewport_cmd(ViewportCommand::Focus);
                 }
                 Komut::MiniBar => self.mini_moda_gec(ctx),
-                Komut::Bolge => self.katman.bolge_sec(&self.uyg),
-                Komut::Kalem => self.katman.kalem_ac_kapat(&self.uyg),
-                Komut::KalemTemizle => self.uyg.k.cizim.temizle(),
+                Komut::Bolge => {
+                    let m = self.katman.bolge_ac_kapat(&self.uyg);
+                    self.katman.bildirimler.push(m);
+                }
+                Komut::Kalem => {
+                    let m = self.katman.kalem_ac_kapat(&self.uyg);
+                    self.katman.bildirimler.push(m);
+                }
+                Komut::KalemTemizle => {
+                    let m = katman::Katman::temizle(&self.uyg);
+                    self.katman.bildirimler.push(m);
+                }
+                Komut::KalemTur(n) => self.katman.tur_sec(n),
+                Komut::KalemRenk(n) => self.katman.renk_sec(n),
+                Komut::KalemKalinlik(n) => self.katman.kalinlik_sec(n),
+                Komut::KalemGeriAl => {
+                    self.uyg.k.cizim.geri_al();
+                }
+                Komut::KalemKapat => {
+                    let m = self.katman.kapat_komutu(&self.uyg);
+                    self.katman.bildirimler.push(m);
+                }
                 Komut::KaynakSec => self.secici.ac(),
                 Komut::Cikis => self.cikmayi_onayla(),
                 Komut::Hakkinda => self.hakkinda.acik = true,
@@ -631,7 +694,8 @@ impl Pencere {
             let tus = self.tus("bolge.sec");
             let aciklama = if tus.is_empty() { "Kutu çiz".to_string() } else { format!("Kutu çiz · {tus}") };
             if bilesen::menu_ogesi(ui, "Bölge seç…", &aciklama, !d.bolge.is_empty()).clicked() {
-                self.katman.bolge_sec(&self.uyg);
+                let m = self.katman.bolge_ac_kapat(&self.uyg);
+                self.katman.bildirimler.push(m);
             }
         });
 
@@ -978,7 +1042,18 @@ impl eframe::App for Pencere {
         self.hakkinda.goster(&ctx);
         self.yardim.goster(&ctx);
         self.mini.goster(&ctx, &self.uyg, &self.durum);
+        if self.durum.kaynak_turu == "pencere" && (self.katman.kalem_acik() || !self.durum.bolge.is_empty()) {
+            // pencere yakalamaya geçildi: kalem, bölge seçimi ve bölge kapanır
+            self.katman.hepsini_kapat(&self.uyg);
+        }
         self.katman.goster(&ctx, &self.uyg);
+        for m in std::mem::take(&mut self.katman.bildirimler) {
+            if !m.is_empty() {
+                self.uyg.bildir(&m, None, false);
+            }
+        }
+        #[cfg(windows)]
+        self.kalem_tuslarini_esle();
         self.secici.goster(&ctx, &self.uyg);
         let mut hakkinda_istendi = false;
         if self.ayarlar.goster(&ctx, &self.uyg, &mut hakkinda_istendi) {

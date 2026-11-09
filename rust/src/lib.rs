@@ -27,6 +27,7 @@ pub mod hat;
 pub mod ek_kaynaklar;
 pub mod video_oynatici;
 pub mod imlec_vurgusu;
+pub mod bolge;
 pub mod islemci;
 pub mod uygulama;
 

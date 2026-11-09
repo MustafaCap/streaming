@@ -21,7 +21,7 @@ pub const KALINLIK_CARPANI: [f32; 3] = [0.6, 1.0, 1.8];
 pub const KALINLIK_ADLARI: [&str; 3] = ["İnce", "Orta", "Kalın"];
 pub const LAZER_OMRU: f32 = 1.6;
 pub const FOSFOR_SAYDAMLIK: f32 = 0.4;
-const SILGI_YARICAPI: f32 = 0.012;
+pub const SILGI_YARICAPI: f32 = 0.012;
 
 /// Kalınlık monitör yüksekliğine oranla (1080p'de piksel / 1080).
 pub fn kalinlik(tur: &str) -> f32 {
@@ -43,6 +43,8 @@ pub struct Sekil {
     pub noktalar: Vec<(f32, f32)>,
     pub metin: String,
     pub carpan: f32,
+    /// Geri al ve yazı taşıma için şeklin kimliği
+    pub kimlik: u64,
 }
 
 impl Sekil {
@@ -89,8 +91,10 @@ pub fn sekle_degiyor_mu(s: &Sekil, x: f32, y: f32, yaricap: f32, oran: f32) -> b
 }
 
 enum Gecmis {
-    Ekle,
+    Ekle(u64),
     Sil(Vec<(usize, Sekil)>),
+    /// yazı taşındı: (kimlik, eski yer)
+    Tasi(u64, (f32, f32)),
 }
 
 #[derive(Default)]
@@ -103,6 +107,7 @@ struct Ic {
     siliyor: Option<Vec<(usize, Sekil)>>,
     surum: u64,
     oran: f32,
+    sonraki_kimlik: u64,
 }
 
 /// Çizimlerin tek kaynağı; arayüz yazar, video hattı okur (iş parçacığı güvenli).
@@ -167,7 +172,9 @@ impl CizimDeposu {
             }
             _ => {
                 let noktalar = if matches!(tur, "kalem" | "fosforlu") { vec![(x, y)] } else { vec![(x, y), (x, y)] };
-                i.aktif = Some(Sekil { tur, renk, noktalar, metin: String::new(), carpan });
+                i.sonraki_kimlik += 1;
+                let kimlik = i.sonraki_kimlik;
+                i.aktif = Some(Sekil { tur, renk, noktalar, metin: String::new(), carpan, kimlik });
             }
         }
         i.surum += 1;
@@ -209,8 +216,8 @@ impl CizimDeposu {
                 _ => true,
             };
             if anlamli {
+                i.gecmis.push(Gecmis::Ekle(s.kimlik));
                 i.sekiller.push(s);
-                i.gecmis.push(Gecmis::Ekle);
             }
         }
         i.surum += 1;
@@ -221,28 +228,77 @@ impl CizimDeposu {
             return;
         }
         let mut i = self.ic.lock().unwrap();
-        i.sekiller.push(Sekil { tur: "yazi", renk, noktalar: vec![(x, y)], metin: metin.into(), carpan });
-        i.gecmis.push(Gecmis::Ekle);
+        i.sonraki_kimlik += 1;
+        let kimlik = i.sonraki_kimlik;
+        i.sekiller.push(Sekil { tur: "yazi", renk, noktalar: vec![(x, y)], metin: metin.into(), carpan, kimlik });
+        i.gecmis.push(Gecmis::Ekle(kimlik));
         i.surum += 1;
     }
 
-    /// Son çizimi geri alır; son işlem silgiyse silinenleri geri getirir.
+    /// Lazer modunda fare basılı olmasa da hareket izi bırakır.
+    pub fn lazer_noktasi(&self, x: f32, y: f32, renk: [u8; 3]) {
+        let mut i = self.ic.lock().unwrap();
+        i.lazer_rengi = renk;
+        i.lazer.push((x, y, Instant::now()));
+        let n = i.lazer.len();
+        if n > 400 {
+            i.lazer.drain(..n - 400);
+        }
+        i.surum += 1;
+    }
+
+    /// Yazıyı sürüklerken yeni yerine koyar (x, y monitöre oranla, 0..1 içinde tutulur).
+    pub fn yazi_tasi(&self, kimlik: u64, x: f32, y: f32) {
+        let mut i = self.ic.lock().unwrap();
+        if let Some(s) = i.sekiller.iter_mut().find(|s| s.kimlik == kimlik && s.tur == "yazi") {
+            s.noktalar[0] = (x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+            i.surum += 1;
+        }
+    }
+
+    /// Sürükleme bitince eski yer geri al geçmişine yazılır (yer değişmediyse yazılmaz).
+    pub fn tasima_bitti(&self, kimlik: u64, eski: (f32, f32)) {
+        let mut i = self.ic.lock().unwrap();
+        if i.sekiller.iter().any(|s| s.kimlik == kimlik && s.noktalar[0] != eski) {
+            i.gecmis.push(Gecmis::Tasi(kimlik, eski));
+        }
+    }
+
+    /// Son çizimi geri alır; son işlem silgiyse silinenleri geri getirir, taşımaysa eski yerine koyar.
     pub fn geri_al(&self) -> bool {
         let mut i = self.ic.lock().unwrap();
-        let Some(g) = i.gecmis.pop() else { return false };
-        match g {
-            Gecmis::Ekle => {
-                i.sekiller.pop();
-            }
-            Gecmis::Sil(l) => {
-                for (n, s) in l {
-                    let n = n.min(i.sekiller.len());
-                    i.sekiller.insert(n, s);
+        while let Some(g) = i.gecmis.pop() {
+            match g {
+                Gecmis::Ekle(k) => {
+                    if let Some(n) = i.sekiller.iter().position(|s| s.kimlik == k) {
+                        i.sekiller.remove(n);
+                        i.surum += 1;
+                        return true;
+                    }
+                }
+                Gecmis::Tasi(k, eski) => {
+                    if let Some(s) = i.sekiller.iter_mut().find(|s| s.kimlik == k) {
+                        s.noktalar[0] = eski;
+                        i.surum += 1;
+                        return true;
+                    }
+                }
+                Gecmis::Sil(mut l) => {
+                    l.sort_by_key(|(n, _)| *n);
+                    for (n, s) in l {
+                        let n = n.min(i.sekiller.len());
+                        i.sekiller.insert(n, s);
+                    }
+                    i.surum += 1;
+                    return true;
                 }
             }
         }
-        i.surum += 1;
-        true
+        if i.sekiller.pop().is_some() {
+            i.surum += 1;
+            return true;
+        }
+        false
     }
 
     pub fn temizle(&self) {

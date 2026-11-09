@@ -39,6 +39,13 @@ pub enum Komut {
     /// Kalem katmanını aç/kapat
     Kalem,
     KalemTemizle,
+    /// Kalem açıkken: araç (0-6), renk (0-3), kalınlık (0-2)
+    KalemTur(usize),
+    KalemRenk(usize),
+    KalemKalinlik(usize),
+    KalemGeriAl,
+    /// Kalemden ya da bölge seçiminden çık (Esc)
+    KalemKapat,
     Cikis,
     /// Hakkında penceresi (tepsi menüsü)
     Hakkinda,
@@ -66,6 +73,11 @@ impl Komut {
             "kaynak.sec" => Komut::KaynakSec,
             "kalem.ac_kapat" => Komut::Kalem,
             "kalem.temizle" => Komut::KalemTemizle,
+            "kalem.tur" => Komut::KalemTur(param?.parse::<usize>().ok()?.checked_sub(1).filter(|n| *n < 7)?),
+            "kalem.renk" => Komut::KalemRenk(param?.parse::<usize>().ok()?.checked_sub(1).filter(|n| *n < 4)?),
+            "kalem.kalinlik" => Komut::KalemKalinlik(param?.parse::<usize>().ok()?.checked_sub(1).filter(|n| *n < 3)?),
+            "kalem.geri_al" => Komut::KalemGeriAl,
+            "kalem.kapat" => Komut::KalemKapat,
             "kayit.klasor" => Komut::KayitKlasoru,
             "pencere.mini" => Komut::MiniBar,
             _ => return None,
@@ -430,7 +442,7 @@ impl Uygulama {
 
     /// Sadece bu pencere gösterilsin (bölge kalkar).
     pub fn pencere_sec(&self, hwnd: isize, baslik: &str) -> String {
-        *self.k.bolge.lock().unwrap() = None;
+        self.k.bolge.temizle();
         *self.k.pencere.lock().unwrap() = Some((hwnd, baslik.to_string()));
         self.depo.guncelle(|d| {
             d.kaynak_turu = "pencere".into();
@@ -441,23 +453,23 @@ impl Uygulama {
         format!("Sadece bu pencere gösteriliyor: {baslik}")
     }
 
-    /// Ekranın bir bölgesi gösterilsin (kaynak piksellerinde x, y, w, h). Pencere seçiliyse tüm ekrana döner.
-    pub fn bolge_ayarla(&self, b: (f64, f64, f64, f64)) -> String {
-        *self.k.pencere.lock().unwrap() = None;
-        *self.k.bolge.lock().unwrap() = Some(b);
-        let metin = format!("{}x{}", b.2.round(), b.3.round());
-        self.depo.guncelle(|d| {
-            d.kaynak_turu = "ekran".into();
-            d.kaynak_adi.clear();
-            d.bolge = metin.clone();
-        });
-        log::info!("Bölge: {b:?}");
-        format!("Bölge gösteriliyor ({metin}); tam ekran için tekrar bas")
+    /// Bölge seçildi ya da modu değişti (oranlar monitöre göre 0..1; mod "yakinlastir" | "vurgula").
+    pub fn bolge_sec(&self, oranlar: [f64; 4], mod_: &str) {
+        self.k.bolge.sec(oranlar, mod_);
+        let m = self.k.bolge.mod_().unwrap_or_default();
+        self.depo.guncelle(|d| d.bolge = m.into());
+        log::info!("Bölge: {oranlar:?} ({m})");
+    }
+
+    /// Tam ekrana dön (bölge kalkar, animasyonlu).
+    pub fn bolge_temizle(&self) {
+        self.k.bolge.temizle();
+        self.depo.guncelle(|d| d.bolge.clear());
     }
 
     /// Tüm ekrana dön (bölge ve pencere kalkar). `monitor` verilirse o ekran seçilir.
     pub fn tam_ekran(&self) -> String {
-        *self.k.bolge.lock().unwrap() = None;
+        self.k.bolge.temizle();
         *self.k.pencere.lock().unwrap() = None;
         self.depo.guncelle(|d| {
             d.kaynak_turu = "ekran".into();
@@ -633,15 +645,13 @@ impl Uygulama {
                     Err(e) => format!("Ekran görüntüsü kaydedilemedi: {e}"),
                 }
             }
-            Komut::Bolge => {
-                if self.k.bolge.lock().unwrap().is_some() {
-                    return self.tam_ekran();
-                }
-                self.arayuz_istekleri.lock().unwrap().push_back(k);
-                self.uyandir_arayuz();
-                String::new()
-            }
-            Komut::MiniBar | Komut::AnaPencere | Komut::Cikis | Komut::KaynakSec | Komut::Kalem | Komut::KalemTemizle | Komut::Hakkinda | Komut::Yardim | Komut::KayitKlasoru => {
+            Komut::Bolge
+            | Komut::KalemTur(_)
+            | Komut::KalemRenk(_)
+            | Komut::KalemKalinlik(_)
+            | Komut::KalemGeriAl
+            | Komut::KalemKapat
+            | Komut::MiniBar | Komut::AnaPencere | Komut::Cikis | Komut::KaynakSec | Komut::Kalem | Komut::KalemTemizle | Komut::Hakkinda | Komut::Yardim | Komut::KayitKlasoru => {
                 self.arayuz_istekleri.lock().unwrap().push_back(k);
                 self.uyandir_arayuz();
                 String::new()
