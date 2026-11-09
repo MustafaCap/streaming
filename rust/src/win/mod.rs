@@ -1,0 +1,140 @@
+//! Windows'a özel yardımcılar (windows crate ile).
+#![allow(clippy::missing_safety_doc)]
+
+pub mod kisayol;
+
+use std::path::{Path, PathBuf};
+
+use windows::core::{HSTRING, PCWSTR};
+use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE, HWND, INVALID_HANDLE_VALUE, POINT};
+use windows::Win32::Storage::FileSystem::{SetFileAttributesW, FILE_ATTRIBUTE_HIDDEN};
+use windows::Win32::System::Memory::{
+    CreateFileMappingW, MapViewOfFile, OpenFileMappingW, UnmapViewOfFile, FILE_MAP_ALL_ACCESS, FILE_MAP_READ, MEMORY_MAPPED_VIEW_ADDRESS,
+    PAGE_READWRITE,
+};
+use windows::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, HKEY, HKEY_CLASSES_ROOT, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY};
+use windows::Win32::UI::Shell::{SHGetKnownFolderPath, FOLDERID_Pictures, FOLDERID_Videos, KNOWN_FOLDER_FLAG};
+use windows::Win32::UI::WindowsAndMessaging::{GetCursorInfo, SetWindowDisplayAffinity, CURSORINFO, CURSOR_SHOWING, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
+
+fn bilinen_klasor(id: &windows::core::GUID) -> Option<PathBuf> {
+    unsafe {
+        let p = SHGetKnownFolderPath(id, KNOWN_FOLDER_FLAG(0), None).ok()?;
+        let s = p.to_string().ok();
+        windows::Win32::System::Com::CoTaskMemFree(Some(p.0 as _));
+        s.map(PathBuf::from)
+    }
+}
+
+pub fn bilinen_klasor_videolar() -> Option<PathBuf> {
+    bilinen_klasor(&FOLDERID_Videos)
+}
+pub fn bilinen_klasor_resimler() -> Option<PathBuf> {
+    bilinen_klasor(&FOLDERID_Pictures)
+}
+
+pub fn dosyayi_gizle(yol: &Path) {
+    unsafe {
+        let _ = SetFileAttributesW(&HSTRING::from(yol.as_os_str()), FILE_ATTRIBUTE_HIDDEN);
+    }
+}
+
+/// HKCR\CLSID\{...} kayıtlı mı (64 ve 32 bit görünüm).
+pub fn clsid_kayitli(clsid: &str) -> bool {
+    let yol = HSTRING::from(format!("CLSID\\{clsid}"));
+    for gorunum in [KEY_READ | KEY_WOW64_64KEY, KEY_READ | KEY_WOW64_32KEY] {
+        let mut k = HKEY::default();
+        unsafe {
+            if RegOpenKeyExW(HKEY_CLASSES_ROOT, &yol, Some(0), gorunum, &mut k).is_ok() {
+                let _ = RegCloseKey(k);
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Adlandırılmış paylaşılan bellek (OBS sanal kamera için).
+pub struct PaylasilanBellek {
+    tutamak: HANDLE,
+    adres: MEMORY_MAPPED_VIEW_ADDRESS,
+}
+
+unsafe impl Send for PaylasilanBellek {}
+
+impl PaylasilanBellek {
+    pub fn olustur(ad: &str, boyut: usize) -> Result<Self, String> {
+        let ad = HSTRING::from(ad);
+        unsafe {
+            if let Ok(mevcut) = OpenFileMappingW(FILE_MAP_READ.0, false, &ad) {
+                let _ = CloseHandle(mevcut);
+                return Err("OBS sanal kamerası şu an başka bir programda açık (OBS'nin kendisi olabilir)".into());
+            }
+            let tutamak = CreateFileMappingW(INVALID_HANDLE_VALUE, None, PAGE_READWRITE, (boyut as u64 >> 32) as u32, boyut as u32, &ad)
+                .map_err(|e| format!("Paylaşılan bellek oluşturulamadı ({e})"))?;
+            if GetLastError() == ERROR_ALREADY_EXISTS {
+                let _ = CloseHandle(tutamak);
+                return Err("OBS sanal kamerası şu an başka bir programda açık".into());
+            }
+            let adres = MapViewOfFile(tutamak, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+            if adres.Value.is_null() {
+                let e = GetLastError();
+                let _ = CloseHandle(tutamak);
+                return Err(format!("Paylaşılan bellek açılamadı (Windows hata kodu {})", e.0));
+            }
+            Ok(PaylasilanBellek { tutamak, adres })
+        }
+    }
+
+    pub fn adres(&self) -> *mut u8 {
+        self.adres.Value as *mut u8
+    }
+}
+
+impl Drop for PaylasilanBellek {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = UnmapViewOfFile(self.adres);
+            let _ = CloseHandle(self.tutamak);
+        }
+    }
+}
+
+/// Fare imlecinin ekrandaki konumu; imleç gizliyse (ör. oyunda) None.
+pub fn fare_konumu() -> Option<(i32, i32)> {
+    let mut b = CURSORINFO { cbSize: std::mem::size_of::<CURSORINFO>() as u32, ..Default::default() };
+    unsafe {
+        GetCursorInfo(&mut b).ok()?;
+    }
+    if b.flags.0 & CURSOR_SHOWING.0 == 0 {
+        return None;
+    }
+    let POINT { x, y } = b.ptScreenPos;
+    Some((x, y))
+}
+
+/// Pencereyi ekran yakalamadan gizler (kendi pencerelerimiz yayına/kayda girmesin).
+pub fn yakalamadan_gizle(hwnd: isize, gizle: bool) -> bool {
+    unsafe { SetWindowDisplayAffinity(HWND(hwnd as _), if gizle { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
+}
+
+/// Dosyayı Gezgin'de seçili gösterir.
+pub fn klasorde_goster(dosya: &Path) {
+    let _ = std::process::Command::new("explorer").arg("/select,").arg(dosya).spawn();
+}
+
+/// Dosya ya da klasörü varsayılan programla açar.
+pub fn ac(yol: &Path) {
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    unsafe {
+        ShellExecuteW(None, &HSTRING::from("open"), &HSTRING::from(yol.as_os_str()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
+    }
+}
+
+/// COM'u bu iş parçacığında başlatır (çok iş parçacıklı daire).
+pub fn com_baslat() {
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    }
+}

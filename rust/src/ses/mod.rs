@@ -6,6 +6,7 @@ pub mod motor;
 pub mod wasapi;
 #[cfg(windows)]
 pub mod surec_sesi;
+pub mod surec_secimi;
 
 pub const ORNEKLEME: u32 = 48000;
 pub const KANAL: usize = 2;
