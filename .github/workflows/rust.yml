@@ -10,6 +10,11 @@ on:
       - "kurulum/**"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
+    inputs:
+      yayinla:
+        description: "Derleme bitince GitHub Releases'a ön sürüm olarak koy (Mustafa onaylayınca)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -160,3 +165,49 @@ jobs:
           name: RizeOn-rs-Store
           path: cikti/RizeOn-rs-Store.msix
           retention-days: 14
+
+  # Sadece elle başlatılıp "yayinla" işaretlenince çalışır: onay Actions > Run workflow ile verilir.
+  # Python sürümünün "uygulama" ve v2.x yayınlarına dokunmaz; ayrı bir ön sürüm açar (v3.0.0-alpha.1 gibi).
+  yayinla:
+    needs: derle
+    if: github.event_name == 'workflow_dispatch' && inputs.yayinla
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: indirilen
+
+      - name: Dosyaları hazırla
+        run: |
+          set -e
+          mkdir yayin
+          (cd indirilen/RizeOn-rs && zip -qr ../../yayin/RizeOn-rs.zip .)
+          cp indirilen/RizeOn-rs-Kurulum/RizeOn-rs-Kurulum.exe yayin/
+          cp indirilen/RizeOn-rs-Store/RizeOn-rs-Store.msix yayin/
+          (cd yayin && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          surum=$(grep -m1 '^version' rust/Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          echo "SURUM=$surum" >> "$GITHUB_ENV"
+
+      - name: Ön sürüm yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          etiket="v$SURUM"
+          notlar="RizeOn'un Rust sürümü ($SURUM). Python sürümüne göre çok daha az işlemci kullanır.
+
+          - RizeOn-rs-Kurulum.exe: kurulum programı (Python sürümünün yanına ayrı kurulur)
+          - RizeOn-rs.zip: kurulumsuz, klasörden çalışır
+          - RizeOn-rs-Store.msix: Microsoft Store paketi (Store'a yüklemek için)
+
+          Ayarlar Python sürümüyle ortak; ikisi aynı anda açılamaz."
+          if gh release view "$etiket" > /dev/null 2>&1; then
+            gh release upload "$etiket" yayin/* --clobber
+          else
+            gh release create "$etiket" yayin/* --target "$GITHUB_SHA" --prerelease \
+              --title "RizeOn $SURUM (Rust)" --notes "$notlar"
+          fi
