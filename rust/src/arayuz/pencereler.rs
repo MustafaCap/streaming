@@ -443,7 +443,8 @@ impl BildirimPenceresi {
         if let Some(e) = eylem {
             w += 6.0 + olc(e, 13.0) + 8.0;
         }
-        Vec2::new(w.ceil() + 2.0, 38.0)
+        // Python: düz 34 px, bağlantılı (düğme 22 px) 40 px yükseklik
+        Vec2::new(w.ceil(), if eylem.is_some() { 40.0 } else { 34.0 })
     }
 
     pub fn goster(&mut self, ctx: &egui::Context, uyg: &Arc<Uygulama>) {
@@ -465,8 +466,6 @@ impl BildirimPenceresi {
             return;
         }
         let boyut = Self::boyut(ctx, &b);
-        let ppp = ctx.native_pixels_per_point().unwrap_or(1.0).max(0.5);
-        let _ = ppp;
         let konum = calisma_alani(ctx).map(|g| Pos2::new(g.right() - boyut.x - 16.0, g.bottom() - boyut.y - 16.0));
         let mut vp = egui::ViewportBuilder::default()
             .with_title("RizeOn bildirim")
@@ -499,7 +498,7 @@ impl BildirimPenceresi {
                 ui.painter().rect(r.shrink(0.5), 10.0, tema::YUZEN, Stroke::new(1.0, beyaz(tema::A_KENARLIK_MENU)), egui::StrokeKind::Middle);
                 let mut ic = ui.new_child(egui::UiBuilder::new().max_rect(r.shrink2(Vec2::new(0.0, 0.0))).layout(egui::Layout::left_to_right(egui::Align::Center)));
                 ic.spacing_mut().item_spacing.x = 6.0;
-                ic.add_space(14.0 - 6.0);
+                ic.add_space(14.0); // add_space'e öğe aralığı eklenmez
                 bilesen::etiket(&mut ic, &b.metin, 13.0, tema::YAZI);
                 let eylem = b.eylem.as_ref().map(eylem_adi);
                 if !b.tus.is_empty() || eylem.is_some() {
@@ -544,8 +543,13 @@ pub fn calisma_alani(ctx: &egui::Context) -> Option<egui::Rect> {
     if let Some((l, t, r, b)) = rizeon::win::calisma_alani() {
         return Some(egui::Rect::from_min_max(Pos2::new(l as f32 / ppp, t as f32 / ppp), Pos2::new(r as f32 / ppp, b as f32 / ppp)));
     }
-    let m = rizeon::yakalama::monitorler().into_iter().next()?;
-    Some(egui::Rect::from_min_size(Pos2::new(m.sol as f32 / ppp, m.ust as f32 / ppp), Vec2::new(m.w as f32 / ppp, m.h as f32 / ppp - 48.0)))
+    let (sol, ust, w, h) = match rizeon::yakalama::monitorler().into_iter().next() {
+        Some(m) => (m.sol, m.ust, m.w, m.h),
+        // Windows dışında (geliştirme/deneme) monitör listesi boş: 1920×1080 varsay
+        None if cfg!(not(windows)) => (0, 0, 1920, 1080),
+        None => return None,
+    };
+    Some(egui::Rect::from_min_size(Pos2::new(sol as f32 / ppp, ust as f32 / ppp), Vec2::new(w as f32 / ppp, h as f32 / ppp - 48.0)))
 }
 
 fn eylem_adi(e: &BildirimEylemi) -> &'static str {
