@@ -64,12 +64,13 @@ fn olcum(sn: u64, sonuc: Option<&str>) -> i32 {
     let s = o.olc();
     let d = uyg.depo.al();
     let metin = format!(
-        "RizeOn {} · {} sn · toplam CPU %{:.1} (uygulama %{:.1}, ffmpeg %{:.1}) · {:.0} fps · kare {:.1} ms · yakalama: {} · tekrar: {}\n",
+        "RizeOn {} · {} sn · toplam CPU %{:.1} (uygulama %{:.1}, ffmpeg %{:.1}, {} alt süreç) · {:.0} fps · kare {:.1} ms · yakalama: {} · tekrar: {}\n",
         surum::SURUM,
         sn,
         s.toplam,
         s.uygulama,
         s.ffmpeg,
+        s.alt_surec,
         d.fps,
         d.kare_suresi_ms,
         d.yakalama_yontemi,

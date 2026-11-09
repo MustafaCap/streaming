@@ -8,10 +8,12 @@ pub struct Olcum {
     pub toplam: f64,
     pub uygulama: f64,
     pub ffmpeg: f64,
+    /// ölçüm anında çalışan alt süreç (FFmpeg) sayısı
+    pub alt_surec: usize,
 }
 
 pub struct IslemciOlcer {
-    onceki: (f64, f64),
+    onceki: (f64, f64, usize),
     zaman: Instant,
     cekirdek: f64,
 }
@@ -39,13 +41,13 @@ impl IslemciOlcer {
         let f = ((simdi.1 - self.onceki.1) / gecen / self.cekirdek * 100.0).max(0.0);
         self.onceki = simdi;
         self.zaman = Instant::now();
-        Olcum { toplam: u + f, uygulama: u, ffmpeg: f }
+        Olcum { toplam: u + f, uygulama: u, ffmpeg: f, alt_surec: simdi.2 }
     }
 }
 
-/// (uygulamanın işlemci saniyesi, alt süreçlerin (FFmpeg) işlemci saniyesi)
+/// (uygulamanın işlemci saniyesi, alt süreçlerin (FFmpeg) işlemci saniyesi, alt süreç sayısı)
 #[cfg(windows)]
-fn sureler() -> (f64, f64) {
+fn sureler() -> (f64, f64, usize) {
     use windows::Win32::Foundation::{CloseHandle, FILETIME};
     use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS};
     use windows::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
@@ -63,6 +65,7 @@ fn sureler() -> (f64, f64) {
     unsafe {
         let kendi = surec_suresi(GetCurrentProcess());
         let mut cocuk = 0.0;
+        let mut sayi = 0;
         let pid = std::process::id();
         if let Ok(anlik) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
             let mut g = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
@@ -71,6 +74,7 @@ fn sureler() -> (f64, f64) {
                 if g.th32ParentProcessID == pid {
                     if let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, g.th32ProcessID) {
                         cocuk += surec_suresi(h);
+                        sayi += 1;
                         let _ = CloseHandle(h);
                     }
                 }
@@ -78,15 +82,31 @@ fn sureler() -> (f64, f64) {
             }
             let _ = CloseHandle(anlik);
         }
-        (kendi, cocuk)
+        (kendi, cocuk, sayi)
     }
 }
 
 #[cfg(not(windows))]
-fn sureler() -> (f64, f64) {
-    // /proc/self/stat: utime + stime (saat tıkı)
-    let s = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
-    let alanlar: Vec<&str> = s.rsplit(')').next().unwrap_or("").split_whitespace().collect();
-    let t = |i: usize| alanlar.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
-    ((t(11) + t(12)) / 100.0, (t(13) + t(14)) / 100.0)
+fn sureler() -> (f64, f64, usize) {
+    // /proc/<pid>/stat: utime + stime (saat tıkı); alt süreçler ppid'den bulunur
+    fn oku(yol: &std::path::Path) -> Option<(i64, f64)> {
+        let s = std::fs::read_to_string(yol).ok()?;
+        let a: Vec<&str> = s.rsplit(')').next()?.split_whitespace().collect();
+        let t = |i: usize| a.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        Some((a.get(1)?.parse().ok()?, (t(11) + t(12)) / 100.0))
+    }
+    let kendi = oku(std::path::Path::new("/proc/self/stat")).map(|x| x.1).unwrap_or(0.0);
+    let pid = std::process::id() as i64;
+    let (mut cocuk, mut sayi) = (0.0, 0);
+    if let Ok(d) = std::fs::read_dir("/proc") {
+        for g in d.flatten() {
+            if let Some((ppid, t)) = oku(&g.path().join("stat")) {
+                if ppid == pid {
+                    cocuk += t;
+                    sayi += 1;
+                }
+            }
+        }
+    }
+    (kendi, cocuk, sayi)
 }
