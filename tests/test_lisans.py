@@ -55,4 +55,6 @@ def test_kurulum_lisans_sayfasi_bomlu_ozet_ve_gpl_icerir(tmp_path):
 
 def test_kurulum_betigi_lisans_sayfasini_gosterir():
     iss = (KOK / "kurulum" / "kurulum.iss").read_text(encoding="utf-8-sig")
-    assert "LicenseFile=..\\build\\kurulum_lisans.txt" in iss
+    # Yol bir ön tanımla verilir (Rust sürümü kendi yolunu geçer); varsayılanı Python paketininki
+    assert "LicenseFile={#LisansDosyasi}" in iss
+    assert '#define LisansDosyasi "..\\build\\kurulum_lisans.txt"' in iss

@@ -1,0 +1,35 @@
+//! RizeOn (Rust sürümü) — kütüphane kısmı. Arayüz `main.rs` + `arayuz/` içinde.
+//!
+//! Python sürümüyle (2.0.x) aynı ayar dosyasını (%APPDATA%\RizeOn\settings.json), aynı kayıt klasörünü
+//! ve aynı FFmpeg komutlarını kullanır; iki sürüm aynı bilgisayarda sırayla çalıştırılabilir.
+//! Hiçbir ağ kodu yoktur (Rust'ta ağ kitaplığı bağımlılığı da yok).
+
+pub mod ayarlar;
+pub mod bulanik;
+pub mod cizim;
+pub mod durum;
+pub mod ffmpeg;
+pub mod gunluk;
+pub mod kare;
+pub mod kayit;
+pub mod kisayol;
+pub mod obs_kamera;
+pub mod sahne;
+pub mod ses_modlari;
+pub mod ses;
+pub mod surum;
+pub mod tekrar;
+pub mod tek_kopya;
+pub mod yakalama;
+pub mod yazi;
+pub mod yollar;
+pub mod hat;
+pub mod ek_kaynaklar;
+pub mod video_oynatici;
+pub mod imlec_vurgusu;
+pub mod bolge;
+pub mod islemci;
+pub mod uygulama;
+
+#[cfg(windows)]
+pub mod win;

@@ -1,0 +1,162 @@
+name: Rust sürümü (test + .exe)
+
+# RizeOn'un Rust'a taşınan sürümü (rust/ klasörü). Python sürümünün derlemesi ve yayınları
+# (uygulama.yml) bundan etkilenmez; bu iş sadece indirilebilir bir deneme paketi üretir.
+on:
+  push:
+    paths:
+      - "rust/**"
+      - "config/settings.default.json"
+      - "kurulum/**"
+      - ".github/workflows/rust.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  derle:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust araç zinciri
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      # FFmpeg (LGPL sürümü; libx264 gibi GPL parçaları yok) — yerel kayıt ve anlık tekrar için
+      - name: FFmpeg indir (LGPL)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # BtbN her gün yeni yayın açıp dosyaları yeniden yükler; o sırada en son yayın boş olabilir.
+          # Bu yüzden son birkaç yayına bakılır ve dosyası olan ilk yayın kullanılır.
+          $yayinlar = Invoke-RestMethod -Headers @{Authorization = "Bearer $env:GH_TOKEN"} `
+            "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases?per_page=5"
+          $asset = $null; $rel = $null
+          foreach ($r in $yayinlar) {
+            $a = $r.assets | Where-Object { $_.name -match '^ffmpeg-n(\d+)\.(\d+)-latest-win64-lgpl-\d+\.\d+\.zip$' } |
+              Sort-Object { [int]($_.name -replace '^ffmpeg-n(\d+)\.(\d+).*', '$1') * 100 + [int]($_.name -replace '^ffmpeg-n\d+\.(\d+).*', '$1') } |
+              Select-Object -Last 1
+            if (-not $a) { $a = $r.assets | Where-Object { $_.name -eq 'ffmpeg-master-latest-win64-lgpl.zip' } }
+            if ($a) { $asset = $a; $rel = $r; break }
+          }
+          if (-not $asset) { throw "BtbN yayınlarında LGPL FFmpeg bulunamadı" }
+          Write-Host "FFmpeg: $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile ffmpeg.zip
+          $ozet = (Get-FileHash -Algorithm SHA256 ffmpeg.zip).Hash.ToLower()
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
+          $kok = Get-ChildItem ffmpeg_tmp | Select-Object -First 1
+          New-Item -ItemType Directory -Force ffmpeg | Out-Null
+          Copy-Item "$($kok.FullName)\bin\ffmpeg.exe" ffmpeg\
+          Copy-Item "$($kok.FullName)\LICENSE.txt" ffmpeg\LICENSE.txt
+          @("FFmpeg $($asset.name) - https://github.com/BtbN/FFmpeg-Builds (LGPL)",
+            "Yayın: $($rel.tag_name)", "İndirme: $($asset.browser_download_url)", "SHA-256: $ozet") |
+            Out-File -Encoding utf8 ffmpeg\KAYNAK.txt
+
+      - name: Birim testleri
+        working-directory: rust
+        env:
+          RIZEON_GELISTIRME: "1"
+        run: cargo test --release --locked
+
+      - name: .exe derle
+        working-directory: rust
+        run: cargo build --release --locked
+
+      - name: Paketle
+        run: |
+          New-Item -ItemType Directory -Force paket\RizeOn | Out-Null
+          Copy-Item rust\target\release\RizeOn.exe paket\RizeOn\
+          Copy-Item -Recurse ffmpeg paket\RizeOn\ffmpeg
+          Copy-Item LICENSE paket\RizeOn\LICENSE.txt -ErrorAction SilentlyContinue
+          $boyut = (Get-Item paket\RizeOn\RizeOn.exe).Length / 1MB
+          Write-Host ("RizeOn.exe: {0:N1} MB" -f $boyut)
+
+      - name: Duman testi (pencere açmadan)
+        run: |
+          $p = Start-Process paket\RizeOn\RizeOn.exe -ArgumentList '--duman-testi', "$PWD\duman.txt" -Wait -PassThru
+          Get-Content duman.txt
+          if ($p.ExitCode -ne 0) { throw "Duman testi başarısız" }
+
+      # Bulut makinesinde ekran kartı ve kamera yok; sayı sadece fikir verir. Asıl ölçüm geliştirme
+      # bilgisayarında: RizeOn.exe --olcum 60
+      - name: CPU ölçümü (bilgi için)
+        continue-on-error: true
+        run: |
+          $env:YAYIN_VERI_KLASORU = "$PWD\olcum_veri"
+          $p = Start-Process paket\RizeOn\RizeOn.exe -ArgumentList '--olcum', '20', "$PWD\olcum.txt" -Wait -PassThru
+          Get-Content olcum.txt
+          "### CPU ölçümü (GitHub bulut makinesi)" >> $env:GITHUB_STEP_SUMMARY
+          Get-Content olcum.txt >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "--- uygulama log'u ---"
+          Get-Content olcum_veri\RizeOn\logs\rizeon.log -Tail 40 -ErrorAction SilentlyContinue
+
+      # Lisanslar + kurulum lisans sayfası + Store klasörü (rust/paket/paketle.py)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lisanslar ve Store klasörü
+        run: |
+          python -m pip install --quiet pillow
+          python rust/paket/paketle.py paket\RizeOn build
+          if ($LASTEXITCODE -ne 0) { throw "Paket hazırlanamadı" }
+
+      # Deneme sürümü kendi kimliğiyle kurulur: Python sürümünün (RizeOn) üstüne yazmaz, yan yana durur.
+      # İkisi aynı anda açılamaz (aynı tek kopya kilidi), ayarlar ortak.
+      - name: Kurulum programı (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup bulunamadı" }
+          $surum = Get-Content build\surum.txt
+          & $iscc /Q "/DSurum=$surum" "/DKaynak=..\paket\RizeOn" "/DLisansDosyasi=..\build\kurulum_lisans.txt" `
+            "/DCiktiAdi=RizeOn-rs-Kurulum" "/DUygulamaAdi=RizeOn (Rust deneme)" "/DKlasorAdi=RizeOn-rs" `
+            "/DAppKimlik={{4C2F8D17-9B3E-4A65-B0D2-6E1F7A93C584}" kurulum\kurulum.iss
+          if ($LASTEXITCODE -ne 0) { throw "Kurulum programı derlenemedi" }
+          New-Item -ItemType Directory -Force cikti | Out-Null
+          Move-Item Output\RizeOn-rs-Kurulum.exe cikti\
+          Get-Item cikti\RizeOn-rs-Kurulum.exe | Select-Object Name, Length
+
+      # Store'a yüklenmez (sadece deneme); Python sürümünün Store kimliğiyle paketlenir, sürüm 3.0.0.0.
+      - name: Store paketi (MSIX)
+        run: |
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $makeappx) { throw "makeappx.exe (Windows SDK) bulunamadı" }
+          & $makeappx.FullName pack /o /d build\msix /p cikti\RizeOn-rs-Store.msix
+          if ($LASTEXITCODE -ne 0) { throw "MSIX paketlenemedi" }
+          Get-Item cikti\RizeOn-rs-Store.msix | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RizeOn-rs
+          path: paket/RizeOn
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RizeOn-rs-Kurulum
+          path: cikti/RizeOn-rs-Kurulum.exe
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RizeOn-rs-Store
+          path: cikti/RizeOn-rs-Store.msix
+          retention-days: 14

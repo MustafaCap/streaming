@@ -5,6 +5,8 @@ on:
     paths-ignore:
       - "denemeler/**"
       - ".github/workflows/windows-exe.yml"
+      - ".github/workflows/rust.yml"
+      - "rust/**"
       - "**.md"
   workflow_dispatch:
 
