@@ -900,6 +900,7 @@ impl Pencere {
         if let Ok(h) = frame.window_handle() {
             if let RawWindowHandle::Win32(w) = h.as_raw() {
                 // önizleme kendini yakalamasın (sonsuz ayna), karşı tarafa gitmesin
+                rizeon::win::ANA_PENCERE.store(w.hwnd.get(), Ordering::Relaxed);
                 rizeon::win::yakalamadan_gizle(w.hwnd.get(), true);
                 // Windows 11: çerçevesiz pencerenin köşeleri 8 px yuvarlak
                 rizeon::win::koseleri_yuvarla(w.hwnd.get());

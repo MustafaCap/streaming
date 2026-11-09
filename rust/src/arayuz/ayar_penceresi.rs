@@ -123,6 +123,8 @@ pub struct AyarPenceresi {
     pub basarisiz: HashSet<String>,
     /// kaydedince gösterilecek bilgi (monitör ve kamera değişikliği)
     pub bilgi: Option<String>,
+    /// bir sonraki karede pencere öne getirilsin
+    odakla: bool,
     gizlendi: bool,
 }
 
@@ -311,6 +313,12 @@ impl AyarPenceresi {
     }
 
     pub fn ac_sekme(&mut self, uyg: &Arc<Uygulama>, sekme: Option<&str>) {
+        if self.acik {
+            // zaten açık (belki başka pencerenin arkasında): değişiklikleri silmeden öne getir
+            self.odakla = true;
+            return;
+        }
+        self.odakla = true;
         self.taslak = uyg.ayarlar.lock().unwrap().veri.clone();
         self.eski = self.taslak.clone();
         self.monitorler = rizeon::yakalama::monitorler().iter().enumerate().map(|(i, m)| format!("Monitör {}  ({}×{})", i + 1, m.w, m.h)).collect();
@@ -786,13 +794,10 @@ impl AyarPenceresi {
         let mut kaydet = false;
         let mut kapat = false;
         crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("ayarlar"), vp, |ui, _| {
-            #[cfg(windows)]
-            if !self.gizlendi {
-                // ayarlar karşı tarafa görünmesin
-                if let Some(h) = rizeon::win::pencere_bul("Ayarlar") {
-                    rizeon::win::yakalamadan_gizle(h, true);
-                    self.gizlendi = true;
-                }
+            // ayarlar karşı tarafa görünmesin, ana pencerenin arkasında kalmasın
+            crate::arayuz::pencereler::diyalog_hazirla("Ayarlar", &mut self.gizlendi);
+            if std::mem::take(&mut self.odakla) {
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Focus);
             }
             if ui.input(|i| i.viewport().close_requested()) || (self.duzenlenen.is_none() && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
                 kapat = true;

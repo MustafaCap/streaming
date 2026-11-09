@@ -621,6 +621,15 @@ impl Katman {
             if std::mem::take(&mut self.odakla) {
                 vctx.send_viewport_cmd(egui::ViewportCommand::Focus);
             }
+            // Katman monitörü tam kaplamalı: Windows sürüklemeyle (ya da Win+ok, ekran değişimi)
+            // kaydırırsa yerine geri konur. Mustafa testte karartmayı aşağı kaydırabildi.
+            let hedef = Rect::from_min_size(Pos2::new(m.sol as f32 / ppp, m.ust as f32 / ppp), Vec2::new(m.w as f32 / ppp, m.h as f32 / ppp));
+            if let Some(dis) = vctx.input(|i| i.viewport().outer_rect) {
+                if (dis.min - hedef.min).length() > 1.0 || (dis.size() - hedef.size()).length() > 1.0 {
+                    vctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(hedef.min));
+                    vctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(hedef.size()));
+                }
+            }
             egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| {
                 let alan = ui.max_rect();
                 self.alan = alan;

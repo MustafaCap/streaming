@@ -14,6 +14,20 @@ use super::simge;
 use super::tema::{self, beyaz};
 
 /// Penceresini başlığıyla bulup ekran yakalamadan gizler (bir kez).
+/// Hakkında, Yardım, pencere seçici, Ayarlar ve diyaloglar: yakalamadan gizlenir ve ana pencereye
+/// bağlanır, böylece ana pencereye tıklayınca arkasında kalmaz.
+pub fn diyalog_hazirla(baslik: &str, yapildi: &mut bool) {
+    #[cfg(windows)]
+    if !*yapildi {
+        if let Some(h) = rizeon::win::pencere_bul(baslik) {
+            rizeon::win::yakalamadan_gizle(h, true);
+            rizeon::win::ana_pencereye_bagla(h);
+            *yapildi = true;
+        }
+    }
+    let _ = (baslik, yapildi);
+}
+
 fn yakalamadan_gizle(baslik: &str, yapildi: &mut bool) {
     #[cfg(windows)]
     if !*yapildi {
@@ -154,7 +168,7 @@ impl Hakkinda {
             .with_maximize_button(false);
         let mut kapat = false;
         anlik(ctx, egui::ViewportId::from_hash_of("hakkinda"), vp, |ui, _| {
-            yakalamadan_gizle("Hakkında", &mut self.gizlendi);
+            diyalog_hazirla("Hakkında", &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             if self.logo.is_none() {
                 self.logo = simge::logo(ui.ctx());
@@ -264,7 +278,7 @@ impl Yardim {
             .with_maximize_button(false);
         let mut kapat = false;
         anlik(ctx, egui::ViewportId::from_hash_of("yardim"), vp, |ui, _| {
-            yakalamadan_gizle("Nasıl düzeltilir?", &mut self.gizlendi);
+            diyalog_hazirla("Nasıl düzeltilir?", &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             let cerceve = egui::Frame::new().fill(tema::ZEMIN).inner_margin(egui::Margin { left: 20, right: 20, top: 16, bottom: 16 });
             egui::CentralPanel::default().frame(cerceve).show(ui, |ui| {
@@ -340,7 +354,7 @@ impl PencereSecici {
         let mut kapat = false;
         let mut sec: Option<Oge> = None;
         anlik(ctx, egui::ViewportId::from_hash_of("pencere-secici"), vp, |ui, _| {
-            yakalamadan_gizle("Pencere seç", &mut self.gizlendi);
+            diyalog_hazirla("Pencere seç", &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             egui::CentralPanel::default().frame(egui::Frame::new().fill(tema::ZEMIN).inner_margin(16)).show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 10.0;
