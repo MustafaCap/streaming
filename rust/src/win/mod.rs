@@ -117,6 +117,15 @@ pub fn yakalamadan_gizle(hwnd: isize, gizle: bool) -> bool {
     unsafe { SetWindowDisplayAffinity(HWND(hwnd as _), if gizle { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
 }
 
+/// Bu süreçteki, başlığı verilen üst düzey pencereyi bulur.
+pub fn pencere_bul(baslik: &str) -> Option<isize> {
+    use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetWindowThreadProcessId};
+    let h = unsafe { FindWindowW(PCWSTR::null(), &HSTRING::from(baslik)) }.ok()?;
+    let mut pid = 0u32;
+    unsafe { GetWindowThreadProcessId(h, Some(&mut pid)) };
+    (pid == std::process::id()).then_some(h.0 as isize)
+}
+
 /// Dosyayı Gezgin'de seçili gösterir.
 pub fn klasorde_goster(dosya: &Path) {
     let _ = std::process::Command::new("explorer").arg("/select,").arg(dosya).spawn();

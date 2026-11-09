@@ -223,7 +223,7 @@ pub type BittiFn = Box<dyn FnOnce(Option<PathBuf>, String) + Send>;
 pub struct AnlikTekrar {
     pub genislik: u32,
     pub yukseklik: u32,
-    pub kodlayici_tercihi: String,
+    kodlayici_tercihi: Mutex<String>,
     pub ffmpeg: Option<PathBuf>,
     ortak: Arc<Ortak>,
     surec: Mutex<Option<(Child, SyncSender<Option<KareRef>>)>>,
@@ -234,7 +234,7 @@ impl AnlikTekrar {
         AnlikTekrar {
             genislik,
             yukseklik,
-            kodlayici_tercihi: kodlayici.into(),
+            kodlayici_tercihi: Mutex::new(kodlayici.into()),
             ffmpeg,
             ortak: Arc::new(Ortak {
                 acik: AtomicBool::new(false),
@@ -270,6 +270,11 @@ impl AnlikTekrar {
         b.parcalar.front().map(|(t, _)| t.elapsed().as_secs_f64()).unwrap_or(0.0)
     }
 
+    /// Yeni kodlayıcı bir sonraki baslat()'ta kullanılır.
+    pub fn kodlayici_ayarla(&self, k: &str) {
+        *self.kodlayici_tercihi.lock().unwrap() = k.to_string();
+    }
+
     pub fn sure_ayarla(&self, sn: i64) {
         *self.ortak.sure_sn.lock().unwrap() = sureyi_sinirla(sn);
         self.ortak.kirp(Instant::now());
@@ -287,7 +292,8 @@ impl AnlikTekrar {
         let Some(ff) = self.ffmpeg.clone().or_else(ffmpeg::ffmpeg_bul) else {
             return hata("FFmpeg bulunamadı".into());
         };
-        let kod = ffmpeg::kodlayici_sec(&ff, &self.kodlayici_tercihi);
+        let tercih = self.kodlayici_tercihi.lock().unwrap().clone();
+        let kod = ffmpeg::kodlayici_sec(&ff, &tercih);
         let bicim = ffmpeg::girdi_bicimi(self.genislik, self.yukseklik);
         let fps = self.ortak.fps.to_string();
         let mut c = ffmpeg::komut(&ff);

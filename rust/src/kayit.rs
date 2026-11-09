@@ -216,8 +216,8 @@ pub struct Kayitci {
     pub genislik: u32,
     pub yukseklik: u32,
     pub fps: u32,
-    pub klasor: PathBuf,
-    pub kodlayici_tercihi: String,
+    klasor: Mutex<PathBuf>,
+    kodlayici_tercihi: Mutex<String>,
     pub ffmpeg: Option<PathBuf>,
     ortak: Arc<Ortak>,
     aktif: Mutex<Option<Aktif>>,
@@ -229,8 +229,8 @@ impl Kayitci {
             genislik,
             yukseklik,
             fps: fps.max(1),
-            klasor,
-            kodlayici_tercihi: kodlayici.to_string(),
+            klasor: Mutex::new(klasor),
+            kodlayici_tercihi: Mutex::new(kodlayici.to_string()),
             ffmpeg,
             ortak: Arc::new(Ortak {
                 kayitta: AtomicBool::new(false),
@@ -250,6 +250,19 @@ impl Kayitci {
             }),
             aktif: Mutex::new(None),
         }
+    }
+
+    /// Kayıt klasörü (ayarlardan değişebilir; süren kayıt eski klasörde biter).
+    pub fn klasor(&self) -> PathBuf {
+        self.klasor.lock().unwrap().clone()
+    }
+
+    pub fn klasor_ayarla(&self, k: PathBuf) {
+        *self.klasor.lock().unwrap() = k;
+    }
+
+    pub fn kodlayici_ayarla(&self, k: &str) {
+        *self.kodlayici_tercihi.lock().unwrap() = k.to_string();
     }
 
     /// Kayıt yazılamazsa (disk doldu vb.) çağrılır.
@@ -285,12 +298,12 @@ impl Kayitci {
         (gecen - duraklama).max(0.0) as u64
     }
 
-    fn bos_ad(&self, ad: &str) -> String {
+    fn bos_ad(klasor: &Path, ad: &str) -> String {
         let mut aday = ad.to_string();
         let mut sira = 2;
-        while self.klasor.join(format!("{aday}.mp4")).exists()
-            || parca_yolu(&self.klasor, &aday, 1).exists()
-            || self.klasor.join(format!(".{aday}{GECICI_SES}")).exists()
+        while klasor.join(format!("{aday}.mp4")).exists()
+            || parca_yolu(klasor, &aday, 1).exists()
+            || klasor.join(format!(".{aday}{GECICI_SES}")).exists()
         {
             aday = format!("{ad}~{sira}");
             sira += 1;
@@ -298,8 +311,8 @@ impl Kayitci {
         aday
     }
 
-    fn parca_baslat(&self, ffmpeg: &Path, ad: &str, sira: usize, kod: &str) -> Result<Parca, String> {
-        let yol = parca_yolu(&self.klasor, ad, sira);
+    fn parca_baslat(&self, klasor: &Path, ffmpeg: &Path, ad: &str, sira: usize, kod: &str) -> Result<Parca, String> {
+        let yol = parca_yolu(klasor, ad, sira);
         let bicim = ffmpeg::girdi_bicimi(self.genislik, self.yukseklik);
         let fps = self.fps.to_string();
         let mut c = ffmpeg::komut(ffmpeg);
@@ -369,16 +382,18 @@ impl Kayitci {
         let Some(ffmpeg) = self.ffmpeg.clone().or_else(ffmpeg::ffmpeg_bul) else {
             return hata("FFmpeg bulunamadı (uygulama klasöründe ffmpeg\\ffmpeg.exe olmalı)".into());
         };
-        if let Err(e) = std::fs::create_dir_all(&self.klasor) {
+        let klasor = self.klasor();
+        if let Err(e) = std::fs::create_dir_all(&klasor) {
             return hata(format!("Kayıt klasörü oluşturulamadı: {e}"));
         }
         if self.bitiyor() {
             return hata("Önceki kayıt hâlâ hazırlanıyor, birkaç saniye sonra tekrar dene".into());
         }
-        let ad = self.bos_ad(&chrono::Local::now().format("Kayit_%Y-%m-%d_%H-%M-%S").to_string());
-        let hedef = self.klasor.join(format!("{ad}.mp4"));
-        let gecici_ses = self.klasor.join(format!(".{ad}{GECICI_SES}"));
-        let kod = ffmpeg::kodlayici_sec(&ffmpeg, &self.kodlayici_tercihi);
+        let ad = Self::bos_ad(&klasor, &chrono::Local::now().format("Kayit_%Y-%m-%d_%H-%M-%S").to_string());
+        let hedef = klasor.join(format!("{ad}.mp4"));
+        let gecici_ses = klasor.join(format!(".{ad}{GECICI_SES}"));
+        let tercih = self.kodlayici_tercihi.lock().unwrap().clone();
+        let kod = ffmpeg::kodlayici_sec(&ffmpeg, &tercih);
         let ses_dosyasi = match std::fs::File::create(&gecici_ses) {
             Ok(f) => f,
             Err(e) => return hata(format!("Kayıt dosyası açılamadı: {e}")),
@@ -387,7 +402,7 @@ impl Kayitci {
         self.ortak.ffmpeg_ciktisi.lock().unwrap().clear();
         self.ortak.hata_bildirildi.store(false, Ordering::SeqCst);
         self.ortak.kayit_hatasi.lock().unwrap().clear();
-        let parca = match self.parca_baslat(&ffmpeg, &ad, 1, &kod) {
+        let parca = match self.parca_baslat(&klasor, &ffmpeg, &ad, 1, &kod) {
             Ok(p) => p,
             Err(e) => {
                 drop(ses_dosyasi);
@@ -451,7 +466,8 @@ impl Kayitci {
             return false;
         }
         let sira = a.parcalar.len() + 1;
-        match self.parca_baslat(&a.ffmpeg.clone(), &a.ad.clone(), sira, &a.kod.clone()) {
+        let klasor = a.hedef.parent().map(Path::to_path_buf).unwrap_or_default();
+        match self.parca_baslat(&klasor, &a.ffmpeg.clone(), &a.ad.clone(), sira, &a.kod.clone()) {
             Ok(p) => {
                 a.parcalar.push(p.yol.clone());
                 a.parca = Some(p);

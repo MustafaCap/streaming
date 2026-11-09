@@ -22,6 +22,7 @@ pub mod yazi;
 pub mod yollar;
 pub mod hat;
 pub mod islemci;
+pub mod uygulama;
 
 #[cfg(windows)]
 pub mod win;

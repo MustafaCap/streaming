@@ -22,7 +22,7 @@ use crate::durum::DurumDeposu;
 pub const KABLO_ADI: &str = "CABLE Input";
 pub const VARSAYILAN_HARIC: &[&str] = &["Zoom.exe", "Discord.exe", "ms-teams.exe", "Teams.exe", "Skype.exe"];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotorAyari {
     pub mikrofon_adi: String,
     /// "auto" | "all" | "app"
@@ -115,6 +115,15 @@ impl SesMotoru {
             a.dahil_uygulama = d.into();
         }
         self.ic.yeniden.store(true, Ordering::SeqCst);
+    }
+
+    /// Ayarlar penceresinden: değiştiyse cihazlar yeniden açılır.
+    pub fn ayar_degistir(&self, yeni: MotorAyari) {
+        let mut a = self.ic.ayar.lock().unwrap();
+        if *a != yeni {
+            *a = yeni;
+            self.ic.yeniden.store(true, Ordering::SeqCst);
+        }
     }
 
     pub fn yenile(&self) {
