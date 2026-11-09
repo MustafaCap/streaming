@@ -2420,7 +2420,7 @@ dependencies = [
 
 [[package]]
 name = "rizeon"
-version = "3.0.0-alpha.1"
+version = "3.0.0"
 dependencies = [
  "ab_glyph",
  "chrono",

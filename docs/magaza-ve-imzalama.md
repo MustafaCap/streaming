@@ -14,7 +14,7 @@ Partner Center'da *Uygulamalar ve oyunlar → Yeni ürün → MSIX veya PWA uygu
 | Gizlilik politikası adresi | https://github.com/MustafaCap/streaming/blob/main/docs/gizlilik.md |
 | Destek / web sitesi | https://github.com/MustafaCap/streaming |
 | Telif | Copyright (C) 2026 Mustafa. GNU GPL sürüm 3. |
-| Paket | Releases'teki `RizeOn-Store.msix`, 2.0.4 ya da sonrası (gerçek Store kimliğiyle derlenmiş olan) |
+| Paket | Releases'teki `RizeOn-Store.msix`, 3.0.0 ya da sonrası |
 
 **Kısa açıklama (TR):** Meet, Zoom ve Discord'da sanal kamera ve sanal mikrofon olarak görünen, internete bağlanmayan ekran, kamera ve ses paylaşım uygulaması.
 

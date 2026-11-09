@@ -10,6 +10,11 @@ on:
       - "kurulum/**"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
+    inputs:
+      yayinla:
+        description: "Derleme bitince GitHub Releases'a koy (Mustafa onaylayınca)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -117,46 +122,87 @@ jobs:
           python rust/paket/paketle.py paket\RizeOn build
           if ($LASTEXITCODE -ne 0) { throw "Paket hazırlanamadı" }
 
-      # Deneme sürümü kendi kimliğiyle kurulur: Python sürümünün (RizeOn) üstüne yazmaz, yan yana durur.
-      # İkisi aynı anda açılamaz (aynı tek kopya kilidi), ayarlar ortak.
+      # Python sürümüyle aynı kimlik (AppId): onun üstüne kurulur, yerini alır. Ayarlar aynen kalır.
       - name: Kurulum programı (Inno Setup)
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
           if (-not (Test-Path $iscc)) { throw "Inno Setup bulunamadı" }
           $surum = Get-Content build\surum.txt
-          & $iscc /Q "/DSurum=$surum" "/DKaynak=..\paket\RizeOn" "/DLisansDosyasi=..\build\kurulum_lisans.txt" `
-            "/DCiktiAdi=RizeOn-rs-Kurulum" "/DUygulamaAdi=RizeOn (Rust deneme)" "/DKlasorAdi=RizeOn-rs" `
-            "/DAppKimlik={{4C2F8D17-9B3E-4A65-B0D2-6E1F7A93C584}" kurulum\kurulum.iss
+          & $iscc /Q "/DSurum=$surum" "/DKaynak=..\paket\RizeOn" "/DLisansDosyasi=..\build\kurulum_lisans.txt" kurulum\kurulum.iss
           if ($LASTEXITCODE -ne 0) { throw "Kurulum programı derlenemedi" }
           New-Item -ItemType Directory -Force cikti | Out-Null
-          Move-Item Output\RizeOn-rs-Kurulum.exe cikti\
-          Get-Item cikti\RizeOn-rs-Kurulum.exe | Select-Object Name, Length
+          Move-Item Output\RizeOn-Kurulum.exe cikti\
+          Get-Item cikti\RizeOn-Kurulum.exe | Select-Object Name, Length
 
-      # Store'a yüklenmez (sadece deneme); Python sürümünün Store kimliğiyle paketlenir, sürüm 3.0.0.0.
+      # Store'a yüklenecek paket (Partner Center'daki RizeOn kimliğiyle).
       - name: Store paketi (MSIX)
         run: |
           $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
             Sort-Object FullName | Select-Object -Last 1
           if (-not $makeappx) { throw "makeappx.exe (Windows SDK) bulunamadı" }
-          & $makeappx.FullName pack /o /d build\msix /p cikti\RizeOn-rs-Store.msix
+          & $makeappx.FullName pack /o /d build\msix /p cikti\RizeOn-Store.msix
           if ($LASTEXITCODE -ne 0) { throw "MSIX paketlenemedi" }
-          Get-Item cikti\RizeOn-rs-Store.msix | Select-Object Name, Length
+          Get-Item cikti\RizeOn-Store.msix | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RizeOn-rs
+          name: RizeOn
           path: paket/RizeOn
           retention-days: 14
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RizeOn-rs-Kurulum
-          path: cikti/RizeOn-rs-Kurulum.exe
+          name: RizeOn-Kurulum
+          path: cikti/RizeOn-Kurulum.exe
           retention-days: 14
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RizeOn-rs-Store
-          path: cikti/RizeOn-rs-Store.msix
+          name: RizeOn-Store
+          path: cikti/RizeOn-Store.msix
           retention-days: 14
+
+  # Sadece elle başlatılıp "yayinla" işaretlenince çalışır: onay Actions > Run workflow ile verilir.
+  # v<sürüm> etiketiyle yayın açar (v3.0.0 gibi); Python'un "uygulama" ve v2.x yayınlarına dokunmaz.
+  yayinla:
+    needs: derle
+    if: github.event_name == 'workflow_dispatch' && inputs.yayinla
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: indirilen
+
+      - name: Dosyaları hazırla
+        run: |
+          set -e
+          mkdir yayin
+          (cd indirilen/RizeOn && zip -qr ../../yayin/RizeOn.zip .)
+          cp indirilen/RizeOn-Kurulum/RizeOn-Kurulum.exe yayin/
+          cp indirilen/RizeOn-Store/RizeOn-Store.msix yayin/
+          (cd yayin && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          surum=$(grep -m1 '^version' rust/Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          echo "SURUM=$surum" >> "$GITHUB_ENV"
+
+      - name: Yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          etiket="v$SURUM"
+          notlar="RizeOn $SURUM: baştan yazıldı, önceki sürüme göre çok daha az işlemci kullanır.
+
+          - RizeOn-Kurulum.exe: kurulum programı (önceki sürümün üstüne kurulur, ayarlar korunur)
+          - RizeOn.zip: kurulumsuz, klasörden çalışır
+          - RizeOn-Store.msix: Microsoft Store paketi"
+          if gh release view "$etiket" > /dev/null 2>&1; then
+            gh release upload "$etiket" yayin/* --clobber
+          else
+            gh release create "$etiket" yayin/* --target "$GITHUB_SHA" \
+              --title "RizeOn $SURUM" --notes "$notlar"
+          fi

@@ -92,6 +92,8 @@ Name: "masaustu"; Description: "Masaüstüne kısayol ekle"; GroupDescription: "
 Type: files; Name: "{app}\YayinUygulamasi.exe"
 Type: files; Name: "{autoprograms}\Yayın Uygulaması.lnk"
 Type: files; Name: "{autodesktop}\Yayın Uygulaması.lnk"
+; 3.0 (Rust) Python sürümünün (2.x) üstüne kurulur: PyInstaller klasörü kalmasın
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "{#Kaynak}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
