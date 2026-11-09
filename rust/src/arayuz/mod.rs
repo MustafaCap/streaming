@@ -126,6 +126,8 @@ struct Pencere {
     alt_bilgi: String,
     son_olcum: Instant,
     gizli: bool,
+    /// ana pencere görev çubuğuna küçültülmüş
+    kucuk: bool,
     tepsiye: bool,
     ilk_kuculme: bool,
     onceki_kayit: bool,
@@ -202,6 +204,7 @@ impl Pencere {
             son_onizleme: Instant::now(),
             onizleme_fps,
             gizli: false,
+            kucuk: false,
             tepsiye,
             ilk_kuculme: true,
             onceki_kayit: false,
@@ -984,8 +987,29 @@ impl eframe::App for Pencere {
             }
         }
         self.onceki_kayit = kayitta;
-        let gorunur = !self.gizli;
-        self.uyg.k.onizleme_gorunur.store(gorunur, Ordering::Relaxed);
+        let kucuk = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
+        // (küçültülmüşken kamera açık kalır: önizleme_görünür kameranın kullanımını da belirler)
+        self.uyg.k.onizleme_gorunur.store(!self.gizli, Ordering::Relaxed);
+        self.kucuk = kucuk;
+        let gorunur = !self.gizli && !kucuk;
+        // Ana pencere küçültülmüş ya da tepsideyken eframe arayüzü hiç çalıştırmaz; katman, kalem barı,
+        // bildirim ve Ayarlar gibi pencereler ana pencerenin arayüzü içinde çizildiği için onlar da
+        // açılamaz. Bunlardan biri gerekiyorsa ana pencere görünmese de arayüz çalıştırılır.
+        if !gorunur {
+            let gerekli = self.katman.etkin()
+                || self.istek.is_some()
+                || self.diyalog.is_some()
+                || self.bildirim.gosteriyor()
+                || !self.uyg.bildirimler.lock().unwrap().is_empty()
+                || self.ayarlar.acik_mi()
+                || self.secici.acik_mi()
+                || self.hakkinda.acik
+                || self.yardim.acik;
+            if gerekli {
+                ctx.send_viewport_cmd(ViewportCommand::RequestPaintWhileHidden);
+                ctx.request_repaint();
+            }
+        }
         self.uyg.k.mini_gorunur.store(self.mini.acik, Ordering::Relaxed);
         if self.gizli {
             ctx.request_repaint_after(Duration::from_millis(500));
@@ -998,7 +1022,7 @@ impl eframe::App for Pencere {
         self.pencereyi_hazirla(frame);
         let _ = frame;
         self.durum = self.uyg.depo.al();
-        if !self.gizli {
+        if !self.gizli && !self.kucuk {
             self.onizlemeyi_guncelle(&ctx);
         }
         egui::Panel::top("baslik")

@@ -308,6 +308,11 @@ impl Default for Katman {
 }
 
 impl Katman {
+    /// Katman ekranda mı (bölge seçimi, kalem ya da kaynak bölgesi)
+    pub fn etkin(&self) -> bool {
+        self.mod_.is_some() || self.kalem
+    }
+
     pub fn kalem_acik(&self) -> bool {
         self.kalem && self.mod_.is_some()
     }
@@ -610,7 +615,7 @@ impl Katman {
             .with_position([m.sol as f32 / ppp, m.ust as f32 / ppp])
             .with_inner_size([m.w as f32 / ppp, m.h as f32 / ppp]);
         let mut kapat = false;
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("katman"), vb, |ui, _| {
+        crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("katman"), vb, |ui, _| {
             let vctx = ui.ctx().clone();
             self.yakalamadan_gizle();
             if std::mem::take(&mut self.odakla) {
@@ -1171,7 +1176,7 @@ impl Katman {
             .with_active(false)
             .with_position(dis.min)
             .with_inner_size(dis.size());
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("bolge-izi"), vb, |ui, _| {
+        crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("bolge-izi"), vb, |ui, _| {
             #[cfg(windows)]
             if !self.iz_gizlendi {
                 if let Some(h) = rizeon::win::pencere_bul(IZ_BASLIK) {

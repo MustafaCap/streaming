@@ -55,7 +55,7 @@ pub fn goster(ctx: &egui::Context, acik: &mut Option<Diyalog>) -> Option<(Amac, 
         .with_minimize_button(false)
         .with_maximize_button(false)
         .with_always_on_top();
-    ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("diyalog"), vp, |ui, _| {
+    crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("diyalog"), vp, |ui, _| {
         if ui.input(|i| i.viewport().close_requested()) {
             kapat = true;
         }

@@ -306,6 +306,10 @@ fn etiket_genisligi(ui: &Ui, etiketler: &[&str]) -> f32 {
 }
 
 impl AyarPenceresi {
+    pub fn acik_mi(&self) -> bool {
+        self.acik
+    }
+
     pub fn ac_sekme(&mut self, uyg: &Arc<Uygulama>, sekme: Option<&str>) {
         self.taslak = uyg.ayarlar.lock().unwrap().veri.clone();
         self.eski = self.taslak.clone();
@@ -781,7 +785,7 @@ impl AyarPenceresi {
         let vp = egui::ViewportBuilder::default().with_title("Ayarlar").with_inner_size([640.0, 560.0]).with_min_inner_size([520.0, 420.0]);
         let mut kaydet = false;
         let mut kapat = false;
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("ayarlar"), vp, |ui, _| {
+        crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("ayarlar"), vp, |ui, _| {
             #[cfg(windows)]
             if !self.gizlendi {
                 // ayarlar karşı tarafa görünmesin
