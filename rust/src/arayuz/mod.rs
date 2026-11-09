@@ -228,6 +228,7 @@ impl Pencere {
             Ok("hakkinda") => p.hakkinda.acik = true,
             Ok("yardim") => p.yardim.ac(""),
             Ok("secici") => p.secici.ac(),
+            Ok("kaynakbolge") => p.katman.kaynak_bolgesi_sec(&p.uyg),
             Ok("bolgesec") => {
                 let _ = p.katman.bolge_ac_kapat(&p.uyg);
             }

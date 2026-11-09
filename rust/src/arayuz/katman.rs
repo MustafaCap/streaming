@@ -690,7 +690,8 @@ impl Katman {
         if birakti {
             self.duz.birak(alan);
         }
-        let (enter, esc) = ui.input(|i| (i.key_pressed(egui::Key::Enter), i.key_pressed(egui::Key::Escape)));
+        // Python BolgeKatmani: Enter ve V onaylar (kaynakta mod kullanılmaz), Esc vazgeçer
+        let (enter, esc) = ui.input(|i| (i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::V), i.key_pressed(egui::Key::Escape)));
         if esc {
             return true;
         }
