@@ -43,12 +43,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $rel = Invoke-RestMethod -Headers @{Authorization = "Bearer $env:GH_TOKEN"} `
-            https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest
-          $asset = $rel.assets | Where-Object { $_.name -match '^ffmpeg-n(\d+)\.(\d+)-latest-win64-lgpl-\d+\.\d+\.zip$' } |
-            Sort-Object { [int]($_.name -replace '^ffmpeg-n(\d+)\.(\d+).*', '$1') * 100 + [int]($_.name -replace '^ffmpeg-n\d+\.(\d+).*', '$1') } |
-            Select-Object -Last 1
-          if (-not $asset) { $asset = $rel.assets | Where-Object { $_.name -eq 'ffmpeg-master-latest-win64-lgpl.zip' } }
+          # BtbN her gün yeni yayın açıp dosyaları yeniden yükler; o sırada en son yayın boş olabilir.
+          # Bu yüzden son birkaç yayına bakılır ve dosyası olan ilk yayın kullanılır.
+          $yayinlar = Invoke-RestMethod -Headers @{Authorization = "Bearer $env:GH_TOKEN"} `
+            "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases?per_page=5"
+          $asset = $null; $rel = $null
+          foreach ($r in $yayinlar) {
+            $a = $r.assets | Where-Object { $_.name -match '^ffmpeg-n(\d+)\.(\d+)-latest-win64-lgpl-\d+\.\d+\.zip$' } |
+              Sort-Object { [int]($_.name -replace '^ffmpeg-n(\d+)\.(\d+).*', '$1') * 100 + [int]($_.name -replace '^ffmpeg-n\d+\.(\d+).*', '$1') } |
+              Select-Object -Last 1
+            if (-not $a) { $a = $r.assets | Where-Object { $_.name -eq 'ffmpeg-master-latest-win64-lgpl.zip' } }
+            if ($a) { $asset = $a; $rel = $r; break }
+          }
+          if (-not $asset) { throw "BtbN yayınlarında LGPL FFmpeg bulunamadı" }
           Write-Host "FFmpeg: $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile ffmpeg.zip
           $ozet = (Get-FileHash -Algorithm SHA256 ffmpeg.zip).Hash.ToLower()
