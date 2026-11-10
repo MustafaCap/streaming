@@ -45,7 +45,11 @@ unsafe fn surec_istemcisi(pid: u32, haric: bool) -> Result<IAudioClient, String>
         TargetProcessId: pid,
         ProcessLoopbackMode: if haric { PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE } else { PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE },
     };
-    let pv = PROPVARIANT {
+    // `windows` crate'i PROPVARIANT için Drop'ta PropVariantClear çağırır; VT_BLOB'da bu, blob
+    // işaretçisini CoTaskMemFree ile serbest bırakmak demek. Bizim blob'umuz yığındaki `param`,
+    // heap'te değil: serbest bırakılırsa Windows heap bozulmasıyla (0xc0000374) uygulamayı kapatır.
+    // O yüzden asla drop edilmez.
+    let pv = std::mem::ManuallyDrop::new(PROPVARIANT {
         Anonymous: PROPVARIANT_0 {
             Anonymous: std::mem::ManuallyDrop::new(PROPVARIANT_0_0 {
                 vt: VT_BLOB,
@@ -55,10 +59,10 @@ unsafe fn surec_istemcisi(pid: u32, haric: bool) -> Result<IAudioClient, String>
                 ..Default::default()
             }),
         },
-    };
+    });
     let (tx, rx) = sync_channel(1);
     let isleyici: IActivateAudioInterfaceCompletionHandler = Tamamlayici { tx }.into();
-    let _islem = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&pv), &isleyici)
+    let _islem = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&*pv as *const PROPVARIANT), &isleyici)
         .map_err(|e| e.to_string())?;
     rx.recv_timeout(std::time::Duration::from_secs(5)).map_err(|_| "Windows 5 saniye içinde cevap vermedi".to_string())?
 }
