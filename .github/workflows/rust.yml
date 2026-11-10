@@ -163,6 +163,13 @@ jobs:
           path: cikti/RizeOn-Store.msix
           retention-days: 14
 
+      # Çökme logundaki "RizeOn.exe+0x..." adreslerini satıra çevirmek için (kullanıcıya dağıtılmaz).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RizeOn-pdb
+          path: rust/target/release/RizeOn.pdb
+          retention-days: 90
+
   # Sadece elle başlatılıp "yayinla" işaretlenince çalışır: onay Actions > Run workflow ile verilir.
   # v<sürüm> etiketiyle yayın açar (v3.0.0 gibi); Python'un "uygulama" ve v2.x yayınlarına dokunmaz.
   yayinla:

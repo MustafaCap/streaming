@@ -177,9 +177,14 @@ struct Denetci {
 /// Uygulama bazlı ses yakalama ilk kez kurulurken bir kilit dosyası yazılır; 60 sn sorunsuz
 /// çalışınca silinir. Uygulama bu arada çökerse (Rust panik değil, Windows tarafında çökme:
 /// log'a hiçbir şey düşmez) bir sonraki açılışta dosya durur ve bu sürüm için hoparlör loopback'e
-/// geçilir. Böylece kullanıcı açılamayan bir uygulamayla kalmaz.
+/// geçilir (aynı derleme için). Böylece kullanıcı açılamayan bir uygulamayla kalmaz.
 fn kilit_yolu() -> std::path::PathBuf {
     crate::yollar::log_klasoru().join("uygulama_sesi.kilit")
+}
+
+/// Kilit yalnızca aynı derlemede geçerli: yeni bir derleme uygulama bazlı yakalamayı yeniden dener.
+fn kilit_icerigi() -> String {
+    format!("{}-{}", crate::surum::SURUM, crate::surum::DERLEME)
 }
 
 static YASAK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -193,9 +198,9 @@ pub fn temiz_cikis() {
 
 fn surec_sesi_onceden_coktu_mu() -> bool {
     match std::fs::read_to_string(kilit_yolu()) {
-        Ok(s) if s.trim() == crate::surum::SURUM => true,
+        Ok(s) if s.trim() == kilit_icerigi() => true,
         Ok(_) => {
-            let _ = std::fs::remove_file(kilit_yolu()); // eski sürümün kilidi
+            let _ = std::fs::remove_file(kilit_yolu()); // başka bir derlemenin kilidi
             false
         }
         Err(_) => false,
@@ -227,7 +232,7 @@ impl Denetci {
                 let y = surec_sesi_onceden_coktu_mu();
                 YASAK.store(y, Ordering::Relaxed);
                 if y {
-                    log::warn!("Uygulama bazlı ses yakalama önceki açılışta uygulamayı kapattı; bu sürümde hoparlör loopback kullanılıyor");
+                    log::warn!("Uygulama bazlı ses yakalama önceki açılışta uygulamayı kapattı; bu sürümde hoparlör loopback kullanılıyor (yeni derleme yeniden dener)");
                 }
                 y
             },
@@ -502,7 +507,7 @@ impl Denetci {
     /// Bu açılışta ilk uygulama bazlı yakalamadan önce kilit yazılır (bkz. kilit_yolu).
     fn kilit_yaz(&mut self) {
         if self.kilit_zamani.is_none() && std::fs::metadata(kilit_yolu()).is_err() {
-            let _ = std::fs::write(kilit_yolu(), crate::surum::SURUM);
+            let _ = std::fs::write(kilit_yolu(), kilit_icerigi());
             self.kilit_zamani = Some(Instant::now());
         }
     }
