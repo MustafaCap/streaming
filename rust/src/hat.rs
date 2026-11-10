@@ -358,7 +358,16 @@ impl Ic {
             }
         };
         if self.k.panik.load(Ordering::Relaxed) {
-            return bekleme(); // Panik: hiçbir kaynağa dokunmadan, geçiş beklemeden bekleme ekranı
+            // Panik: geçiş beklemeden bekleme ekranı; kamera(lar) da kapanır, ışığı sönsün
+            #[cfg(windows)]
+            if let Some(k) = self.kamera.as_mut() {
+                if k.acik() {
+                    k.durdur(false);
+                    self.k.depo.guncelle(|d| d.webcam = "beklemede".into());
+                }
+            }
+            self.ek_kaynaklar.kapat();
+            return bekleme();
         }
         let sahne = self.k.sahneler.aktif();
         let indeks = self.k.sahneler.indeks();

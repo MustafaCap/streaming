@@ -195,6 +195,21 @@ pub fn klasor_sec(baslik: &str, baslangic: Option<&Path>) -> Option<PathBuf> {
     }
 }
 
+/// Ana pencerenin tutamacı (ilk karede kaydedilir); Ayarlar gibi pencereler ona bağlanır.
+pub static ANA_PENCERE: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+/// Pencereyi ana pencereye bağlar (sahip): hep onun önünde durur, arkasına düşmez (Qt'de
+/// ebeveynli QDialog gibi). Ana pencere henüz bilinmiyorsa false.
+pub fn ana_pencereye_bagla(hwnd: isize) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowLongPtrW, GWLP_HWNDPARENT};
+    let ana = ANA_PENCERE.load(std::sync::atomic::Ordering::Relaxed);
+    if ana == 0 || ana == hwnd {
+        return false;
+    }
+    unsafe { SetWindowLongPtrW(HWND(hwnd as _), GWLP_HWNDPARENT, ana) };
+    true
+}
+
 /// Bu süreçteki, başlığı verilen üst düzey pencereyi bulur.
 pub fn pencere_bul(baslik: &str) -> Option<isize> {
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetWindowThreadProcessId};

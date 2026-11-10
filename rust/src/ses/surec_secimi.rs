@@ -37,7 +37,8 @@ pub fn yakalanacak_surecler(oturum: &HashSet<u32>, haric_adlar: &[String], kendi
         }
         adaylar.insert(*pid);
     }
-    adaylar.iter().filter(|p| !atalar(**p, tablo)[1..].iter().any(|a| adaylar.contains(a))).copied().collect()
+    // atalar() tabloda olmayan pid için boş döner (kısa ömürlü süreç, sistem oturumu): skip(1) taşmaz
+    adaylar.iter().filter(|p| !atalar(**p, tablo).iter().skip(1).any(|a| adaylar.contains(a))).copied().collect()
 }
 
 #[cfg(test)]
@@ -61,5 +62,15 @@ mod testler {
         let oturum: HashSet<u32> = [1, 11, 21, 30, 31, 40].into_iter().collect();
         let s = yakalanacak_surecler(&oturum, &["Zoom.exe".into()], 10, &t);
         assert_eq!(s, [30, 40].into_iter().collect());
+    }
+
+    /// Ses oturumu olan ama süreç listesinde bulunmayan pid (ör. 0 ya da yeni kapanmış süreç)
+    /// eskiden dilimi taşırıp ses motorunu çökertiyordu.
+    #[test]
+    fn tabloda_olmayan_surec_cokertmez() {
+        let t: HashMap<u32, (u32, String)> = [(1, (0, "explorer.exe".to_string())), (40, (1, "spotify.exe".to_string()))].into_iter().collect();
+        let oturum: HashSet<u32> = [0, 40, 999].into_iter().collect();
+        let s = yakalanacak_surecler(&oturum, &[], 10, &t);
+        assert!(s.contains(&40) && s.contains(&999));
     }
 }

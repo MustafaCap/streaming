@@ -20,7 +20,7 @@ fn main() {
         log::info!("Uygulama zaten açık; çalışan pencere öne getiriliyor");
         return;
     };
-    log::info!("Uygulama başlıyor (Rust sürümü {})", surum::SURUM);
+    log::info!("Uygulama başlıyor (Rust sürümü {}, derleme {})", surum::SURUM, surum::DERLEME);
     let ayarlar = Ayarlar::ac(yollar::ayar_dosyasi());
     let uyg = Uygulama::kur(ayarlar);
     uyg.baslat();

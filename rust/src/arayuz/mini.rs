@@ -123,7 +123,7 @@ impl MiniBar {
         }
         let id = egui::ViewportId::from_hash_of("mini-bar");
         let mut ana = false;
-        ctx.show_viewport_immediate(id, vb, |ui, _sinif| {
+        crate::arayuz::pencereler::anlik(ctx, id, vb, |ui, _sinif| {
             let vctx = ui.ctx().clone();
             vctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(boyut));
             if vctx.input(|i| i.viewport().close_requested()) {

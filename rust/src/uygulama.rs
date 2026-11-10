@@ -311,7 +311,10 @@ impl Uygulama {
         self.tekrar.durdur();
         self.hat.lock().unwrap().durdur();
         #[cfg(windows)]
-        self.ses.durdur();
+        {
+            self.ses.durdur();
+            crate::ses::motor::temiz_cikis();
+        }
         self.ayarlar.lock().unwrap().kaydet();
         log::info!("Uygulama kapandı");
     }

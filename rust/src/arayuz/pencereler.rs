@@ -14,6 +14,20 @@ use super::simge;
 use super::tema::{self, beyaz};
 
 /// Penceresini başlığıyla bulup ekran yakalamadan gizler (bir kez).
+/// Hakkında, Yardım, pencere seçici, Ayarlar ve diyaloglar: yakalamadan gizlenir ve ana pencereye
+/// bağlanır, böylece ana pencereye tıklayınca arkasında kalmaz.
+pub fn diyalog_hazirla(baslik: &str, yapildi: &mut bool) {
+    #[cfg(windows)]
+    if !*yapildi {
+        if let Some(h) = rizeon::win::pencere_bul(baslik) {
+            rizeon::win::yakalamadan_gizle(h, true);
+            rizeon::win::ana_pencereye_bagla(h);
+            *yapildi = true;
+        }
+    }
+    let _ = (baslik, yapildi);
+}
+
 fn yakalamadan_gizle(baslik: &str, yapildi: &mut bool) {
     #[cfg(windows)]
     if !*yapildi {
@@ -153,8 +167,8 @@ impl Hakkinda {
             .with_minimize_button(false)
             .with_maximize_button(false);
         let mut kapat = false;
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("hakkinda"), vp, |ui, _| {
-            yakalamadan_gizle("Hakkında", &mut self.gizlendi);
+        anlik(ctx, egui::ViewportId::from_hash_of("hakkinda"), vp, |ui, _| {
+            diyalog_hazirla("Hakkında", &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             if self.logo.is_none() {
                 self.logo = simge::logo(ui.ctx());
@@ -263,8 +277,8 @@ impl Yardim {
             .with_minimize_button(false)
             .with_maximize_button(false);
         let mut kapat = false;
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("yardim"), vp, |ui, _| {
-            yakalamadan_gizle("Nasıl düzeltilir?", &mut self.gizlendi);
+        anlik(ctx, egui::ViewportId::from_hash_of("yardim"), vp, |ui, _| {
+            diyalog_hazirla("Nasıl düzeltilir?", &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             let cerceve = egui::Frame::new().fill(tema::ZEMIN).inner_margin(egui::Margin { left: 20, right: 20, top: 16, bottom: 16 });
             egui::CentralPanel::default().frame(cerceve).show(ui, |ui| {
@@ -304,6 +318,10 @@ pub struct PencereSecici {
 }
 
 impl PencereSecici {
+    pub fn acik_mi(&self) -> bool {
+        self.acik
+    }
+
     pub fn ac(&mut self) {
         self.kaynak_ac(false);
     }
@@ -335,8 +353,8 @@ impl PencereSecici {
         let vp = egui::ViewportBuilder::default().with_title("Pencere seç").with_inner_size([520.0, 440.0]).with_min_inner_size([360.0, 260.0]);
         let mut kapat = false;
         let mut sec: Option<Oge> = None;
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("pencere-secici"), vp, |ui, _| {
-            yakalamadan_gizle("Pencere seç", &mut self.gizlendi);
+        anlik(ctx, egui::ViewportId::from_hash_of("pencere-secici"), vp, |ui, _| {
+            diyalog_hazirla("Pencere seç", &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             egui::CentralPanel::default().frame(egui::Frame::new().fill(tema::ZEMIN).inner_margin(16)).show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 10.0;
@@ -429,6 +447,10 @@ pub struct BildirimPenceresi {
 }
 
 impl BildirimPenceresi {
+    pub fn gosteriyor(&self) -> bool {
+        self.simdiki.is_some()
+    }
+
     fn boyut(ctx: &egui::Context, b: &Bildirim) -> Vec2 {
         let p = egui::Painter::new(ctx.clone(), egui::LayerId::background(), Rect::EVERYTHING);
         let olc = |s: &str, px: f32| p.layout_no_wrap(s.to_string(), tema::yazi(px), Color32::WHITE).size().x;
@@ -481,7 +503,7 @@ impl BildirimPenceresi {
             vp = vp.with_position(k);
         }
         let mut eylem_basildi = false;
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("bildirim"), vp, |ui, _| {
+        anlik(ctx, egui::ViewportId::from_hash_of("bildirim"), vp, |ui, _| {
             yakalamadan_gizle("RizeOn bildirim", &mut self.gizlendi);
             let vctx = ui.ctx().clone();
             vctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(boyut));
@@ -558,5 +580,23 @@ fn eylem_adi(e: &BildirimEylemi) -> &'static str {
         BildirimEylemi::KlasordeGoster(_) => "Klasörde göster",
         BildirimEylemi::Yardim => "Nasıl düzeltilir?",
         BildirimEylemi::Ayarlar(_) => "Ayarlar",
+    }
+}
+
+/// show_viewport_immediate, ama pencere o an oluşturulamazsa (eframe kullanıcı geri çağrısını hiç
+/// çağırmazsa) uygulamayı çökertmez: o kare atlanır, bir sonraki karede yeniden denenir.
+/// (eframe 0.37: ana pencere gizliyken pencere yeniden kurulurken "the user callback was never called")
+pub fn anlik<T>(
+    ctx: &egui::Context,
+    id: egui::ViewportId,
+    vb: egui::ViewportBuilder,
+    f: impl FnMut(&mut egui::Ui, egui::ViewportClass) -> T,
+) -> Option<T> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ctx.show_viewport_immediate(id, vb, f))) {
+        Ok(v) => Some(v),
+        Err(_) => {
+            ctx.request_repaint();
+            None
+        }
     }
 }
