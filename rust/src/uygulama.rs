@@ -126,9 +126,6 @@ pub struct Uygulama {
     pub uyandir: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
     #[cfg(windows)]
     bas_konus: Mutex<Option<crate::kisayol::BasKonus>>,
-    /// Toplantı modunda çizimleri ve vurguyu ekran paylaşımına gösteren katman
-    #[cfg(windows)]
-    paylasim: Mutex<Option<crate::win::paylasim::PaylasimKatmani>>,
 }
 
 pub fn hat_ayari(a: &Ayarlar) -> HatAyari {
@@ -226,8 +223,6 @@ impl Uygulama {
             uyandir: Mutex::new(None),
             #[cfg(windows)]
             bas_konus: Mutex::new(None),
-            #[cfg(windows)]
-            paylasim: Mutex::new(None),
         });
         let zayif = Arc::downgrade(&u);
         u.kayitci.hata_olunca(Arc::new(move |mesaj| {
@@ -248,7 +243,6 @@ impl Uygulama {
         // Sanal çıkış (OBS Virtual Camera + VB-Cable) arka planda hep açık (2.0.0)
         self.k.cikisi_ayarla(true);
         self.hat.lock().unwrap().baslat();
-        self.paylasim_katmanini_ayarla();
         #[cfg(windows)]
         {
             self.ses.gurultu_ayarla(self.ayarlar.lock().unwrap().mantik("audio.noise_suppression", false));
@@ -317,8 +311,6 @@ impl Uygulama {
 
     /// Kapanış: kayıt sürüyorsa bitir (yarım kalmasın), her şeyi durdur.
     pub fn kapat(&self) {
-        #[cfg(windows)]
-        self.paylasim.lock().unwrap().take();
         self.kayitci.kapat(60);
         self.tekrar.durdur();
         self.hat.lock().unwrap().durdur();
@@ -682,24 +674,12 @@ impl Uygulama {
         self.depo.al().toplanti_modu
     }
 
-    /// Toplantı modu açıksa paylaşım katmanını başlatır, kapalıysa durdurur.
-    fn paylasim_katmanini_ayarla(&self) {
-        #[cfg(windows)]
-        {
-            let mut p = self.paylasim.lock().unwrap();
-            match (self.toplanti_acik(), p.is_some()) {
-                (true, false) => *p = Some(crate::win::paylasim::PaylasimKatmani::baslat(self.k.clone(), self.depo.clone())),
-                (false, true) => *p = None,
-                _ => {}
-            }
-        }
-    }
-
     fn toplanti_modu_degistir(self: &Arc<Self>) -> String {
         let acik = !self.toplanti_acik();
         self.depo.guncelle(|d| d.toplanti_modu = acik);
         self.ayarla("ui.meeting_mode", Value::Bool(acik));
-        self.paylasim_katmanini_ayarla();
+        // açık katman yeni değeri bir sonraki çiziminde uygular
+        self.uyandir_arayuz();
         if acik {
             "Toplantı modu açık · tüm ekranı paylaşınca kalem ve vurgu da görünür".into()
         } else {

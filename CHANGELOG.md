@@ -4,11 +4,10 @@ Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfas�
 
 ## 3.1.0 — 2026-11-11
 
-- **Toplantı modu:** Toplantı uygulamaları sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu ekranın üstünde, ekran paylaşımına giren ayrı bir katmanda da çizilir; karşı taraf bunları görür.
+- **Toplantı modu:** Toplantı uygulamaları sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu bu ekran paylaşımında karşı tarafa da görünür.
   - Çizimler ve vurgu "Bitti"ye bastıktan sonra da ekranda kalır (tıklamaları engellemez); silmek için Ctrl+Shift+X.
-  - Bölgeyi büyütme (Yakınlaştır) ekran paylaşımında çalışmaz, çünkü toplantı uygulaması gerçek ekranı gösterir; vurgulama ve kalem çalışır. Kalem barı ve bölge tutamakları karşı tarafa gitmez.
+  - Bölgeyi büyütme (Yakınlaştır) ekran paylaşımında çalışmaz, çünkü toplantı uygulaması gerçek ekranı gösterir; vurgulama ve kalem çalışır. Kalem barı da karşı tarafa görünür.
   - Yüzün istersen aynı anda sanal kameradan gitmeye devam eder.
-- **Kalem ya da bölge seçimi açıkken yayının kararması giderildi.** Ekranı tam kaplayan kalem katmanını Windows tam ekran uygulama sayıyordu; o sırada ekran yakalama (sanal kamera, kayıt ve toplantıdaki ekran paylaşımı) siyah kare alıyordu. Katman artık ekrandan 1 piksel kısa.
   - Ayarlar > Kısayollar'dan kısayol atanabilir.
 
 ## 2.0.6 — 2026-11-03
