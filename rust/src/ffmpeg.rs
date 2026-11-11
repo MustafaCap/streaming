@@ -1,6 +1,7 @@
 //! FFmpeg yardımcıları: ffmpeg.exe'yi bulma, kodlayıcı seçme, parçaları MP4'te birleştirme.
 //! Komutlar Python sürümüyle (core/recorder.py) aynı. Uygulamayla gelen FFmpeg LGPL sürümüdür.
 
+use crate::dil::t;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -85,7 +86,7 @@ pub fn calistir(mut k: Command, zaman_asimi: Duration) -> (bool, String) {
             _ => {
                 let _ = surec.kill();
                 let _ = surec.wait();
-                return (false, "FFmpeg zaman aşımına uğradı".into());
+                return (false, t("FFmpeg zaman aşımına uğradı").into());
             }
         }
     }

@@ -10,6 +10,8 @@ use std::time::Instant;
 use serde_json::Value;
 
 use crate::ayarlar::Ayarlar;
+use crate::dil::t;
+use crate::trf;
 use crate::durum::DurumDeposu;
 use crate::hat::{HatAyari, HatKontrol, VideoHatti};
 use crate::kayit::Kayitci;
@@ -132,7 +134,7 @@ pub fn hat_ayari(a: &Ayarlar) -> HatAyari {
     HatAyari {
         imlec_goster: a.mantik("video.show_cursor", true),
         imlec_vurgusu: a.mantik("video.cursor_highlight", false),
-        bekleme_metni: a.al("standby_text").and_then(Value::as_str).unwrap_or("Birazdan döneceğim").to_string(),
+        bekleme_metni: t(a.al("standby_text").and_then(Value::as_str).unwrap_or("Birazdan döneceğim")).to_string(),
         bekleme_gorseli: a.metin("standby_image"),
         yer: KameraYerlesimi::ayarlardan(a.al("camera").unwrap_or(&Value::Null)),
         monitor: a.sayi("video.monitor", 0).max(0) as usize,
@@ -165,8 +167,8 @@ impl Uygulama {
         let fps = a.sayi("video.fps", 30).clamp(5, 60) as u32;
         let depo = DurumDeposu::new();
         let mut mikser = Karistirici::new();
-        mikser.kanal_ekle("mikrofon", "Mikrofon", a.ondalik("audio.mic_gain", 1.0) as f32, a.mantik("audio.mic_muted", false));
-        mikser.kanal_ekle("sistem", "Bilgisayar sesi", a.ondalik("audio.system_gain", 0.7) as f32, a.mantik("audio.system_muted", false));
+        mikser.kanal_ekle("mikrofon", t("Mikrofon"), a.ondalik("audio.mic_gain", 1.0) as f32, a.mantik("audio.mic_muted", false));
+        mikser.kanal_ekle("sistem", t("Bilgisayar sesi"), a.ondalik("audio.system_gain", 0.7) as f32, a.mantik("audio.system_muted", false));
         mikser.kisma_acik = a.mantik("audio.ducking", false);
         mikser.kisma_seviyesi = a.ondalik("audio.ducking_level", 0.3) as f32;
         depo.guncelle(|d| {
@@ -228,7 +230,7 @@ impl Uygulama {
         u.kayitci.hata_olunca(Arc::new(move |mesaj| {
             if let Some(u) = zayif.upgrade() {
                 // Disk doldu / FFmpeg kapandı: kaydı durdur, o ana kadarki kısım kaydedilir.
-                u.bildir(&format!("Kayıt durduruldu: {mesaj}"), None, false);
+                u.bildir(&trf!("Kayıt durduruldu: {}", mesaj), None, false);
                 let u2 = u.clone();
                 std::thread::spawn(move || {
                     u2.komut(Komut::KayitDurdur);
@@ -250,7 +252,7 @@ impl Uygulama {
             self.ses.ac(true);
         }
         if let Err(e) = self.bas_konusu_uygula() {
-            self.bildir(&format!("Bas-konuş açılamadı: {e}"), None, false);
+            self.bildir(&trf!("Bas-konuş açılamadı: {}", e), None, false);
         }
         if self.ayarlar.lock().unwrap().mantik("record.replay", true) {
             let u = self.clone();
@@ -263,7 +265,7 @@ impl Uygulama {
                     // Seçilen donanım kodlayıcısı sürekli akışta hemen kapanırsa (test kodlamasını geçse de)
                     // anlık tekrar her yerde çalışan mpeg4 ile bir kez daha denenir.
                     std::thread::sleep(std::time::Duration::from_secs(3));
-                    if !u.tekrar.acik() && u.tekrar.son_hata().contains("FFmpeg kapandı") {
+                    if !u.tekrar.acik() && u.tekrar.son_hata().contains(t("FFmpeg kapandı")) {
                         log::warn!("Anlık tekrar mpeg4 ile yeniden deneniyor");
                         u.tekrar.durdur();
                         u.tekrar.kodlayici_ayarla("mpeg4");
@@ -282,7 +284,7 @@ impl Uygulama {
                 let ff = crate::ffmpeg::ffmpeg_bul();
                 for d in crate::kayit::yarim_kayitlari_kurtar(&u.kayitci.klasor(), ff.as_deref()) {
                     let ad = d.file_name().unwrap_or_default().to_string_lossy().into_owned();
-                    u.bildir(&format!("Yarım kalan kayıt kurtarıldı: {ad}"), Some(d), true);
+                    u.bildir(&trf!("Yarım kalan kayıt kurtarıldı: {}", ad), Some(d), true);
                 }
                 tekrar::artik_dosyalari_sil(&u.kayitci.klasor(), 120.0);
             })
@@ -373,14 +375,14 @@ impl Uygulama {
         let tekrar_istek = a.mantik("record.replay", true);
         drop(a);
         if let Err(e) = self.bas_konusu_uygula() {
-            self.bildir(&format!("Bas-konuş açılamadı: {e}"), None, false);
+            self.bildir(&trf!("Bas-konuş açılamadı: {}", e), None, false);
         }
         if tekrar_istek != self.tekrar.acik() {
             let u = self.clone();
             std::thread::spawn(move || {
                 if tekrar_istek {
                     if let Err(e) = u.tekrar.baslat() {
-                        u.bildir(&format!("Anlık tekrar başlamadı: {e}"), None, false);
+                        u.bildir(&trf!("Anlık tekrar başlamadı: {}", e), None, false);
                     }
                 } else {
                     u.tekrar.durdur();
@@ -416,7 +418,7 @@ impl Uygulama {
                 return Ok(());
             }
             if tus.is_empty() {
-                return Err("Ayarlar > Kısayollar'da bas-konuş tuşu seçilmemiş".into());
+                return Err(t("Ayarlar > Kısayollar'da bas-konuş tuşu seçilmemiş").into());
             }
             let zayif = Arc::downgrade(self);
             *bk = Some(crate::kisayol::BasKonus::baslat(&tus, move |basili| {
@@ -457,7 +459,7 @@ impl Uygulama {
             d.bolge.clear();
         });
         log::info!("Kaynak: pencere ({baslik})");
-        format!("Sadece bu pencere gösteriliyor: {baslik}")
+        trf!("Sadece bu pencere gösteriliyor: {}", baslik)
     }
 
     /// Bölge seçildi ya da modu değişti (oranlar monitöre göre 0..1; mod "yakinlastir" | "vurgula").
@@ -483,14 +485,14 @@ impl Uygulama {
             d.kaynak_adi.clear();
             d.bolge.clear();
         });
-        "Tüm ekran gösteriliyor".into()
+        t("Tüm ekran gösteriliyor").into()
     }
 
     pub fn monitor_sec(&self, monitor: usize) -> String {
         self.ayarla("video.monitor", (monitor as u64).into());
         self.k.ayar.lock().unwrap().monitor = monitor;
         self.tam_ekran();
-        format!("Ekran {} gösteriliyor", monitor + 1)
+        trf!("Ekran {} gösteriliyor", monitor + 1)
     }
 
     pub fn sahneleri_kaydet(&self) {
@@ -513,7 +515,7 @@ impl Uygulama {
             }
         });
         self.ayarla(ayar, sessiz.into());
-        format!("{ad} {}", if sessiz { "kapandı" } else { "açıldı" })
+        if sessiz { trf!("{} kapandı", t(ad)) } else { trf!("{} açıldı", t(ad)) }
     }
 
     pub fn kamera_gorunur_acik(&self) -> bool {
@@ -536,31 +538,31 @@ impl Uygulama {
             Komut::Sistem => self.susturma("sistem", "audio.system_muted", "Bilgisayar sesi"),
             Komut::Kamera => {
                 if !self.k.kamera_sahnede() {
-                    return "Bu sahnede kamera yok (Kaynaklar'dan ekleyebilirsin)".into();
+                    return t("Bu sahnede kamera yok (Kaynaklar'dan ekleyebilirsin)").into();
                 }
                 let ac = !self.k.kamera_istegi.load(Ordering::Relaxed);
                 self.k.kamerayi_ayarla(ac);
-                if ac { "Kamera açıldı" } else { "Kamera kapatıldı" }.into()
+                (if ac { t("Kamera açıldı") } else { t("Kamera kapatıldı") }).into()
             }
             Komut::Sahne(i) => {
                 if !self.k.sahneler.sec(i) {
-                    return format!("{}. sahne yok", i + 1);
+                    return trf!("{}. sahne yok", i + 1);
                 }
-                format!("Sahne: {}", self.k.sahneler.aktif().ad)
+                trf!("Sahne: {}", t(&self.k.sahneler.aktif().ad))
             }
             Komut::Panik => {
                 let p = !self.k.panik.load(Ordering::Relaxed);
                 self.k.panik.store(p, Ordering::SeqCst);
                 self.mikser.lock().unwrap().ana_sessiz = p; // panikte ses de gitmez
                 self.depo.guncelle(|d| d.panik = p);
-                if p { "Panik: bekleme ekranı, ses kapalı" } else { "Panik kapandı" }.into()
+                (if p { t("Panik: bekleme ekranı, ses kapalı") } else { t("Panik kapandı") }).into()
             }
             Komut::CikisAcKapat => {
                 let ac = !self.k.cikis_istegi.load(Ordering::Relaxed);
                 self.k.cikisi_ayarla(ac);
                 #[cfg(windows)]
                 self.ses.ac(ac);
-                if ac { "Sanal çıkış açıldı" } else { "Sanal çıkış duraklatıldı · kamera ve mikrofon gönderilmiyor" }.into()
+                (if ac { t("Sanal çıkış açıldı") } else { t("Sanal çıkış duraklatıldı · kamera ve mikrofon gönderilmiyor") }).into()
             }
             Komut::Kayit => {
                 if self.kayitci.kayitta() {
@@ -568,7 +570,7 @@ impl Uygulama {
                 }
                 if let Err(e) = self.kayitci.baslat() {
                     self.depo.guncelle(|d| d.kayit = "hata".into());
-                    return format!("Kayıt başlamadı: {e}");
+                    return trf!("Kayıt başlamadı: {}", e);
                 }
                 #[cfg(windows)]
                 self.ses.kayit_icin_ac(true);
@@ -576,7 +578,7 @@ impl Uygulama {
                     d.kayit = "açık".into();
                     d.kayit_duraklatildi = false;
                 });
-                "Kayıt başladı".into()
+                t("Kayıt başladı").into()
             }
             Komut::KayitDurdur => {
                 if !self.kayitci.kayitta() {
@@ -591,43 +593,43 @@ impl Uygulama {
                     #[cfg(windows)]
                     u.ses.kayit_icin_ac(false);
                     match dosya {
-                        Some(d) if hata.is_empty() => u.bildir("Kayıt kaydedildi", Some(d), true),
-                        Some(d) => u.bildir(&format!("Kayıt kaydedildi ({hata})"), Some(d), true),
-                        None => u.bildir(&format!("Kayıt kaydedilemedi: {hata}"), None, false),
+                        Some(d) if hata.is_empty() => u.bildir(t("Kayıt kaydedildi"), Some(d), true),
+                        Some(d) => u.bildir(&trf!("Kayıt kaydedildi ({})", hata), Some(d), true),
+                        None => u.bildir(&trf!("Kayıt kaydedilemedi: {}", hata), None, false),
                     }
                 })));
                 self.depo.guncelle(|d| {
                     d.kayit = "kapalı".into();
                     d.kayit_duraklatildi = false;
                 });
-                "Kayıt durdu, dosya hazırlanıyor".into()
+                t("Kayıt durdu, dosya hazırlanıyor").into()
             }
             Komut::KayitDuraklat => {
                 if !self.kayitci.kayitta() {
-                    return "Kayıt açık değil".into();
+                    return t("Kayıt açık değil").into();
                 }
                 if self.kayitci.duraklatildi() {
                     if !self.kayitci.devam_et() {
-                        return format!("Kayda devam edilemedi: {}", self.kayitci.son_hata());
+                        return trf!("Kayda devam edilemedi: {}", self.kayitci.son_hata());
                     }
                     self.depo.guncelle(|d| d.kayit_duraklatildi = false);
-                    return "Kayda devam ediliyor".into();
+                    return t("Kayda devam ediliyor").into();
                 }
                 self.kayitci.duraklat();
                 self.depo.guncelle(|d| d.kayit_duraklatildi = true);
-                "Kayıt duraklatıldı · devam etmek için tekrar bas".into()
+                t("Kayıt duraklatıldı · devam etmek için tekrar bas").into()
             }
             Komut::TekrarKaydet => {
                 if !self.tekrar.acik() {
-                    return "Anlık tekrar kapalı · Ayarlar'dan açabilirsin".into();
+                    return t("Anlık tekrar kapalı · Ayarlar'dan açabilirsin").into();
                 }
                 let klasor = kayit_klasoru(&self.ayarlar.lock().unwrap());
                 let u = self.clone();
                 match self.tekrar.kaydet(
                     klasor,
                     Some(Box::new(move |dosya, hata| match dosya {
-                        Some(d) => u.bildir(&format!("{} kaydedildi", tekrar::sure_etiketi(u.tekrar.sure_sn() as i64)), Some(d), false),
-                        None => u.bildir(&format!("Tekrar kaydedilemedi: {hata}"), None, false),
+                        Some(d) => u.bildir(&tekrar::kaydedildi_etiketi(u.tekrar.sure_sn() as i64), Some(d), false),
+                        None => u.bildir(&trf!("Tekrar kaydedilemedi: {}", hata), None, false),
                     })),
                 ) {
                     Ok(()) => String::new(),
@@ -646,10 +648,10 @@ impl Uygulama {
                 };
                 match ekran_goruntusu_kaydet(&self.k.son_kare(), &klasor) {
                     Ok(d) => {
-                        self.bildir("Ekran görüntüsü kaydedildi", Some(d), false);
+                        self.bildir(t("Ekran görüntüsü kaydedildi"), Some(d), false);
                         String::new()
                     }
-                    Err(e) => format!("Ekran görüntüsü kaydedilemedi: {e}"),
+                    Err(e) => trf!("Ekran görüntüsü kaydedilemedi: {}", e),
                 }
             }
             Komut::ToplantiModu => self.toplanti_modu_degistir(),
@@ -681,9 +683,9 @@ impl Uygulama {
         // açık katman yeni değeri bir sonraki çiziminde uygular
         self.uyandir_arayuz();
         if acik {
-            "Toplantı modu açık · tüm ekranı paylaşınca kalem ve vurgu da görünür".into()
+            t("Toplantı modu açık · tüm ekranı paylaşınca kalem ve vurgu da görünür").into()
         } else {
-            "Toplantı modu kapandı · kalem ve vurgu sadece RizeOn çıkışında".into()
+            t("Toplantı modu kapandı · kalem ve vurgu sadece RizeOn çıkışında").into()
         }
     }
 }

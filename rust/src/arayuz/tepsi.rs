@@ -11,7 +11,9 @@ use eframe::egui;
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
+use rizeon::dil::t;
 use rizeon::durum::Durum;
+use rizeon::trf;
 use rizeon::uygulama::{Komut, Uygulama};
 
 pub struct Tepsi {
@@ -43,20 +45,20 @@ impl Tepsi {
 
         let oge = |id: &str, ad: &str| MenuItem::with_id(MenuId::new(id), ad, true, None);
         let onay = |id: &str, ad: &str| CheckMenuItem::with_id(MenuId::new(id), ad, true, false, None);
-        let goster = oge("ana", "Ana pencereyi göster");
-        let mini = oge("mini", "Mini bar");
-        let toplanti = onay("toplanti.mod", "Toplantı modu (tüm ekran paylaşımı)");
-        let mik = onay("ses.mikrofon", "Mikrofon");
-        let sistem = onay("ses.sistem", "Sistem sesi");
-        let kamera = onay("kamera.ac_kapat", "Kamera");
-        let sahne = Submenu::new("Sahne", true);
-        let kayit = oge("kayit.ac_kapat", "Kaydı başlat");
-        let tekrar = oge("anlik_kayit.kaydet", "Son 15 sn'yi kaydet");
-        let klasor = oge("kayit.klasor", "Kayıt klasörünü aç");
-        let cikis_dur = oge("cikis.ac_kapat", "Sanal çıkışı duraklat");
+        let goster = oge("ana", t("Ana pencereyi göster"));
+        let mini = oge("mini", t("Mini bar"));
+        let toplanti = onay("toplanti.mod", t("Toplantı modu (tüm ekran paylaşımı)"));
+        let mik = onay("ses.mikrofon", t("Mikrofon"));
+        let sistem = onay("ses.sistem", t("Sistem sesi"));
+        let kamera = onay("kamera.ac_kapat", t("Kamera"));
+        let sahne = Submenu::new(t("Sahne"), true);
+        let kayit = oge("kayit.ac_kapat", t("Kaydı başlat"));
+        let tekrar = oge("anlik_kayit.kaydet", &rizeon::tekrar::kaydet_etiketi(15));
+        let klasor = oge("kayit.klasor", t("Kayıt klasörünü aç"));
+        let cikis_dur = oge("cikis.ac_kapat", t("Sanal çıkışı duraklat"));
         let sorun = oge("sorun", "");
-        let hakkinda = oge("hakkinda", "Hakkında");
-        let cikis = oge("cikis", "Çıkış");
+        let hakkinda = oge("hakkinda", t("Hakkında"));
+        let cikis = oge("cikis", t("Çıkış"));
         let menu = Menu::new();
         menu.append_items(&[
             &goster,
@@ -151,27 +153,26 @@ impl Tepsi {
     /// Sanal kamera/mikrofon sorunu sürdükçe menüde görünür ("" = sorun yok).
     pub fn sorun_ayarla(&mut self, metin: &str) {
         self.sorun_metni = metin.to_string();
-        self.sorun.set_text(format!("{metin} · Nasıl düzeltilir?"));
+        self.sorun.set_text(trf!("{} · Nasıl düzeltilir?", metin));
         let _ = self.simge.set_tooltip(Some(if metin.is_empty() { "RizeOn".to_string() } else { format!("RizeOn · {metin}") }));
     }
 
     pub fn durumu_goster(&mut self, d: &Durum, uyg: &Uygulama) {
         self.mik.set_checked(!d.mikrofon_sessiz);
-        self.mik.set_text(format!("Mikrofon: {}", if d.mikrofon_sessiz { "kapalı" } else { "açık" }));
+        self.mik.set_text(trf!("Mikrofon: {}", (if d.mikrofon_sessiz { t("kapalı") } else { t("açık") })));
         self.sistem.set_checked(!d.sistem_sessiz);
-        self.sistem.set_text(format!("Sistem sesi: {}", if d.sistem_sessiz { "kapalı" } else { "açık" }));
+        self.sistem.set_text(trf!("Sistem sesi: {}", (if d.sistem_sessiz { t("kapalı") } else { t("açık") })));
         let sahnede = uyg.k.kamera_sahnede();
         let acik = uyg.kamera_gorunur_acik();
         self.kamera.set_checked(acik);
         self.kamera.set_enabled(sahnede);
-        self.kamera.set_text(if sahnede { format!("Kamera: {}", if acik { "açık" } else { "kapalı" }) } else { "Kamera: bu sahnede yok".into() });
+        self.kamera.set_text(if sahnede { trf!("Kamera: {}", (if acik { t("açık") } else { t("kapalı") })) } else { t("Kamera: bu sahnede yok").into() });
         self.toplanti.set_checked(d.toplanti_modu);
-        self.kayit.set_text(if d.kayit == "açık" { "Kaydı bitir" } else { "Kaydı başlat" });
-        let etiket = rizeon::tekrar::sure_etiketi(uyg.tekrar.sure_sn() as i64);
-        self.tekrar.set_text(if etiket.ends_with("dk") { format!("{etiket}'yı kaydet") } else { format!("{etiket}'yi kaydet") });
+        self.kayit.set_text(if d.kayit == "açık" { t("Kaydı bitir") } else { t("Kaydı başlat") });
+        self.tekrar.set_text(rizeon::tekrar::kaydet_etiketi(uyg.tekrar.sure_sn() as i64));
         self.tekrar.set_enabled(uyg.tekrar.acik());
         let cikis = uyg.k.cikis_istegi.load(std::sync::atomic::Ordering::Relaxed);
-        self.cikis_dur.set_text(if cikis { "Sanal çıkışı duraklat" } else { "Sanal çıkışı sürdür" });
+        self.cikis_dur.set_text(if cikis { t("Sanal çıkışı duraklat") } else { t("Sanal çıkışı sürdür") });
 
         // sorun satırı: sorun varken "Sanal çıkışı duraklat"tan sonra görünür
         let sorun = !self.sorun_metni.is_empty();
@@ -191,7 +192,7 @@ impl Tepsi {
                 let _ = self.sahne.remove(&o);
             }
             for (i, ad) in sahneler.iter().enumerate() {
-                let o = CheckMenuItem::with_id(MenuId::new(format!("{SAHNE_ON_EKI}{i}")), ad, true, false, None);
+                let o = CheckMenuItem::with_id(MenuId::new(format!("{SAHNE_ON_EKI}{i}")), t(ad), true, false, None);
                 let _ = self.sahne.append(&o);
                 self.sahne_ogeleri.push(o);
             }

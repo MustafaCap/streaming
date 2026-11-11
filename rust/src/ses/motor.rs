@@ -7,6 +7,8 @@
 //! - Bilgisayar sesinde Zoom/Discord hariç tutulur, karşı taraf yankı duymaz.
 //! Denetçi saniyede bir her şeyi kontrol eder; cihaz çıkarılırsa çökmez, yeniden bağlanır.
 
+use crate::dil::t;
+use crate::trf;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -284,7 +286,7 @@ impl Denetci {
         // Hoparlör sessizken Windows hiç veri vermeyebilir; sadece akış durduysa kopmuş say.
         if self.hoparlor.as_ref().is_some_and(|a| !a.calisiyor()) {
             self.hoparlor = None;
-            self.sistem_durumu("yok", "Hoparlör sesi koptu");
+            self.sistem_durumu("yok", t("Hoparlör sesi koptu"));
         }
         if self.surec.as_ref().is_some_and(|(a, _)| !a.calisiyor()) {
             self.surec = None;
@@ -304,7 +306,7 @@ impl Denetci {
         let Some(kablo) = wasapi::cihazlar(false).into_iter().find(|c| c.ad.to_lowercase().contains(&KABLO_ADI.to_lowercase())) else {
             self.ic.depo.guncelle(|d| {
                 d.sanal_mikrofon = "yok".into();
-                d.ses_hatasi = "VB-Cable bulunamadı. vb-audio.com/Cable'dan kurup bilgisayarı yeniden başlat.".into();
+                d.ses_hatasi = t("VB-Cable bulunamadı. vb-audio.com/Cable'dan kurup bilgisayarı yeniden başlat.").into();
             });
             return false;
         };
@@ -326,7 +328,7 @@ impl Denetci {
                 log::warn!("CABLE Input açılamadı: {e}");
                 self.ic.depo.guncelle(|d| {
                     d.sanal_mikrofon = "hata".into();
-                    d.ses_hatasi = format!("VB-Cable açılamadı: {e}");
+                    d.ses_hatasi = trf!("VB-Cable açılamadı: {}", e);
                 });
                 false
             }
@@ -338,16 +340,16 @@ impl Denetci {
         let ad = self.ic.ayar.lock().unwrap().mikrofon_adi.clone();
         if !ad.is_empty() {
             if kablo_mu(&ad) {
-                return Err("CABLE mikrofon olarak seçilemez (kendi sesini geri alır). Gerçek mikrofonu seç.".into());
+                return Err(t("CABLE mikrofon olarak seçilemez (kendi sesini geri alır). Gerçek mikrofonu seç.").into());
             }
             // Python sürümü MME adlarını (31 karakter) saklıyordu: başı tutan da kabul
             let kisa: String = ad.chars().take(31).collect();
-            return liste.into_iter().find(|c| c.ad == ad || c.ad.starts_with(&kisa)).ok_or_else(|| format!("'{ad}' bulunamadı"));
+            return liste.into_iter().find(|c| c.ad == ad || c.ad.starts_with(&kisa)).ok_or_else(|| trf!("'{}' bulunamadı", ad));
         }
         if let Some(v) = wasapi::varsayilan(true).filter(|v| !kablo_mu(&v.ad)) {
             return Ok(v);
         }
-        liste.into_iter().next().ok_or_else(|| "Mikrofon bulunamadı".into())
+        liste.into_iter().next().ok_or_else(|| t("Mikrofon bulunamadı").into())
     }
 
     fn mikrofonu_ac(&mut self) {
@@ -402,7 +404,7 @@ impl Denetci {
                 self.ic.depo.guncelle(|d| {
                     d.mikrofon = "yok".into();
                     d.mikrofon_adi.clear();
-                    d.ses_hatasi = format!("Mikrofon açılamadı: {e}");
+                    d.ses_hatasi = trf!("Mikrofon açılamadı: {}", e);
                 });
             }
         }
@@ -469,16 +471,16 @@ impl Denetci {
         let ayar = self.ic.ayar.lock().unwrap().clone();
         let (hedef, aciklama): (Option<(u32, bool)>, String) = if self.sistem_modu == "app" {
             if ayar.dahil_uygulama.is_empty() {
-                (None, "Uygulama seçilmedi".into())
+                (None, t("Uygulama seçilmedi").into())
             } else {
                 match surec_sesi::surec_bul(&ayar.dahil_uygulama, &surec_sesi::surec_tablosu()) {
-                    Some(p) => (Some((p, false)), format!("Sadece {}", ayar.dahil_uygulama)),
-                    None => (None, format!("{} çalışmıyor", ayar.dahil_uygulama)),
+                    Some(p) => (Some((p, false)), trf!("Sadece {}", ayar.dahil_uygulama)),
+                    None => (None, trf!("{} çalışmıyor", ayar.dahil_uygulama)),
                 }
             }
         } else {
             // Kendimizi hariç tutarız: VB-Cable'a giden sesimiz geri gelmesin.
-            (Some((std::process::id(), true)), "Tüm bilgisayar sesi".into())
+            (Some((std::process::id(), true)), t("Tüm bilgisayar sesi").into())
         };
         if hedef.is_some() && self.surec.as_ref().map(|(_, h)| *h) == hedef {
             return;
@@ -568,9 +570,9 @@ impl Denetci {
             tablo.values().filter(|(_, a)| haric_k.contains(a)).map(|(_, a)| a.trim_end_matches(".exe").to_string()).collect();
         calisan_haric.sort();
         calisan_haric.dedup();
-        let mut aciklama = if adlar.is_empty() { "Ses çıkaran uygulama yok".to_string() } else { adlar.join(", ") };
+        let mut aciklama = if adlar.is_empty() { t("Ses çıkaran uygulama yok").to_string() } else { adlar.join(", ") };
         if !calisan_haric.is_empty() {
-            aciklama += &format!(" ({} hariç)", calisan_haric.join(", "));
+            aciklama += &trf!(" ({} hariç)", calisan_haric.join(", "));
         }
         self.sistem_durumu("açık", &aciklama);
         if !self.acik_gosterildi {
@@ -582,23 +584,23 @@ impl Denetci {
     fn hoparlor_loopback_ac(&mut self) {
         let Some(h) = wasapi::varsayilan(false) else {
             self.kanal_bagli("sistem", false);
-            self.sistem_durumu("yok", "Hoparlör bulunamadı");
+            self.sistem_durumu("yok", t("Hoparlör bulunamadı"));
             return;
         };
         if kablo_mu(&h.ad) {
             self.kanal_bagli("sistem", false);
-            self.sistem_durumu("yok", "Windows'ta varsayılan hoparlör CABLE olmuş; gerçek hoparlörü seç");
+            self.sistem_durumu("yok", t("Windows'ta varsayılan hoparlör CABLE olmuş; gerçek hoparlörü seç"));
             return;
         }
         match wasapi::cihaz_yakala(&h.kimlik, true, self.sistem_yazici(String::new())) {
             Ok(a) => {
                 self.hoparlor = Some(a);
                 self.kanal_bagli("sistem", true);
-                self.sistem_durumu("açık", "Hoparlörden çıkan tüm ses");
+                self.sistem_durumu("açık", t("Hoparlörden çıkan tüm ses"));
             }
             Err(e) => {
                 self.kanal_bagli("sistem", false);
-                self.sistem_durumu("yok", &format!("Hoparlör sesi açılamadı: {e}"));
+                self.sistem_durumu("yok", &trf!("Hoparlör sesi açılamadı: {}", e));
             }
         }
     }

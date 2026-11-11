@@ -5,6 +5,8 @@
 //! "auto" modda ses çıkaran her uygulama ayrı ayrı "dahil" moduyla yakalanır; Zoom/Discord ve kendi
 //! sürecimiz (ve onların üst/alt süreçleri) bu listeye hiç girmez (1.0.0 testinde bulunan yankı).
 
+use crate::dil::t;
+use crate::trf;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{sync_channel, SyncSender};
 
@@ -64,7 +66,7 @@ unsafe fn surec_istemcisi(pid: u32, haric: bool) -> Result<IAudioClient, String>
     let isleyici: IActivateAudioInterfaceCompletionHandler = Tamamlayici { tx }.into();
     let _islem = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&*pv as *const PROPVARIANT), &isleyici)
         .map_err(|e| e.to_string())?;
-    rx.recv_timeout(std::time::Duration::from_secs(5)).map_err(|_| "Windows 5 saniye içinde cevap vermedi".to_string())?
+    rx.recv_timeout(std::time::Duration::from_secs(5)).map_err(|_| t("Windows 5 saniye içinde cevap vermedi").to_string())?
 }
 
 /// Bir sürecin (ve alt süreçlerinin) sesini yakalar (`haric` ise o süreç dışındaki her şeyi).
@@ -90,7 +92,7 @@ pub fn surec_yakala(pid: u32, haric: bool, yaz: impl FnMut(&[f32]) + Send + 'sta
         yaz,
         "surec-sesi",
     )
-    .map_err(|e| format!("Uygulama sesi yakalanamadı: {e}"))?;
+    .map_err(|e| trf!("Uygulama sesi yakalanamadı: {}", e))?;
     log::info!("Uygulama sesi yakalanıyor: pid={pid}, {}", if haric { "hariç" } else { "sadece bu" });
     Ok(akis)
 }

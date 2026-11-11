@@ -3,6 +3,8 @@
 
 pub mod kisayol;
 
+use crate::dil::t;
+use crate::trf;
 use std::path::{Path, PathBuf};
 
 use windows::core::{HSTRING, PCWSTR};
@@ -67,19 +69,19 @@ impl PaylasilanBellek {
         unsafe {
             if let Ok(mevcut) = OpenFileMappingW(FILE_MAP_READ.0, false, &ad) {
                 let _ = CloseHandle(mevcut);
-                return Err("OBS sanal kamerası şu an başka bir programda açık (OBS'nin kendisi olabilir)".into());
+                return Err(t("OBS sanal kamerası şu an başka bir programda açık (OBS'nin kendisi olabilir)").into());
             }
             let tutamak = CreateFileMappingW(INVALID_HANDLE_VALUE, None, PAGE_READWRITE, (boyut as u64 >> 32) as u32, boyut as u32, &ad)
-                .map_err(|e| format!("Paylaşılan bellek oluşturulamadı ({e})"))?;
+                .map_err(|e| trf!("Paylaşılan bellek oluşturulamadı ({})", e))?;
             if GetLastError() == ERROR_ALREADY_EXISTS {
                 let _ = CloseHandle(tutamak);
-                return Err("OBS sanal kamerası şu an başka bir programda açık".into());
+                return Err(t("OBS sanal kamerası şu an başka bir programda açık").into());
             }
             let adres = MapViewOfFile(tutamak, FILE_MAP_ALL_ACCESS, 0, 0, 0);
             if adres.Value.is_null() {
                 let e = GetLastError();
                 let _ = CloseHandle(tutamak);
-                return Err(format!("Paylaşılan bellek açılamadı (Windows hata kodu {})", e.0));
+                return Err(trf!("Paylaşılan bellek açılamadı (Windows hata kodu {})", e.0));
             }
             Ok(PaylasilanBellek { tutamak, adres })
         }

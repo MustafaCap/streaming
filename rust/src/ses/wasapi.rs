@@ -1,6 +1,7 @@
 //! WASAPI ile ses cihazları: listeleme, yakalama (mikrofon / hoparlör loopback) ve çalma (CABLE Input).
 //! Paylaşımlı mod + AUTOCONVERTPCM: Windows sesi bizim istediğimiz 48 kHz stereo biçime kendisi çevirir.
 
+use crate::dil::t;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -203,7 +204,7 @@ pub fn yakalama_dongusu(
         Ok(Err(e)) => Err(e),
         Err(_) => {
             calis.store(false, Ordering::SeqCst);
-            Err("Windows ses arayüzü zamanında cevap vermedi".into())
+            Err(t("Windows ses arayüzü zamanında cevap vermedi").into())
         }
     }
 }
@@ -298,7 +299,7 @@ pub fn cal(kimlik: &str, mut doldur: impl FnMut(usize, &mut Vec<f32>) + Send + '
         Ok(Err(e)) => Err(e),
         Err(_) => {
             calis.store(false, Ordering::SeqCst);
-            Err("Windows ses arayüzü zamanında cevap vermedi".into())
+            Err(t("Windows ses arayüzü zamanında cevap vermedi").into())
         }
     }
 }

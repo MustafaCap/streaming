@@ -8,6 +8,8 @@
 //! Çökmeye dayanıklı: MKV ve başlıksız PCM yarım kalsa da açılır; bir sonraki açılışta
 //! `yarim_kayitlari_kurtar` onları "..._kurtarildi.mp4" yapar.
 
+use crate::dil::t;
+use crate::trf;
 use std::collections::VecDeque;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -100,7 +102,7 @@ pub fn yarim_kayitlari_kurtar(klasor: &Path, ffmpeg: Option<&Path>) -> Vec<PathB
         let parcalar: Vec<PathBuf> = tum.iter().filter(|p| bos_degil(p)).cloned().collect();
         let hedef = klasor.join(format!("{ad}_kurtarildi.mp4"));
         let sonuc = if parcalar.is_empty() {
-            Err("boş dosya".to_string())
+            Err(t("boş dosya").to_string())
         } else {
             let ses_var = bos_degil(&ses);
             let s = if ses_var { Some(ses.as_path()) } else { None };
@@ -326,7 +328,7 @@ impl Kayitci {
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
-        let mut surec = c.spawn().map_err(|e| format!("FFmpeg başlatılamadı: {e}"))?;
+        let mut surec = c.spawn().map_err(|e| trf!("FFmpeg başlatılamadı: {}", e))?;
         ffmpeg::gizle(&yol);
         // FFmpeg'in hata çıktısı sürekli okunur (okunmazsa boru dolup FFmpeg tıkanabilir)
         if let Some(stderr) = surec.stderr.take() {
@@ -347,7 +349,7 @@ impl Kayitci {
                 })
                 .ok();
         }
-        let mut stdin = surec.stdin.take().ok_or("FFmpeg girişi açılamadı")?;
+        let mut stdin = surec.stdin.take().ok_or(t("FFmpeg girişi açılamadı"))?;
         let (tx, rx): (SyncSender<Option<KareRef>>, Receiver<Option<KareRef>>) = sync_channel(self.fps.max(10) as usize);
         let kare = Arc::new(AtomicU64::new(0));
         let (ortak, sayac, bicim) = (self.ortak.clone(), kare.clone(), bicim.to_string());
@@ -358,7 +360,7 @@ impl Kayitci {
                     if let Err(e) = stdin.write_all(ffmpeg::kare_baytlari(&k, &bicim)) {
                         std::thread::sleep(Duration::from_millis(200)); // FFmpeg'in son satırları okunsun
                         let ayrinti: Vec<String> = ortak.ffmpeg_ciktisi.lock().unwrap().iter().rev().take(3).rev().cloned().collect();
-                        ortak.yazma_hatasi(format!("Kayıt görüntüsü yazılamadı: {e} {}", ayrinti.join(" ")).trim().to_string());
+                        ortak.yazma_hatasi(trf!("Kayıt görüntüsü yazılamadı: {} {}", e, ayrinti.join(" ")).trim().to_string());
                         break;
                     }
                     sayac.fetch_add(1, Ordering::Relaxed);
@@ -380,14 +382,14 @@ impl Kayitci {
             Err(m)
         };
         let Some(ffmpeg) = self.ffmpeg.clone().or_else(ffmpeg::ffmpeg_bul) else {
-            return hata("FFmpeg bulunamadı (uygulama klasöründe ffmpeg\\ffmpeg.exe olmalı)".into());
+            return hata(t("FFmpeg bulunamadı (uygulama klasöründe ffmpeg\\ffmpeg.exe olmalı)").into());
         };
         let klasor = self.klasor();
         if let Err(e) = std::fs::create_dir_all(&klasor) {
-            return hata(format!("Kayıt klasörü oluşturulamadı: {e}"));
+            return hata(trf!("Kayıt klasörü oluşturulamadı: {}", e));
         }
         if self.bitiyor() {
-            return hata("Önceki kayıt hâlâ hazırlanıyor, birkaç saniye sonra tekrar dene".into());
+            return hata(t("Önceki kayıt hâlâ hazırlanıyor, birkaç saniye sonra tekrar dene").into());
         }
         let ad = Self::bos_ad(&klasor, &chrono::Local::now().format("Kayit_%Y-%m-%d_%H-%M-%S").to_string());
         let hedef = klasor.join(format!("{ad}.mp4"));
@@ -396,7 +398,7 @@ impl Kayitci {
         let kod = ffmpeg::kodlayici_sec(&ffmpeg, &tercih);
         let ses_dosyasi = match std::fs::File::create(&gecici_ses) {
             Ok(f) => f,
-            Err(e) => return hata(format!("Kayıt dosyası açılamadı: {e}")),
+            Err(e) => return hata(trf!("Kayıt dosyası açılamadı: {}", e)),
         };
         ffmpeg::gizle(&gecici_ses);
         self.ortak.ffmpeg_ciktisi.lock().unwrap().clear();
@@ -570,7 +572,7 @@ fn ses_dongu(ortak: Arc<Ortak>, rx: Receiver<Option<(Instant, Vec<f32>)>>, dosya
         yazilan += n;
         if let Err(e) = sonuc {
             yazilabilir = false;
-            ortak.yazma_hatasi(format!("Kayıt sesi yazılamadı (disk dolu olabilir): {e}"));
+            ortak.yazma_hatasi(trf!("Kayıt sesi yazılamadı (disk dolu olabilir): {}", e));
         }
     }
     let _ = dosya.flush();
@@ -595,7 +597,7 @@ fn bitir(ortak: &Ortak, mut a: Aktif) -> (Option<PathBuf>, String) {
     let mut hata = String::new();
     let mut tamam = false;
     if parcalar.is_empty() {
-        hata = if kayit_hatasi.is_empty() { "Görüntü kaydedilemedi".into() } else { kayit_hatasi };
+        hata = if kayit_hatasi.is_empty() { t("Görüntü kaydedilemedi").into() } else { kayit_hatasi };
     } else {
         let ses = if ses_var { Some(a.gecici_ses.as_path()) } else { None };
         match ffmpeg::birlestir(&a.ffmpeg, &parcalar, ses, &a.hedef) {
@@ -605,12 +607,12 @@ fn bitir(ortak: &Ortak, mut a: Aktif) -> (Option<PathBuf>, String) {
                 match ffmpeg::birlestir(&a.ffmpeg, &parcalar, None, &a.hedef) {
                     Ok(()) => {
                         tamam = true;
-                        hata = "Ses eklenemedi; sadece görüntü kaydedildi".into();
+                        hata = t("Ses eklenemedi; sadece görüntü kaydedildi").into();
                     }
-                    Err(e) => hata = format!("Kayıt dosyası oluşturulamadı: {e}"),
+                    Err(e) => hata = trf!("Kayıt dosyası oluşturulamadı: {}", e),
                 }
             }
-            Err(e) => hata = format!("Kayıt dosyası oluşturulamadı: {e}"),
+            Err(e) => hata = trf!("Kayıt dosyası oluşturulamadı: {}", e),
         }
         if tamam && hata.is_empty() && !kayit_hatasi.is_empty() {
             hata = kayit_hatasi; // yarıda kesildi ama o ana kadarki kısım kaydedildi

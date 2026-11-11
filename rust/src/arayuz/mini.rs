@@ -15,7 +15,9 @@ use std::sync::Arc;
 
 use eframe::egui::{self, Pos2, Stroke, Vec2};
 
+use rizeon::dil::t;
 use rizeon::durum::Durum;
+use rizeon::trf;
 use rizeon::uygulama::{Komut, Uygulama};
 
 use super::bilesen::{self, ipucu, SimgeDugme};
@@ -141,13 +143,13 @@ impl MiniBar {
                 let arka = ui.interact(r, egui::Id::unique("mini-sag"), egui::Sense::click());
                 egui::Popup::context_menu(&arka).frame(bilesen::menu_cercevesi()).show(|ui| {
                     ui.set_min_width(180.0);
-                    if bilesen::menu_satiri(ui, "Ana pencereyi göster", true).clicked() {
+                    if bilesen::menu_satiri(ui, t("Ana pencereyi göster"), true).clicked() {
                         ana = true;
                     }
-                    if kayitta && bilesen::menu_satiri(ui, "Kaydı bitir", true).clicked() {
+                    if kayitta && bilesen::menu_satiri(ui, t("Kaydı bitir"), true).clicked() {
                         uyg.komut(Komut::Kayit);
                     }
-                    if bilesen::menu_satiri(ui, if self.genis { "Küçült" } else { "Genişlet" }, true).clicked() {
+                    if bilesen::menu_satiri(ui, if self.genis { t("Küçült") } else { t("Genişlet") }, true).clicked() {
                         self.genis = !self.genis;
                     }
                 });
@@ -173,17 +175,17 @@ impl MiniBar {
                     }
                 } else if self.genis {
                     let hazir = uyg.kayitci.bitiyor();
-                    let r = SimgeDugme::new("kayit").boyut(ARAC, 16.0).etkin(!hazir).goster(ui).on_hover_text(ipucu("Kaydı başlat", &tus(uyg, "kayit.ac_kapat")));
+                    let r = SimgeDugme::new("kayit").boyut(ARAC, 16.0).etkin(!hazir).goster(ui).on_hover_text(ipucu(t("Kaydı başlat"), &tus(uyg, "kayit.ac_kapat")));
                     if r.clicked() {
                         let m = uyg.komut(Komut::Kayit);
-                        if m.starts_with("Kayıt başlamadı") {
+                        if m.starts_with(&trf!("Kayıt başlamadı: {}", "")) {
                             uyg.bildir(&m, None, false);
                         }
                     }
                 }
                 // Kayıt yokken küçük bar boş kalırdı: küçültme sadece kayıtta var
                 if kayitta || !self.genis {
-                    let (s, ad) = if self.genis { ("geri", "Küçült") } else { ("ileri", "Genişlet") };
+                    let (s, ad) = if self.genis { ("geri", t("Küçült")) } else { ("ileri", t("Genişlet")) };
                     if SimgeDugme::new(s).boyut(boy, 14.0).renk(tema::SOLUK).goster(ui).on_hover_text(ad).clicked() {
                         self.genis = !self.genis;
                     }
@@ -214,7 +216,7 @@ impl MiniBar {
 
     /// Sürükleyince taşır; bırakınca konumu kaydeder. Çift tık: ana pencere.
     fn tutma_yeri(&mut self, ui: &mut egui::Ui, vctx: &egui::Context, uyg: &Uygulama) -> bool {
-        let cevap = bilesen::tutma_yeri(ui, 4.0).on_hover_text("Taşı · çift tıkla: ana pencere");
+        let cevap = bilesen::tutma_yeri(ui, 4.0).on_hover_text(t("Taşı · çift tıkla: ana pencere"));
         if cevap.drag_started() {
             vctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
             self.surukleniyor = true;
@@ -234,36 +236,36 @@ impl MiniBar {
             SimgeDugme::new(simge).boyut(ARAC, 16.0).kapali(kapali).secili(secili).etkin(etkin).goster(ui).on_hover_text(ad).clicked()
         };
         let mik = d.mikrofon_sessiz;
-        if arac(ui, "mikrofon", mik, false, true, ipucu(if mik { "Mikrofon kapalı, aç" } else { "Mikrofon açık, kapat" }, &tus(uyg, "ses.mikrofon"))) {
+        if arac(ui, "mikrofon", mik, false, true, ipucu(if mik { t("Mikrofon kapalı, aç") } else { t("Mikrofon açık, kapat") }, &tus(uyg, "ses.mikrofon"))) {
             uyg.komut(Komut::Mikrofon);
         }
         let sis = d.sistem_sessiz;
-        if arac(ui, "ses", sis, false, true, ipucu(if sis { "Sistem sesi kapalı, aç" } else { "Sistem sesi açık, kapat" }, &tus(uyg, "ses.sistem"))) {
+        if arac(ui, "ses", sis, false, true, ipucu(if sis { t("Sistem sesi kapalı, aç") } else { t("Sistem sesi açık, kapat") }, &tus(uyg, "ses.sistem"))) {
             uyg.komut(Komut::Sistem);
         }
         let sahnede = uyg.k.kamera_sahnede();
         let kam = uyg.kamera_gorunur_acik();
         // Sahnede kamera yokken "açık" görünmesin, basılamasın (seni çekiyor sanılmasın)
         let ad = if !sahnede {
-            "Bu sahnede kamera yok".to_string()
+            t("Bu sahnede kamera yok").to_string()
         } else {
-            ipucu(if kam { "Kamera açık, kapat" } else { "Kamera kapalı, aç" }, &tus(uyg, "kamera.ac_kapat"))
+            ipucu(if kam { t("Kamera açık, kapat") } else { t("Kamera kapalı, aç") }, &tus(uyg, "kamera.ac_kapat"))
         };
         if arac(ui, "kamera", !kam, false, sahnede, ad) {
             uyg.komut(Komut::Kamera);
         }
-        if arac(ui, "bolge", false, !d.bolge.is_empty(), true, ipucu("Bölge seç", &tus(uyg, "bolge.sec"))) {
+        if arac(ui, "bolge", false, !d.bolge.is_empty(), true, ipucu(t("Bölge seç"), &tus(uyg, "bolge.sec"))) {
             let m = uyg.komut(Komut::Bolge);
             if !m.is_empty() {
                 uyg.bildir(&m, None, false);
             }
         }
-        if arac(ui, "kalem", false, d.kalem_acik, true, ipucu("Kalem", &tus(uyg, "kalem.ac_kapat"))) {
+        if arac(ui, "kalem", false, d.kalem_acik, true, ipucu(t("Kalem"), &tus(uyg, "kalem.ac_kapat"))) {
             uyg.komut(Komut::Kalem);
         }
-        if arac(ui, "foto", false, false, true, ipucu("Ekran görüntüsü al", &tus(uyg, "ekran.goruntusu"))) {
+        if arac(ui, "foto", false, false, true, ipucu(t("Ekran görüntüsü al"), &tus(uyg, "ekran.goruntusu"))) {
             let m = uyg.komut(Komut::EkranGoruntusu);
-            if m.starts_with("Ekran görüntüsü kaydedilemedi") {
+            if m.starts_with(&trf!("Ekran görüntüsü kaydedilemedi: {}", "")) {
                 uyg.bildir(&m, None, false);
             }
         }

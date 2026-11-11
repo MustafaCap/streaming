@@ -22,6 +22,8 @@ fn main() {
     };
     log::info!("Uygulama başlıyor (Rust sürümü {}, derleme {})", surum::SURUM, surum::DERLEME);
     let ayarlar = Ayarlar::ac(yollar::ayar_dosyasi());
+    rizeon::dil::ayarla(rizeon::dil::ayardan(&ayarlar.metin("ui.language")));
+    log::info!("Arayüz dili: {:?}", rizeon::dil::dil());
     let uyg = Uygulama::kur(ayarlar);
     uyg.baslat();
     if let Err(e) = arayuz::calistir(uyg.clone(), tek) {
@@ -40,7 +42,7 @@ fn main() {
 }
 
 fn acilis_hatasi_goster(hata: &str) {
-    let metin = format!("RizeOn açılamadı.\n\n{hata}\n\nAyrıntılar log dosyasında:\n{}", yollar::log_klasoru().display());
+    let metin = rizeon::trf!("RizeOn açılamadı.\n\n{}\n\nAyrıntılar log dosyasında:\n{}", hata, yollar::log_klasoru().display());
     #[cfg(windows)]
     unsafe {
         use windows::core::HSTRING;

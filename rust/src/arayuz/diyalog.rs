@@ -3,6 +3,8 @@
 
 use eframe::egui::{self, RichText};
 
+use rizeon::dil::t;
+
 use super::bilesen;
 use super::tema;
 
@@ -77,18 +79,18 @@ pub fn goster(ctx: &egui::Context, acik: &mut Option<Diyalog>) -> Option<(Amac, 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if d.soru {
                             // Qt'deki gibi varsayılan "Hayır"
-                            if bilesen::diyalog_dugmesi(ui, "Hayır", true).clicked() {
+                            if bilesen::diyalog_dugmesi(ui, t("Hayır"), true).clicked() {
                                 kapat = true;
                             }
-                            if bilesen::diyalog_dugmesi(ui, "Evet", false).clicked() {
+                            if bilesen::diyalog_dugmesi(ui, t("Evet"), false).clicked() {
                                 sonuc = Some((d.amac.clone(), String::new()));
                             }
                             return;
                         }
-                        if d.girdi && bilesen::diyalog_dugmesi(ui, "Vazgeç", false).clicked() {
+                        if d.girdi && bilesen::diyalog_dugmesi(ui, t("Vazgeç"), false).clicked() {
                             kapat = true;
                         }
-                        if bilesen::diyalog_dugmesi(ui, "Tamam", true).clicked() {
+                        if bilesen::diyalog_dugmesi(ui, t("Tamam"), true).clicked() {
                             if d.girdi {
                                 sonuc = Some((d.amac.clone(), d.metin.clone()));
                             } else {

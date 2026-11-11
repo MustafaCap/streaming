@@ -8,6 +8,7 @@
 
 pub mod tflite;
 
+use crate::trf;
 use crate::kare::{olcekle, Kare};
 use fast_image_resize as fr;
 
@@ -52,7 +53,7 @@ impl ArkaPlanBulaniklastirici {
             }
             Err(e) => {
                 self.yuklenemedi = true;
-                self.hata = format!("Bulanıklaştırma modeli yüklenemedi: {e}");
+                self.hata = trf!("Bulanıklaştırma modeli yüklenemedi: {}", e);
                 log::warn!("{}", self.hata);
                 false
             }
@@ -73,7 +74,7 @@ impl ArkaPlanBulaniklastirici {
         match self.model.as_ref().unwrap().calistir(&giris) {
             Ok(m) => Some(m.into_iter().map(|v| v.clamp(0.0, 1.0)).collect()),
             Err(e) => {
-                self.hata = format!("Bulanıklaştırma hatası: {e}");
+                self.hata = trf!("Bulanıklaştırma hatası: {}", e);
                 log::warn!("{}", self.hata);
                 self.yuklenemedi = true;
                 self.model = None;

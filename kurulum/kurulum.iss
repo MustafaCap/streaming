@@ -80,11 +80,26 @@ AppMutex=Local\RizeOn_TekKopya,Local\YayinUygulamasi_TekKopya
 CloseApplications=yes
 RestartApplications=no
 
+; Kurulum dili Windows diline göre seçilir (Türkçe değilse İngilizce); dil sorusu sorulmaz.
+ShowLanguageDialog=no
+
 [Languages]
+; Eşleşme yoksa ilk dil (İngilizce) seçilir
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 
+[CustomMessages]
+turkish.MasaustuKisayolu=Masaüstüne kısayol ekle
+english.MasaustuKisayolu=Create a desktop shortcut
+turkish.Kisayollar=Kısayollar:
+english.Kisayollar=Shortcuts:
+turkish.KisayolAciklamasi=Ekran, kamera ve ses paylaşımı (sanal kamera + sanal mikrofon)
+english.KisayolAciklamasi=Screen, camera and audio sharing (virtual camera + virtual microphone)
+turkish.SimdiAc=RizeOn'u şimdi aç
+english.SimdiAc=Open RizeOn now
+
 [Tasks]
-Name: "masaustu"; Description: "Masaüstüne kısayol ekle"; GroupDescription: "Kısayollar:"
+Name: "masaustu"; Description: "{cm:MasaustuKisayolu}"; GroupDescription: "{cm:Kisayollar}"
 
 ; Eski ad (Yayın Uygulaması, 1.5.x ve öncesi) ile kurulmuş dosyalar: aynı AppId olduğu için bu kurulum
 ; eskisinin üstüne gelir; eski exe ve kısayollar kalırsa iki uygulama varmış gibi görünür.
@@ -99,8 +114,8 @@ Type: filesandordirs; Name: "{app}\_internal"
 Source: "{#Kaynak}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#UygulamaAdi}"; Filename: "{app}\{#ExeAdi}"; Comment: "Ekran, kamera ve ses paylaşımı (sanal kamera + sanal mikrofon)"
+Name: "{autoprograms}\{#UygulamaAdi}"; Filename: "{app}\{#ExeAdi}"; Comment: "{cm:KisayolAciklamasi}"
 Name: "{autodesktop}\{#UygulamaAdi}"; Filename: "{app}\{#ExeAdi}"; Tasks: masaustu
 
 [Run]
-Filename: "{app}\{#ExeAdi}"; Description: "{#UygulamaAdi}'u şimdi aç"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#ExeAdi}"; Description: "{cm:SimdiAc}"; Flags: nowait postinstall skipifsilent

@@ -15,7 +15,8 @@
     "minimize_to_tray": true,
     "dnd_reminder": true,
     "advanced": true,
-    "meeting_mode": false
+    "meeting_mode": false,
+    "language": "auto"
   },
   "camera": {
     "enabled": true,

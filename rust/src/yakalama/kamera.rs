@@ -4,6 +4,7 @@
 //! Kamera çıkarılırsa çökmez: `son_kare` None döner, birkaç saniyede bir yeniden bağlanılır.
 //! Kamera kapatılınca cihaz gerçekten bırakılır, kameranın ışığı söner.
 
+use crate::trf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -97,7 +98,7 @@ fn fps(t: &IMFMediaType) -> f64 {
 
 unsafe fn ac(cihaz: usize, ist_w: u32, ist_h: u32, ist_fps: u32) -> Result<Okuyucu, String> {
     let l = cihazlar_ham();
-    let a = l.get(cihaz).ok_or_else(|| format!("{cihaz} numaralı kamera yok"))?;
+    let a = l.get(cihaz).ok_or_else(|| trf!("{} numaralı kamera yok", cihaz))?;
     let kaynak: IMFMediaSource = a.ActivateObject().map_err(|e| e.to_string())?;
     let mut oz = None;
     MFCreateAttributes(&mut oz, 2).map_err(|e| e.to_string())?;
@@ -278,7 +279,7 @@ impl WebcamKaynagi {
                                 okuyucu = Some(o);
                             }
                             Err(e) => {
-                                let m = format!("{cihaz} numaralı kamera açılamadı");
+                                let m = trf!("{} numaralı kamera açılamadı", cihaz);
                                 log::warn!("{m}: {e} (Windows Ayarlar > Gizlilik > Kamera izni açık mı?)");
                                 *ortak.son_hata.lock().unwrap() = m;
                                 bekle(YENIDEN_DENEME);

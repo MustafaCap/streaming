@@ -6,6 +6,8 @@
 //! bekleme ekranı kapandı) okuma durur, FFmpeg boruda bekler ve işlemci harcamaz; tekrar
 //! istenince kaldığı yerden devam eder. Video bitince başa sarar (-stream_loop -1).
 
+use crate::dil::t;
+use crate::trf;
 use std::io::Read;
 use std::process::{Child, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -93,9 +95,9 @@ impl VideoOynatici {
 
     fn ac(&self, yol: &str, w: u32, h: u32) -> Result<Acik, String> {
         if yol.is_empty() || !std::path::Path::new(yol).is_file() {
-            return Err(format!("Video bulunamadı: {yol}"));
+            return Err(trf!("Video bulunamadı: {}", yol));
         }
-        let ff = crate::ffmpeg::ffmpeg_bul().ok_or("Video oynatılamıyor: FFmpeg bulunamadı")?;
+        let ff = crate::ffmpeg::ffmpeg_bul().ok_or(t("Video oynatılamıyor: FFmpeg bulunamadı"))?;
         let vf = format!(
             "fps={fps},scale={w}:{h}:force_original_aspect_ratio=decrease:flags=bilinear,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black",
             fps = self.fps
@@ -107,8 +109,8 @@ impl VideoOynatici {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
-        let mut cocuk = k.spawn().map_err(|e| format!("Video açılamadı: {yol} ({e})"))?;
-        let mut cikis = cocuk.stdout.take().ok_or("Video açılamadı")?;
+        let mut cocuk = k.spawn().map_err(|e| trf!("Video açılamadı: {} ({})", yol, e))?;
+        let mut cikis = cocuk.stdout.take().ok_or(t("Video açılamadı"))?;
         let calis = Arc::new(AtomicBool::new(true));
         let (ortak, c2, fps, t0) = (self.ortak.clone(), calis.clone(), self.fps, self.t0);
         let yol2 = yol.to_string();
@@ -130,7 +132,7 @@ impl VideoOynatici {
                     let mut veri = vec![0u8; boyut];
                     if let Err(e) = cikis.read_exact(&mut veri) {
                         if c2.load(Ordering::Relaxed) {
-                            let m = format!("Video okunamadı: {yol2} ({e})");
+                            let m = trf!("Video okunamadı: {} ({})", yol2, e);
                             log::warn!("{m}");
                             *ortak.hata.lock().unwrap() = m;
                         }
@@ -147,7 +149,7 @@ impl VideoOynatici {
                     }
                 }
             })
-            .map_err(|e| format!("Video açılamadı: {e}"))?;
+            .map_err(|e| trf!("Video açılamadı: {}", e))?;
         log::info!("Video açıldı: {yol} ({w}×{h})");
         Ok(Acik { yol: yol.to_string(), boyut: (w, h), cocuk, calis })
     }

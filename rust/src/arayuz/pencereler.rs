@@ -7,6 +7,8 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, text::LayoutJob, Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, TextFormat, Ui, Vec2};
 
+use rizeon::dil::t;
+use rizeon::trf;
 use rizeon::uygulama::{Bildirim, BildirimEylemi, Uygulama};
 
 use super::bilesen;
@@ -123,16 +125,17 @@ fn kapat_istendi(ui: &Ui) -> bool {
 pub const KAYNAK: &str = "https://github.com/MustafaCap/streaming";
 
 pub fn hakkinda_metni() -> String {
-    format!(
+    trf!(
         "### RizeOn {}\n\n\
          Telif hakkı © 2026 Mustafa\n\n\
          Bu program özgür yazılımdır. **GNU Genel Kamu Lisansı sürüm 3 (GPLv3)** koşullarıyla \
          kullanabilir, değiştirebilir ve dağıtabilirsiniz. Program **hiçbir garanti olmadan**, \
          \"olduğu gibi\" sunulur.\n\n\
-         Kaynak kod ve yeni sürümler:\n{KAYNAK}\n\n\
+         Kaynak kod ve yeni sürümler:\n{}\n\n\
          Uygulama internete bağlanmaz. Kullandığı açık kaynak kütüphanelerin (egui, FFmpeg ve \
          diğerleri) lisansları _lisanslar_ klasöründedir.",
-        rizeon::surum::SURUM
+        rizeon::surum::SURUM,
+        KAYNAK
     )
 }
 
@@ -161,14 +164,14 @@ impl Hakkinda {
             return;
         }
         let vp = egui::ViewportBuilder::default()
-            .with_title("Hakkında")
+            .with_title(t("Hakkında"))
             .with_inner_size([460.0, 340.0])
             .with_resizable(false)
             .with_minimize_button(false)
             .with_maximize_button(false);
         let mut kapat = false;
         anlik(ctx, egui::ViewportId::from_hash_of("hakkinda"), vp, |ui, _| {
-            diyalog_hazirla("Hakkında", &mut self.gizlendi);
+            diyalog_hazirla(t("Hakkında"), &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             if self.logo.is_none() {
                 self.logo = simge::logo(ui.ctx());
@@ -183,10 +186,10 @@ impl Hakkinda {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Max), |ui| {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if bilesen::hap(ui, "Kapat", false, true).clicked() {
+                            if bilesen::hap(ui, t("Kapat"), false, true).clicked() {
                                 kapat = true;
                             }
-                            if bilesen::hap(ui, "Lisansları göster", false, true).clicked() {
+                            if bilesen::hap(ui, t("Lisansları göster"), false, true).clicked() {
                                 #[cfg(windows)]
                                 rizeon::win::ac(&lisans_yolu());
                             }
@@ -206,48 +209,57 @@ impl Hakkinda {
 /// Durumdan kısa sorun metni ("" = sorun yok). Duraklatılmış çıkış sorun sayılmaz.
 pub fn cikis_sorunu(sanal_kamera: &str, sanal_mikrofon: &str) -> String {
     let kamera = match sanal_kamera {
-        "yok" => "bulunamadı",
-        "hata" => "açılamadı",
-        "koptu" => "koptu",
+        "yok" => t("Sanal kamera bulunamadı"),
+        "hata" => t("Sanal kamera açılamadı"),
+        "koptu" => t("Sanal kamera koptu"),
         _ => "",
     };
     let mikrofon = sanal_mikrofon == "yok";
-    if kamera == "bulunamadı" && mikrofon {
-        "Sanal kamera ve mikrofon bulunamadı".into()
+    if sanal_kamera == "yok" && mikrofon {
+        t("Sanal kamera ve mikrofon bulunamadı").into()
     } else if !kamera.is_empty() {
-        format!("Sanal kamera {kamera}")
+        kamera.to_string()
     } else if mikrofon {
-        "Sanal mikrofon bulunamadı".into()
+        t("Sanal mikrofon bulunamadı").into()
     } else {
         String::new()
     }
 }
 
 pub fn yardim_metni(sorun: &str) -> String {
-    let kamera = "### Sanal kamera (OBS Virtual Camera)\n\n\
+    let kamera = t("### Sanal kamera (OBS Virtual Camera)\n\n\
         1. OBS Studio'yu kur (obsproject.com).\n\
         2. OBS'yi aç, **Sanal Kamerayı Başlat**'a bir kez bas ve OBS'yi kapat.\n\
         3. RizeOn birkaç saniye içinde kendiliğinden bağlanır; yeniden başlatman gerekmez.\n\n\
         OBS açıkken kendi sanal kamerası çalışıyorsa RizeOn bağlanamaz: OBS'de \
-        **Sanal Kamerayı Durdur**'a bas ya da OBS'yi kapat.";
-    let mikrofon = "### Sanal mikrofon (VB-Cable)\n\n\
+        **Sanal Kamerayı Durdur**'a bas ya da OBS'yi kapat.");
+    let mikrofon = t("### Sanal mikrofon (VB-Cable)\n\n\
         1. VB-Cable'ı indir (vb-audio.com/Cable) ve zip'i bir klasöre çıkar.\n\
         2. **VBCABLE_Setup_x64.exe**'ye sağ tıkla, **Yönetici olarak çalıştır**, **Install Driver**'a bas.\n\
         3. Bilgisayarı yeniden başlat.\n\n\
         Windows'un varsayılan mikrofonu gerçek mikrofonun kalsın. **CABLE Output**'u sadece \
-        Zoom, Meet ya da Discord'un içinde mikrofon olarak seç.";
-    let govde = if sorun.starts_with("Sanal mikrofon") {
+        Zoom, Meet ya da Discord'un içinde mikrofon olarak seç.");
+    let govde = if sadece_mikrofon(sorun) {
         mikrofon.to_string()
-    } else if sorun.starts_with("Sanal kamera") && !sorun.contains("mikrofon") {
+    } else if sadece_kamera(sorun) {
         kamera.to_string()
     } else {
         format!("{kamera}\n\n{mikrofon}")
     };
     let bas = if sorun.is_empty() { String::new() } else { format!("**{sorun}.**\n\n") };
     format!(
-        "{bas}{govde}\n\nGörüntülü görüşme uygulamasında kamera **OBS Virtual Camera**, mikrofon \
-         **CABLE Output (VB-Audio Virtual Cable)** olmalı."
+        "{bas}{govde}\n\n{}",
+        t("Görüntülü görüşme uygulamasında kamera **OBS Virtual Camera**, mikrofon \
+         **CABLE Output (VB-Audio Virtual Cable)** olmalı.")
     )
+}
+
+fn sadece_mikrofon(sorun: &str) -> bool {
+    sorun.starts_with(t("Sanal mikrofon"))
+}
+
+fn sadece_kamera(sorun: &str) -> bool {
+    sorun.starts_with(t("Sanal kamera")) && !sorun.contains(t("mikrofon"))
 }
 
 #[derive(Default)]
@@ -268,23 +280,23 @@ impl Yardim {
             self.gizlendi = false;
             return;
         }
-        let iki = !self.sorun.starts_with("Sanal mikrofon") && !(self.sorun.starts_with("Sanal kamera") && !self.sorun.contains("mikrofon"));
+        let iki = !sadece_mikrofon(&self.sorun) && !sadece_kamera(&self.sorun);
         let yuk = if iki { 420.0 } else { 260.0 } + if self.sorun.is_empty() { 0.0 } else { 30.0 };
         let vp = egui::ViewportBuilder::default()
-            .with_title("Nasıl düzeltilir?")
+            .with_title(t("Nasıl düzeltilir?"))
             .with_inner_size([480.0, yuk])
             .with_resizable(false)
             .with_minimize_button(false)
             .with_maximize_button(false);
         let mut kapat = false;
         anlik(ctx, egui::ViewportId::from_hash_of("yardim"), vp, |ui, _| {
-            diyalog_hazirla("Nasıl düzeltilir?", &mut self.gizlendi);
+            diyalog_hazirla(t("Nasıl düzeltilir?"), &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             let cerceve = egui::Frame::new().fill(tema::ZEMIN).inner_margin(egui::Margin { left: 20, right: 20, top: 16, bottom: 16 });
             egui::CentralPanel::default().frame(cerceve).show(ui, |ui| {
                 zengin_metin(ui, &yardim_metni(&self.sorun), 440.0);
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Max), |ui| {
-                    if bilesen::hap(ui, "Kapat", false, true).clicked() {
+                    if bilesen::hap(ui, t("Kapat"), false, true).clicked() {
                         kapat = true;
                     }
                 });
@@ -335,7 +347,7 @@ impl PencereSecici {
     fn yenile(&mut self) {
         self.liste.clear();
         if !self.kaynak_icin {
-            self.liste.push(Oge { hwnd: None, baslik: String::new(), metin: "Tüm ekran".into() });
+            self.liste.push(Oge { hwnd: None, baslik: String::new(), metin: t("Tüm ekran").into() });
         }
         #[cfg(windows)]
         for p in rizeon::yakalama::pencere::pencereler() {
@@ -350,18 +362,18 @@ impl PencereSecici {
             self.gizlendi = false;
             return;
         }
-        let vp = egui::ViewportBuilder::default().with_title("Pencere seç").with_inner_size([520.0, 440.0]).with_min_inner_size([360.0, 260.0]);
+        let vp = egui::ViewportBuilder::default().with_title(t("Pencere seç")).with_inner_size([520.0, 440.0]).with_min_inner_size([360.0, 260.0]);
         let mut kapat = false;
         let mut sec: Option<Oge> = None;
         anlik(ctx, egui::ViewportId::from_hash_of("pencere-secici"), vp, |ui, _| {
-            diyalog_hazirla("Pencere seç", &mut self.gizlendi);
+            diyalog_hazirla(t("Pencere seç"), &mut self.gizlendi);
             kapat |= kapat_istendi(ui);
             egui::CentralPanel::default().frame(egui::Frame::new().fill(tema::ZEMIN).inner_margin(16)).show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 10.0;
                 let w = ui.available_width();
                 ui.add(
                     egui::Label::new(
-                        egui::RichText::new("Bir pencere seçersen yayında ve kayıtta sadece o pencere görünür. Üstüne başka pencere gelse de o pencere gösterilir.")
+                        egui::RichText::new(t("Bir pencere seçersen yayında ve kayıtta sadece o pencere görünür. Üstüne başka pencere gelse de o pencere gösterilir."))
                             .font(tema::yazi(tema::KUCUK_PX))
                             .color(tema::YAZI2),
                     )
@@ -395,17 +407,17 @@ impl PencereSecici {
                     }
                 });
                 if bos {
-                    bilesen::etiket(ui, "Başka açık pencere bulunamadı.", tema::KUCUK_PX, tema::YAZI2);
+                    bilesen::etiket(ui, t("Başka açık pencere bulunamadı."), tema::KUCUK_PX, tema::YAZI2);
                 }
                 ui.horizontal(|ui| {
-                    if bilesen::diyalog_dugmesi(ui, "Yenile", false).clicked() {
+                    if bilesen::diyalog_dugmesi(ui, t("Yenile"), false).clicked() {
                         self.yenile();
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if bilesen::diyalog_dugmesi(ui, "Göster", true).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        if bilesen::diyalog_dugmesi(ui, t("Göster"), true).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                             sec = self.liste.get(self.secili).cloned();
                         }
-                        if bilesen::diyalog_dugmesi(ui, "Vazgeç", false).clicked() {
+                        if bilesen::diyalog_dugmesi(ui, t("Vazgeç"), false).clicked() {
                             kapat = true;
                         }
                     });
@@ -576,10 +588,10 @@ pub fn calisma_alani(ctx: &egui::Context) -> Option<egui::Rect> {
 
 fn eylem_adi(e: &BildirimEylemi) -> &'static str {
     match e {
-        BildirimEylemi::Ac(_) => "Aç",
-        BildirimEylemi::KlasordeGoster(_) => "Klasörde göster",
-        BildirimEylemi::Yardim => "Nasıl düzeltilir?",
-        BildirimEylemi::Ayarlar(_) => "Ayarlar",
+        BildirimEylemi::Ac(_) => t("Aç"),
+        BildirimEylemi::KlasordeGoster(_) => t("Klasörde göster"),
+        BildirimEylemi::Yardim => t("Nasıl düzeltilir?"),
+        BildirimEylemi::Ayarlar(_) => t("Ayarlar"),
     }
 }
 
