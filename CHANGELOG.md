@@ -2,6 +2,14 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 3.1.0 — 2026-11-11
+
+- **Toplantıda paylaş:** Zoom, Meet ve Teams sanal kameraya düşük çözünürlük ayırdığı için ekran bölgesi, kalem ve yazılar toplantıda bulanık görünüyordu. Yeni "Toplantıda paylaş" düğmesi (ana pencerenin üstünde ve tepsi menüsünde) RizeOn görüntüsünü çerçevesiz ayrı bir pencerede açar. Toplantıda **Ekranı paylaş > Pencere > "RizeOn Toplantı"** seçilince görüntü ekran paylaşımı kalitesinde, net gider. Yüzün istersen aynı anda sanal kameradan gitmeye devam eder.
+  - Sürükleyerek taşınır, kenarlarından boyutlandırılır (oran korunur). Çift tık 1280×720 ile 1920×1080 arasında geçer; sağ tık menüsünden boyut seçilir ya da kapatılır. Esc de kapatır.
+  - Simge durumuna küçültülmez (küçültülen pencereyi toplantı uygulaması donmuş görür). Başka pencerelerin arkasında kalabilir.
+  - Birden fazla monitör varsa yakalanmayan monitörde açılır. Tek monitörde yakalanan ekranın üstünde açık bırakılırsa görüntü kendi içine yansır; toplantı uygulamasını önüne alman yeterli.
+  - İstersen Ayarlar > Kısayollar'dan bir kısayol atanabilir ("toplanti.pencere").
+
 ## 2.0.6 — 2026-11-03
 
 - **İşlemci teşhisi:** uygulama 30 saniyede bir log dosyasına (`%APPDATA%\RizeOn\logs\uygulama.log`) işlemcinin nereye gittiğini yazar: video hattı, ses, webcam, anlık tekrar, FFmpeg ayrı ayrı, Görev Yöneticisi gibi tüm çekirdeklere oranla. Satır "CPU dağılımı" ile başlar. Hiçbir yere gönderilmez.

@@ -76,6 +76,7 @@ fn komut_adi(grup: &str, komut: &str) -> String {
         "kayit.ac_kapat" => "Yerel kaydı başlat/durdur",
         "kayit.duraklat" => "Kaydı duraklat/devam et",
         "kaynak.sec" => "Ne gösterilsin (tüm ekran / pencere)",
+        "toplanti.pencere" => "Toplantıda paylaş (pencereyi aç/kapat)",
         "bas_konus" => "Bas-konuş tuşu",
         "kalem.tur:1" => "Kalem: kalem",
         "kalem.tur:2" => "Kalem: fosforlu",

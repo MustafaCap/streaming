@@ -56,6 +56,8 @@ pub struct HatKontrol {
     /// Ana pencere ya da mini bar açık mı; ikisi de kapalıysa (tepside) ve kayıt yoksa webcam'e dokunulmaz.
     pub onizleme_gorunur: AtomicBool,
     pub mini_gorunur: AtomicBool,
+    /// Toplantı penceresi açık mı (açıkken kamera da kullanılıyor sayılır)
+    pub toplanti_gorunur: AtomicBool,
     pub ayar: Mutex<HatAyari>,
     /// Sadece bir pencere gösteriliyorsa (hwnd, başlık); None: tüm ekran
     pub pencere: Mutex<Option<(isize, String)>>,
@@ -88,7 +90,9 @@ impl HatKontrol {
     }
 
     pub fn kamera_kullaniliyor(&self) -> bool {
-        self.onizleme_gorunur.load(Ordering::Relaxed) || self.mini_gorunur.load(Ordering::Relaxed) || self.kayitci.kayitta()
+        self.onizleme_gorunur.load(Ordering::Relaxed) || self.mini_gorunur.load(Ordering::Relaxed)
+            || self.toplanti_gorunur.load(Ordering::Relaxed)
+            || self.kayitci.kayitta()
     }
 }
 
@@ -499,6 +503,7 @@ impl VideoHatti {
             panik: AtomicBool::new(false),
             onizleme_gorunur: AtomicBool::new(true),
             mini_gorunur: AtomicBool::new(false),
+            toplanti_gorunur: AtomicBool::new(false),
             ayar: Mutex::new(ayar),
             pencere: Mutex::new(None),
             bolge: Default::default(),
