@@ -613,7 +613,7 @@ impl Katman {
             .with_taskbar(false)
             .with_always_on_top()
             .with_position([m.sol as f32 / ppp, m.ust as f32 / ppp])
-            .with_inner_size([m.w as f32 / ppp, m.h as f32 / ppp]);
+            .with_inner_size([m.w as f32 / ppp, Self::katman_boyu(&m) / ppp]);
         let mut kapat = false;
         crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("katman"), vb, |ui, _| {
             let vctx = ui.ctx().clone();
@@ -623,7 +623,7 @@ impl Katman {
             }
             // Katman monitörü tam kaplamalı: Windows sürüklemeyle (ya da Win+ok, ekran değişimi)
             // kaydırırsa yerine geri konur. Mustafa testte karartmayı aşağı kaydırabildi.
-            let hedef = Rect::from_min_size(Pos2::new(m.sol as f32 / ppp, m.ust as f32 / ppp), Vec2::new(m.w as f32 / ppp, m.h as f32 / ppp));
+            let hedef = Rect::from_min_size(Pos2::new(m.sol as f32 / ppp, m.ust as f32 / ppp), Vec2::new(m.w as f32 / ppp, Self::katman_boyu(&m) / ppp));
             if let Some(dis) = vctx.input(|i| i.viewport().outer_rect) {
                 if (dis.min - hedef.min).length() > 1.0 || (dis.size() - hedef.size()).length() > 1.0 {
                     vctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(hedef.min));
@@ -659,6 +659,14 @@ impl Katman {
                 self.kapat(uyg);
             }
         }
+    }
+
+    /// Katmanın yüksekliği (fiziksel piksel): monitörden 1 piksel kısa. Monitörü tam kaplayan
+    /// pencereyi Windows "tam ekran uygulama" sayıp masaüstü birleştirmesini atlayabiliyor; o
+    /// sırada ekran yakalama (RizeOn'un kendisi ve toplantı uygulamasının ekran paylaşımı) simsiyah
+    /// kare alıyordu. Kalem açıkken yayının kararması buydu.
+    fn katman_boyu(m: &Monitor) -> f32 {
+        m.h.saturating_sub(1).max(1) as f32
     }
 
     #[cfg(windows)]

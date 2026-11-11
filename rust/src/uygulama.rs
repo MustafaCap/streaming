@@ -52,7 +52,7 @@ pub enum Komut {
     /// "Nasıl düzeltilir?" (sanal çıkış sorunu)
     Yardim,
     KayitKlasoru,
-    /// Toplantı modu: kalem ve vurgu katmanı ekran paylaşımına görünsün (Zoom'da "Tüm ekran")
+    /// Toplantı modu: kalem ve vurgu ekran paylaşımına (tüm ekran) görünsün
     ToplantiModu,
 }
 
@@ -701,7 +701,7 @@ impl Uygulama {
         self.ayarla("ui.meeting_mode", Value::Bool(acik));
         self.paylasim_katmanini_ayarla();
         if acik {
-            "Toplantı modu açık · Zoom'da Ekranı paylaş > Tüm ekran: kalem ve vurgu da görünür".into()
+            "Toplantı modu açık · tüm ekranı paylaşınca kalem ve vurgu da görünür".into()
         } else {
             "Toplantı modu kapandı · kalem ve vurgu sadece RizeOn çıkışında".into()
         }

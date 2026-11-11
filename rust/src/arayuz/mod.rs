@@ -475,8 +475,8 @@ impl Pencere {
                 let toplanti = self.durum.toplanti_modu;
                 if bilesen::hap(ui, "Toplantı modu", toplanti, true)
                     .on_hover_text(
-                        "Zoom, Meet ya da Teams'te \"Ekranı paylaş > Tüm ekran\" ile paylaşırken kalem çizimleri ve bölge vurgusu \
-                         karşı tarafa da görünür. Ekran kendi çözünürlüğünde, kameradan çok daha net gider.",
+                        "Toplantıda tüm ekranı paylaşırken kalem çizimleri ve bölge vurgusu karşı tarafa da görünür. \
+                         Ekran kendi çözünürlüğünde, kameradan çok daha net gider.",
                     )
                     .clicked()
                 {
