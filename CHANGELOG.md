@@ -4,9 +4,9 @@ Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfas�
 
 ## 3.1.0 — 2026-11-11
 
-- **Toplantı modu:** Zoom, Meet ve Teams sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu bu ekran paylaşımında karşı tarafa da görünür.
+- **Toplantı modu:** Zoom, Meet ve Teams sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu ekranın üstünde, ekran paylaşımına giren ayrı bir katmanda da çizilir; karşı taraf bunları görür.
   - Çizimler ve vurgu "Bitti"ye bastıktan sonra da ekranda kalır (tıklamaları engellemez); silmek için Ctrl+Shift+X.
-  - Bölgeyi büyütme (Yakınlaştır) ekran paylaşımında çalışmaz, çünkü toplantı uygulaması gerçek ekranı gösterir; vurgulama ve kalem çalışır. Kalem barı da karşı tarafa görünür.
+  - Bölgeyi büyütme (Yakınlaştır) ekran paylaşımında çalışmaz, çünkü toplantı uygulaması gerçek ekranı gösterir; vurgulama ve kalem çalışır. Kalem barı ve bölge tutamakları karşı tarafa gitmez.
   - Yüzün istersen aynı anda sanal kameradan gitmeye devam eder.
   - Ayarlar > Kısayollar'dan kısayol atanabilir.
 

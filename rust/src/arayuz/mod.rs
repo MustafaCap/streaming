@@ -1013,7 +1013,6 @@ impl eframe::App for Pencere {
         // açılamaz. Bunlardan biri gerekiyorsa ana pencere görünmese de arayüz çalıştırılır.
         if !gorunur {
             let gerekli = self.katman.etkin()
-                || self.katman.paylasim_acik
                 || self.istek.is_some()
                 || self.diyalog.is_some()
                 || self.bildirim.gosteriyor()

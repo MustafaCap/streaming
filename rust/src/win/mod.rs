@@ -2,6 +2,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 pub mod kisayol;
+pub mod paylasim;
 
 use std::path::{Path, PathBuf};
 

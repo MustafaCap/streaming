@@ -3,7 +3,6 @@
 //!
 //! Yakalanan monitörün üstüne saydam bir katman açılır. Ekran yakalamaya girmez; karşı taraf
 //! çizimleri video hattının çıkış karesinde görür (tam ekran oyunda katman görünmese de).
-//! Toplantı modunda ise yakalamaya girer: Zoom'da "Tüm ekran" paylaşımında kalem ve vurgu görünür.
 //!
 //!   bölge (Bölge düğmesi, Ctrl+Shift+S): ekran kararır, fareyle kutu çizilir. İnce beyaz çerçeve,
 //!       4 yuvarlak tutamak; altında Yakınlaştır / Vurgula ve boyut (ör. 580 × 190). Kutu çizilince
@@ -38,7 +37,6 @@ use super::tema::{self, beyaz};
 
 const BASLIK: &str = "RizeOn katman";
 const IZ_BASLIK: &str = "RizeOn bölge izi";
-const PAYLASIM_BASLIK: &str = "RizeOn paylaşım katmanı";
 /// yuvarlak tutamak çapı
 const TUTAMAK: f32 = 7.0;
 /// fareyle yakalama alanı
@@ -270,11 +268,8 @@ pub struct Katman {
     onceki_bolge: Option<(Option<[f64; 4]>, Option<&'static str>)>,
     bolgeden_kaleme: bool,
     cubuk_konumu: Option<Pos2>,
-    /// Katmana en son uygulanan "yakalamadan gizli" değeri (None: henüz uygulanmadı)
-    gizlendi: Option<bool>,
+    gizlendi: bool,
     iz_gizlendi: bool,
-    /// Toplantı modunda, katman kapalıyken çizimleri ve vurguyu ekranda tutan pencere açık mı
-    pub paylasim_acik: bool,
     /// katman açılınca klavye odağı istensin (Enter, Esc, V, Z)
     odakla: bool,
     /// kaynak için seçilen bölge: (monitör, oran x,y,w,h, piksel w,h)
@@ -303,9 +298,8 @@ impl Default for Katman {
             onceki_bolge: None,
             bolgeden_kaleme: false,
             cubuk_konumu: None,
-            gizlendi: None,
+            gizlendi: false,
             iz_gizlendi: false,
-            paylasim_acik: false,
             odakla: false,
             secilen_kaynak: None,
             bildirimler: Vec::new(),
@@ -360,7 +354,7 @@ impl Katman {
     fn katmani_ac(&mut self, uyg: &Uygulama, mod_: Mod) {
         if self.mod_.is_none() {
             self.monitor = Self::monitoru_al(uyg);
-            self.gizlendi = None;
+            self.gizlendi = false;
         }
         self.mod_ = Some(mod_);
         self.odakla = true;
@@ -604,7 +598,6 @@ impl Katman {
 
     pub fn goster(&mut self, ctx: &egui::Context, uyg: &Arc<Uygulama>) {
         self.iz_goster(ctx, uyg);
-        self.paylasim_goster(ctx, uyg);
         let Some(mod_) = self.mod_ else { return };
         let Some(m) = self.monitor.clone() else {
             self.bildirimler.push("Monitör bulunamadı".into());
@@ -624,7 +617,7 @@ impl Katman {
         let mut kapat = false;
         crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("katman"), vb, |ui, _| {
             let vctx = ui.ctx().clone();
-            self.yakalamadan_gizle(uyg);
+            self.yakalamadan_gizle();
             if std::mem::take(&mut self.odakla) {
                 vctx.send_viewport_cmd(egui::ViewportCommand::Focus);
             }
@@ -668,21 +661,18 @@ impl Katman {
         }
     }
 
-    /// Katman normalde ekran yakalamaya girmez (çizimler zaten çıkış karesinde). Toplantı modunda
-    /// girer: Zoom'da "Tüm ekran" paylaşılınca kalem ve vurgu karşı tarafa da görünür.
     #[cfg(windows)]
-    fn yakalamadan_gizle(&mut self, uyg: &Uygulama) {
-        let gizle = !uyg.toplanti_acik();
-        if self.gizlendi != Some(gizle) {
+    fn yakalamadan_gizle(&mut self) {
+        if !self.gizlendi {
             if let Some(h) = rizeon::win::pencere_bul(BASLIK) {
-                rizeon::win::yakalamadan_gizle(h, gizle);
-                self.gizlendi = Some(gizle);
+                rizeon::win::yakalamadan_gizle(h, true);
+                self.gizlendi = true;
             }
         }
     }
 
     #[cfg(not(windows))]
-    fn yakalamadan_gizle(&mut self, _uyg: &Uygulama) {}
+    fn yakalamadan_gizle(&mut self) {}
 
     /// Alttaki ipucu satırı (12 px, açık gri).
     fn alt_ipucu(p: &egui::Painter, alan: Rect, alt_bosluk: f32, metin: &str) {
@@ -1167,60 +1157,6 @@ impl Katman {
                 p.circle_filled(m, kalin + 1.0, renk32(lazer_rengi, 255));
             }
         }
-    }
-
-    // ---------------------------------------------------------------- toplantı modu
-
-    /// Toplantı modunda katman kapalıyken ("Bitti"den sonra) çizimler ve bölge vurgusu ekranda
-    /// kalır: tıklamaları geçiren, saydam, ekran yakalamaya giren bir pencere. Böylece Zoom'da
-    /// "Tüm ekran" paylaşılınca karşı taraf da görür.
-    fn paylasim_goster(&mut self, ctx: &egui::Context, uyg: &Uygulama) {
-        let depo: &CizimDeposu = &uyg.k.cizim;
-        let vurgu = uyg.k.bolge.mod_() == Some(VURGULA) && uyg.k.bolge.bolge().is_some();
-        let goster = uyg.toplanti_acik() && self.mod_.is_none() && !Self::penceredeyiz(uyg) && (!depo.bos() || depo.lazer_var() || vurgu);
-        self.paylasim_acik = goster;
-        if !goster {
-            return;
-        }
-        let Some(m) = Self::monitoru_al(uyg) else { return };
-        depo.oran_ayarla(m.w as f32 / m.h.max(1) as f32);
-        let ppp = ctx.native_pixels_per_point().unwrap_or(ctx.pixels_per_point()).max(0.5);
-        let vb = egui::ViewportBuilder::default()
-            .with_title(PAYLASIM_BASLIK)
-            .with_decorations(false)
-            .with_transparent(true)
-            .with_resizable(false)
-            .with_taskbar(false)
-            .with_always_on_top()
-            .with_mouse_passthrough(true)
-            .with_active(false)
-            .with_position([m.sol as f32 / ppp, m.ust as f32 / ppp])
-            .with_inner_size([m.w as f32 / ppp, m.h as f32 / ppp]);
-        crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("paylasim-katmani"), vb, |ui, _| {
-            let alan = ui.max_rect();
-            let p = ui.painter().clone();
-            if vurgu {
-                if let Some([x, y, w, h]) = uyg.k.bolge.bolge() {
-                    let duz = Duzenleyici::oranlardan(alan, [x, y, w, h]);
-                    // kenar çizgisi ve tutamaklar olmadan, sadece dışarısı kararır
-                    let r = duz.secim.unwrap_or(alan);
-                    for d in [
-                        Rect::from_min_max(alan.min, Pos2::new(alan.max.x, r.min.y)),
-                        Rect::from_min_max(Pos2::new(alan.min.x, r.max.y), alan.max),
-                        Rect::from_min_max(Pos2::new(alan.min.x, r.min.y), Pos2::new(r.min.x, r.max.y)),
-                        Rect::from_min_max(Pos2::new(r.max.x, r.min.y), Pos2::new(alan.max.x, r.max.y)),
-                    ] {
-                        if d.is_positive() {
-                            p.rect_filled(d, 0.0, KARARTMA);
-                        }
-                    }
-                }
-            }
-            Self::cizimler(&p, alan, depo);
-            if depo.lazer_var() {
-                ui.ctx().request_repaint_after(std::time::Duration::from_millis(33));
-            }
-        });
     }
 
     // ---------------------------------------------------------------- yakınlaştırma izi
