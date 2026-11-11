@@ -4,11 +4,11 @@ Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfas�
 
 ## 3.1.0 — 2026-11-11
 
-- **Toplantıda paylaş:** Zoom, Meet ve Teams sanal kameraya düşük çözünürlük ayırdığı için ekran bölgesi, kalem ve yazılar toplantıda bulanık görünüyordu. Yeni "Toplantıda paylaş" düğmesi (ana pencerenin üstünde ve tepsi menüsünde) RizeOn görüntüsünü çerçevesiz ayrı bir pencerede açar. Toplantıda **Ekranı paylaş > Pencere > "RizeOn Toplantı"** seçilince görüntü ekran paylaşımı kalitesinde, net gider. Yüzün istersen aynı anda sanal kameradan gitmeye devam eder.
-  - Sürükleyerek taşınır, kenarlarından boyutlandırılır (oran korunur). Çift tık 1280×720 ile 1920×1080 arasında geçer; sağ tık menüsünden boyut seçilir ya da kapatılır. Esc de kapatır.
-  - Simge durumuna küçültülmez (küçültülen pencereyi toplantı uygulaması donmuş görür). Başka pencerelerin arkasında kalabilir.
-  - Birden fazla monitör varsa yakalanmayan monitörde açılır. Tek monitörde açılınca ve başka yere tıklayınca diğer pencerelerin arkasına iner, böylece görüntü kendi içine yansımaz. Arkadayken de (kalem ya da yazı açıkken de) toplantıya görüntü gitmeye devam eder.
-  - İstersen Ayarlar > Kısayollar'dan bir kısayol atanabilir ("toplanti.pencere").
+- **Toplantı modu:** Zoom, Meet ve Teams sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu bu ekran paylaşımında karşı tarafa da görünür.
+  - Çizimler ve vurgu "Bitti"ye bastıktan sonra da ekranda kalır (tıklamaları engellemez); silmek için Ctrl+Shift+X.
+  - Bölgeyi büyütme (Yakınlaştır) ekran paylaşımında çalışmaz, çünkü toplantı uygulaması gerçek ekranı gösterir; vurgulama ve kalem çalışır. Kalem barı da karşı tarafa görünür.
+  - Yüzün istersen aynı anda sanal kameradan gitmeye devam eder.
+  - Ayarlar > Kısayollar'dan kısayol atanabilir.
 
 ## 2.0.6 — 2026-11-03
 

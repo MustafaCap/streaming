@@ -37,8 +37,8 @@ pub struct Durum {
     pub konusuyor: bool,
     pub kaynak_turu: String,
     pub kaynak_adi: String,
-    /// Toplantı penceresi (ekran paylaşımı için) açık mı
-    pub toplanti_penceresi: bool,
+    /// Toplantı modu: kalem/vurgu katmanı ekran paylaşımına görünür
+    pub toplanti_modu: bool,
 }
 
 impl Default for Durum {
@@ -74,7 +74,7 @@ impl Default for Durum {
             konusuyor: false,
             kaynak_turu: "ekran".into(),
             kaynak_adi: String::new(),
-            toplanti_penceresi: false,
+            toplanti_modu: false,
         }
     }
 }

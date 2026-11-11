@@ -52,8 +52,8 @@ pub enum Komut {
     /// "Nasıl düzeltilir?" (sanal çıkış sorunu)
     Yardim,
     KayitKlasoru,
-    /// Toplantı penceresini aç/kapat (Zoom'da "Pencere" olarak paylaşılır)
-    ToplantiPenceresi,
+    /// Toplantı modu: kalem ve vurgu katmanı ekran paylaşımına görünsün (Zoom'da "Tüm ekran")
+    ToplantiModu,
 }
 
 impl Komut {
@@ -82,7 +82,7 @@ impl Komut {
             "kalem.kapat" => Komut::KalemKapat,
             "kayit.klasor" => Komut::KayitKlasoru,
             "pencere.mini" => Komut::MiniBar,
-            "toplanti.pencere" => Komut::ToplantiPenceresi,
+            "toplanti.mod" => Komut::ToplantiModu,
             _ => return None,
         })
     }
@@ -126,9 +126,6 @@ pub struct Uygulama {
     pub uyandir: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
     #[cfg(windows)]
     bas_konus: Mutex<Option<crate::kisayol::BasKonus>>,
-    #[cfg(windows)]
-    /// (kimlik, pencere): kimlik, eski pencerenin geç gelen "kapandım" haberi yenisini silmesin diye
-    toplanti: Mutex<Option<(u64, crate::win::toplanti::ToplantiPenceresi)>>,
 }
 
 pub fn hat_ayari(a: &Ayarlar) -> HatAyari {
@@ -175,6 +172,7 @@ impl Uygulama {
         depo.guncelle(|d| {
             d.mikrofon_sessiz = a.mantik("audio.mic_muted", false);
             d.sistem_sessiz = a.mantik("audio.system_muted", false);
+            d.toplanti_modu = a.mantik("ui.meeting_mode", false);
         });
         let mikser = Arc::new(Mutex::new(mikser));
         let sahneler = Arc::new(SahneYoneticisi::yeni(
@@ -225,8 +223,6 @@ impl Uygulama {
             uyandir: Mutex::new(None),
             #[cfg(windows)]
             bas_konus: Mutex::new(None),
-            #[cfg(windows)]
-            toplanti: Mutex::new(None),
         });
         let zayif = Arc::downgrade(&u);
         u.kayitci.hata_olunca(Arc::new(move |mesaj| {
@@ -315,8 +311,6 @@ impl Uygulama {
 
     /// Kapanış: kayıt sürüyorsa bitir (yarım kalmasın), her şeyi durdur.
     pub fn kapat(&self) {
-        #[cfg(windows)]
-        self.toplantiyi_kapat();
         self.kayitci.kapat(60);
         self.tekrar.durdur();
         self.hat.lock().unwrap().durdur();
@@ -658,7 +652,7 @@ impl Uygulama {
                     Err(e) => format!("Ekran görüntüsü kaydedilemedi: {e}"),
                 }
             }
-            Komut::ToplantiPenceresi => self.toplanti_ac_kapat(),
+            Komut::ToplantiModu => self.toplanti_modu_degistir(),
             Komut::Bolge
             | Komut::KalemTur(_)
             | Komut::KalemRenk(_)
@@ -675,55 +669,21 @@ impl Uygulama {
 }
 
 impl Uygulama {
-    /// Toplantı penceresi açık mı
+    /// Toplantı modu açık mı (kalem ve vurgu katmanı ekran paylaşımına görünür)
     pub fn toplanti_acik(&self) -> bool {
-        self.depo.al().toplanti_penceresi
+        self.depo.al().toplanti_modu
     }
 
-    #[cfg(windows)]
-    fn toplanti_ac_kapat(self: &Arc<Self>) -> String {
-        let mut t = self.toplanti.lock().unwrap();
-        if let Some((_, p)) = t.take() {
-            p.kapat();
-            self.k.toplanti_gorunur.store(false, Ordering::Relaxed);
-            self.depo.guncelle(|d| d.toplanti_penceresi = false);
-            return "Toplantı penceresi kapatıldı".into();
-        }
-        static SAYAC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-        let kimlik = SAYAC.fetch_add(1, Ordering::Relaxed);
-        let zayif = Arc::downgrade(self);
-        let p = crate::win::toplanti::ToplantiPenceresi::ac(
-            self.k.clone(),
-            Box::new(move || {
-                if let Some(u) = zayif.upgrade() {
-                    // kullanıcı pencereyi kendisi kapattıysa tutamak da bırakılsın
-                    let mut t = u.toplanti.lock().unwrap();
-                    if t.as_ref().is_some_and(|(k, _)| *k != kimlik) {
-                        return; // bu arada yeni bir pencere açılmış
-                    }
-                    t.take();
-                    drop(t);
-                    u.k.toplanti_gorunur.store(false, Ordering::Relaxed);
-                    u.depo.guncelle(|d| d.toplanti_penceresi = false);
-                    u.uyan();
-                }
-            }),
-        );
-        *t = Some((kimlik, p));
-        self.k.toplanti_gorunur.store(true, Ordering::Relaxed);
-        self.depo.guncelle(|d| d.toplanti_penceresi = true);
-        "Toplantı penceresi arkada açıldı · Zoom'da Ekranı Paylaş > Pencere > \"RizeOn Toplantı\"".into()
-    }
-
-    #[cfg(not(windows))]
-    fn toplanti_ac_kapat(self: &Arc<Self>) -> String {
-        "Toplantı penceresi yalnızca Windows'ta var".into()
-    }
-
-    #[cfg(windows)]
-    fn toplantiyi_kapat(&self) {
-        if let Some((_, p)) = self.toplanti.lock().unwrap().take() {
-            p.kapat();
+    fn toplanti_modu_degistir(self: &Arc<Self>) -> String {
+        let acik = !self.toplanti_acik();
+        self.depo.guncelle(|d| d.toplanti_modu = acik);
+        self.ayarla("ui.meeting_mode", Value::Bool(acik));
+        // açık katman yeni değeri bir sonraki çiziminde uygular
+        self.uyandir_arayuz();
+        if acik {
+            "Toplantı modu açık · Zoom'da Ekranı paylaş > Tüm ekran: kalem ve vurgu da görünür".into()
+        } else {
+            "Toplantı modu kapandı · kalem ve vurgu sadece RizeOn çıkışında".into()
         }
     }
 }
@@ -760,7 +720,7 @@ mod testler {
         assert_eq!(Komut::coz("sahne.sec:0"), None);
         assert_eq!(Komut::coz("ses.mikrofon"), Some(Komut::Mikrofon));
         assert_eq!(Komut::coz("bilinmeyen"), None);
-        assert_eq!(Komut::coz("toplanti.pencere"), Some(Komut::ToplantiPenceresi));
+        assert_eq!(Komut::coz("toplanti.mod"), Some(Komut::ToplantiModu));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Arayüz (egui): ana pencere, mini bar, ayarlar, tepsi. Python ui/ klasörünün karşılığı.
 //!
 //! Ana pencere (Python ui/main_window.py) çerçevesizdir, kendi başlık çubuğuyla:
-//!   logo RizeOn · ☰ Gelişmiş · Kayıt klasörü · Son 15 sn'yi kaydet · Toplantıda paylaş · Mini bar · Ayarlar · _ □ ×
+//!   logo RizeOn · ☰ Gelişmiş · Kayıt klasörü · Son 15 sn'yi kaydet · Toplantı modu · Mini bar · Ayarlar · _ □ ×
 //!
 //! Sade görünüm: önizleme, kontrol barı ve ses mikseri.
 //! Gelişmiş (☰, ilk açılışta açık, sonra hatırlanır): solda Sahneler ve Kaynaklar, sağda mikserin altında anahtarlar.
@@ -472,15 +472,15 @@ impl Pencere {
                 if bilesen::hap(ui, "Mini bar", false, true).on_hover_text("Ana pencereyi gizle, her zaman üstte duran küçük bara geç").clicked() {
                     self.mini_moda_gec(&ctx);
                 }
-                let toplanti = self.durum.toplanti_penceresi;
-                if bilesen::hap(ui, "Toplantıda paylaş", toplanti, true)
+                let toplanti = self.durum.toplanti_modu;
+                if bilesen::hap(ui, "Toplantı modu", toplanti, true)
                     .on_hover_text(
-                        "Görüntüyü ayrı bir pencerede açar. Zoom, Meet ya da Teams'te kamera yerine \"Ekranı paylaş\" ile bu pencereyi seç: \
-                         görüntü kameradan çok daha net gider.",
+                        "Zoom, Meet ya da Teams'te \"Ekranı paylaş > Tüm ekran\" ile paylaşırken kalem çizimleri ve bölge vurgusu \
+                         karşı tarafa da görünür. Ekran kendi çözünürlüğünde, kameradan çok daha net gider.",
                     )
                     .clicked()
                 {
-                    let m = self.uyg.komut(Komut::ToplantiPenceresi);
+                    let m = self.uyg.komut(Komut::ToplantiModu);
                     if !m.is_empty() {
                         self.uyg.bildir(&m, None, false);
                     }
@@ -1013,6 +1013,7 @@ impl eframe::App for Pencere {
         // açılamaz. Bunlardan biri gerekiyorsa ana pencere görünmese de arayüz çalıştırılır.
         if !gorunur {
             let gerekli = self.katman.etkin()
+                || self.katman.paylasim_acik
                 || self.istek.is_some()
                 || self.diyalog.is_some()
                 || self.bildirim.gosteriyor()
