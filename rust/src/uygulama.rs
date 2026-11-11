@@ -712,7 +712,7 @@ impl Uygulama {
         *t = Some((kimlik, p));
         self.k.toplanti_gorunur.store(true, Ordering::Relaxed);
         self.depo.guncelle(|d| d.toplanti_penceresi = true);
-        "Toplantı penceresi açıldı · Zoom'da Ekranı Paylaş > \"RizeOn Toplantı\" penceresini seç".into()
+        "Toplantı penceresi arkada açıldı · Zoom'da Ekranı Paylaş > Pencere > \"RizeOn Toplantı\"".into()
     }
 
     #[cfg(not(windows))]

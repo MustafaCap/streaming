@@ -13,7 +13,8 @@
 //!
 //! Bilerek ekran yakalamadan GİZLENMEZ (diğer RizeOn pencerelerinin tersine): gizlenirse toplantı
 //! uygulaması da onu siyah görür. Yakalanan ekranın üstünde görünür durursa görüntü kendi içine
-//! yansır; bu yüzden birden fazla monitör varsa yakalanmayan monitörde açılır.
+//! yansır; bu yüzden birden fazla monitör varsa yakalanmayan monitörde açılır, tek monitörde ise
+//! açılınca ve her odak kaybında en arkaya iner. Arkadayken de görüntü verir (WM_PRINTCLIENT).
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -22,7 +23,7 @@ use std::sync::Arc;
 use windows::core::{w, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
-    BeginPaint, EndPaint, FillRect, GetStockObject, InvalidateRect, ScreenToClient, SetDIBitsToDevice, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
+    BeginPaint, EndPaint, FillRect, HDC, GetStockObject, InvalidateRect, ScreenToClient, SetDIBitsToDevice, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
     BLACK_BRUSH, DIB_RGB_COLORS, HBRUSH, PAINTSTRUCT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -155,6 +156,10 @@ fn calistir(k: Arc<HatKontrol>, hwnd_yeri: &AtomicIsize) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
         hwnd_yeri.store(hwnd.0 as isize, Ordering::SeqCst);
         super::koseleri_yuvarla(hwnd.0 as isize);
+        if crate::yakalama::monitorler().len() <= 1 {
+            // tek monitör: açılır açılmaz arkaya; yoksa ekranı yakalarken kendi içine yansır
+            arkaya_al(hwnd);
+        }
         SetTimer(Some(hwnd), ZAMANLAYICI, 1000 / fps, None);
         let mut m = MSG::default();
         while GetMessageW(&mut m, None, 0, 0).as_bool() {
@@ -224,6 +229,16 @@ fn ciz(hwnd: HWND) {
     unsafe {
         let mut ps = PAINTSTRUCT::default();
         let hdc = BeginPaint(hwnd, &mut ps);
+        ciz_hdc(hwnd, hdc);
+        let _ = EndPaint(hwnd, &ps);
+    }
+}
+
+/// Son kareyi verilen çizim yüzeyine çizer. WM_PAINT'in yanında WM_PRINTCLIENT için de kullanılır:
+/// tarayıcıdaki Zoom/Meet, pencere başka bir pencerenin (kalem katmanı, tarayıcının kendisi)
+/// altında kalınca görüntüyü PrintWindow ile ister; buna cevap verilmezse görüntü simsiyah gider.
+fn ciz_hdc(hwnd: HWND, hdc: HDC) {
+    unsafe {
         let (w, h) = istemci(hwnd);
         let kare = IC.with(|ic| {
             let mut b = ic.borrow_mut();
@@ -266,10 +281,16 @@ fn ciz(hwnd: HWND) {
                 SetDIBitsToDevice(hdc, 0, 0, k.w, k.h, 0, 0, 0, k.h, k.veri.as_ptr() as *const _, &bmi, DIB_RGB_COLORS);
             }
             _ => {
-                FillRect(hdc, &ps.rcPaint, HBRUSH(GetStockObject(BLACK_BRUSH).0));
+                FillRect(hdc, &RECT { left: 0, top: 0, right: w, bottom: h }, HBRUSH(GetStockObject(BLACK_BRUSH).0));
             }
         }
-        let _ = EndPaint(hwnd, &ps);
+    }
+}
+
+/// Pencereyi diğer pencerelerin en altına indirir (etkinleştirmeden).
+fn arkaya_al(hwnd: HWND) {
+    unsafe {
+        let _ = SetWindowPos(hwnd, Some(HWND_BOTTOM), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 }
 
@@ -326,6 +347,16 @@ unsafe extern "system" fn yordam(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -
         }
         WM_PAINT => {
             ciz(hwnd);
+            LRESULT(0)
+        }
+        WM_PRINTCLIENT | WM_PRINT => {
+            ciz_hdc(hwnd, HDC(wp.0 as _));
+            LRESULT(0)
+        }
+        // Başka yere tıklanınca en arkaya iner: ekranda görünmesin (yakalanan ekranda görünürse
+        // görüntü kendi içine yansır). Arkadayken de toplantı uygulaması görüntüyü alır.
+        WM_ACTIVATE if (wp.0 & 0xFFFF) as u32 == WA_INACTIVE => {
+            arkaya_al(hwnd);
             LRESULT(0)
         }
         WM_ERASEBKGND => LRESULT(1),
