@@ -1,6 +1,7 @@
 //! RegisterHotKey ile global kısayollar. Kendi mesaj döngüsü olan bir iş parçacığında çalışır;
 //! tuşlar değişince o iş parçacığına mesajla bildirilir.
 
+use crate::trf;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
@@ -113,7 +114,7 @@ impl KisayolYoneticisi {
                                                 liste.push((id, komut));
                                             } else {
                                                 log::warn!("Kısayol kaydedilemedi: {tus} ({komut}) başka bir program kullanıyor olabilir");
-                                                h2.lock().unwrap().insert(komut, format!("{tus} başka bir program tarafından kullanılıyor"));
+                                                h2.lock().unwrap().insert(komut, trf!("{} başka bir program tarafından kullanılıyor", tus));
                                             }
                                         }
                                         Err(e) => {

@@ -198,7 +198,7 @@ impl Drop for GpuSayaci {
 
 /// Alt satırdaki "CPU %x · GPU %y · n FPS" (Python core/sistem_olcer.py).
 pub fn alt_bilgi_metni(cpu: Option<f64>, gpu: Option<f64>, fps: f32) -> String {
-    let c = cpu.map(|c| format!("CPU %{:.0}", c.min(100.0))).unwrap_or_else(|| "CPU –".into());
-    let g = gpu.map(|g| format!("GPU %{g:.0}")).unwrap_or_else(|| "GPU –".into());
+    let c = cpu.map(|c| format!("CPU {}", crate::dil::yuzde(format!("{:.0}", c.min(100.0))))).unwrap_or_else(|| "CPU –".into());
+    let g = gpu.map(|g| format!("GPU {}", crate::dil::yuzde(format!("{g:.0}")))).unwrap_or_else(|| "GPU –".into());
     format!("{c} · {g} · {fps:.0} FPS")
 }

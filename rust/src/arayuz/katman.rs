@@ -28,6 +28,8 @@ use std::sync::Arc;
 
 use eframe::egui::{self, Align2, Color32, CursorIcon, Pos2, Rect, Stroke, Vec2};
 
+use rizeon::dil::t;
+use rizeon::trf;
 use rizeon::bolge::{VURGULA, YAKINLASTIR};
 use rizeon::cizim::{self, CizimDeposu};
 use rizeon::uygulama::Uygulama;
@@ -371,16 +373,16 @@ impl Katman {
     pub fn kalem_ac_kapat(&mut self, uyg: &Uygulama) -> String {
         if self.kalem_acik() {
             self.kapat(uyg);
-            return "Kalem kapandı".into();
+            return t("Kalem kapandı").into();
         }
         if Self::penceredeyiz(uyg) {
-            return "Kalem tüm ekranda çalışır · Göster menüsünden bir ekran seç".into();
+            return t("Kalem tüm ekranda çalışır · Göster menüsünden bir ekran seç").into();
         }
         self.ac(uyg);
         if ozel_tam_ekran() {
-            TAM_EKRAN_UYARISI.into()
+            t(TAM_EKRAN_UYARISI).into()
         } else {
-            "Kalem açıldı".into()
+            t("Kalem açıldı").into()
         }
     }
 
@@ -433,7 +435,7 @@ impl Katman {
                     return String::new();
                 }
                 self.kapat(uyg);
-                "Kalem kapandı".into()
+                t("Kalem kapandı").into()
             }
         }
     }
@@ -461,7 +463,7 @@ impl Katman {
             return String::new();
         }
         uyg.k.cizim.temizle();
-        "Çizimler silindi".into()
+        t("Çizimler silindi").into()
     }
 
     // ---- bölge
@@ -470,14 +472,14 @@ impl Katman {
     pub fn bolge_ac_kapat(&mut self, uyg: &Uygulama) -> String {
         if self.mod_ == Some(Mod::Bolge) {
             self.bolge_vazgec(uyg);
-            return "Bölge seçimi iptal edildi".into();
+            return t("Bölge seçimi iptal edildi").into();
         }
         if uyg.k.bolge.aktif() {
             self.bolge_temizle(uyg);
-            return "Tam ekrana dönüldü".into();
+            return t("Tam ekrana dönüldü").into();
         }
         if Self::penceredeyiz(uyg) {
-            return "Bölge tüm ekranda çalışır · Göster menüsünden bir ekran seç".into();
+            return t("Bölge tüm ekranda çalışır · Göster menüsünden bir ekran seç").into();
         }
         self.onceki_bolge = None;
         self.bolgeden_kaleme = self.mod_.is_some();
@@ -485,7 +487,7 @@ impl Katman {
         self.duz_bekleyen = None;
         self.katmani_ac(uyg, Mod::Bolge);
         if ozel_tam_ekran() {
-            TAM_EKRAN_UYARISI.into()
+            t(TAM_EKRAN_UYARISI).into()
         } else {
             String::new()
         }
@@ -529,9 +531,9 @@ impl Katman {
         self.onceki_bolge = None;
         self.bolge_duzenlemesini_bitir(uyg);
         if let Some(m) = uyg.k.bolge.mod_() {
-            let metin = if m == YAKINLASTIR { "Bölge yakınlaştırıldı" } else { "Bölge vurgulanıyor" };
-            let t = tus(uyg, "bolge.sec");
-            self.bildirimler.push(if t.is_empty() { metin.into() } else { format!("{metin} · tam ekran için {t}") });
+            let metin = if m == YAKINLASTIR { t("Bölge yakınlaştırıldı") } else { t("Bölge vurgulanıyor") };
+            let ts = tus(uyg, "bolge.sec");
+            self.bildirimler.push(if ts.is_empty() { metin.into() } else { trf!("{} · tam ekran için {}", metin, ts) });
         }
     }
 
@@ -577,24 +579,24 @@ impl Katman {
 
     fn ipucu_satiri(&self, uyg: &Uygulama) -> String {
         match self.mod_ {
-            Some(Mod::Kaynak) => "Kutu çiz · Enter ya da çift tık tamam · Esc vazgeç".into(),
+            Some(Mod::Kaynak) => t("Kutu çiz · Enter ya da çift tık tamam · Esc vazgeç").into(),
             Some(Mod::Bolge) => {
-                let mut p = vec!["Kutu çiz".to_string(), "Enter tamam".into(), "Esc vazgeç".into()];
-                let t = tus(uyg, "bolge.sec");
-                if uyg.k.bolge.aktif() && !t.is_empty() {
-                    p.push(format!("{t} tam ekran"));
+                let mut p = vec![t("Kutu çiz").to_string(), t("Enter tamam").into(), t("Esc vazgeç").into()];
+                let ts = tus(uyg, "bolge.sec");
+                if uyg.k.bolge.aktif() && !ts.is_empty() {
+                    p.push(trf!("{} tam ekran", ts));
                 }
                 p.join(" · ")
             }
             _ => {
                 let mut p = vec![];
-                for (k, ad) in [("kalem.ac_kapat", "kalem"), ("kalem.temizle", "temizle")] {
-                    let t = tus(uyg, k);
-                    if !t.is_empty() {
-                        p.push(format!("{t} {ad}"));
+                for (k, ad) in [("kalem.ac_kapat", t("kalem")), ("kalem.temizle", t("temizle"))] {
+                    let ts = tus(uyg, k);
+                    if !ts.is_empty() {
+                        p.push(format!("{ts} {ad}"));
                     }
                 }
-                p.push("Esc çık".into());
+                p.push(t("Esc çık").into());
                 p.join(" · ")
             }
         }
@@ -607,7 +609,7 @@ impl Katman {
         self.paylasim_goster(ctx, uyg);
         let Some(mod_) = self.mod_ else { return };
         let Some(m) = self.monitor.clone() else {
-            self.bildirimler.push("Monitör bulunamadı".into());
+            self.bildirimler.push(t("Monitör bulunamadı").into());
             self.mod_ = None;
             return;
         };
@@ -728,7 +730,7 @@ impl Katman {
             let y = if r.bottom() + 30.0 < alan.bottom() { r.bottom() + 10.0 } else { r.top() - 24.0 };
             p.text(Pos2::new(r.left(), y + 9.0), Align2::LEFT_CENTER, format!("{w:.0} × {h:.0}"), tema::yazi(tema::KUCUK_PX), tema::DUGME);
         }
-        Self::alt_ipucu(p, alan, 24.0, "Kutu çiz · Enter ya da çift tık tamam · Esc vazgeç");
+        Self::alt_ipucu(p, alan, 24.0, t("Kutu çiz · Enter ya da çift tık tamam · Esc vazgeç"));
         if onayla && self.duz.var() {
             let oran = self.duz.oranlar(alan).map(|v| (v * 10000.0).round() / 10000.0);
             let n = rizeon::yakalama::monitorler().iter().position(|x| x.sol == m.sol && x.ust == m.ust).unwrap_or(0);
@@ -970,7 +972,7 @@ impl Katman {
                     .text_color(renk)
                     .frame(egui::Frame::NONE)
                     .margin(egui::Margin::symmetric(2, 0))
-                    .hint_text(egui::RichText::new("Yaz, Enter").color(tema::SOLUK)),
+                    .hint_text(egui::RichText::new(t("Yaz, Enter")).color(tema::SOLUK)),
             );
             let yeni = y.acilis.elapsed() < std::time::Duration::from_millis(400);
             if yeni && !cevap.has_focus() {
@@ -992,7 +994,7 @@ impl Katman {
         // genişliği ölç: iki seçenek + boşluk + boyut yazısı
         let olc = egui::Painter::new(vctx.clone(), egui::LayerId::background(), Rect::EVERYTHING);
         let f = tema::yazi(tema::KUCUK_PX);
-        let sec_gen: f32 = ["Yakınlaştır", "Vurgula"].iter().map(|m| olc.layout_no_wrap(m.to_string(), f.clone(), Color32::WHITE).size().x + 24.0).sum::<f32>() + 2.0 + 6.0;
+        let sec_gen: f32 = [t("Yakınlaştır"), t("Vurgula")].iter().map(|m| olc.layout_no_wrap(m.to_string(), f.clone(), Color32::WHITE).size().x + 24.0).sum::<f32>() + 2.0 + 6.0;
         let gen = sec_gen + 10.0 + olc.layout_no_wrap(boyut.clone(), f.clone(), Color32::WHITE).size().x;
         let yuk = 32.0;
         let mut y = r.bottom() + 10.0;
@@ -1006,8 +1008,8 @@ impl Katman {
                 ui.spacing_mut().item_spacing.x = 10.0;
                 yeni = bilesen::secim_grubu(
                     ui,
-                    &["Yakınlaştır", "Vurgula"],
-                    &["Seçili bölgeyi büyütüp tüm çıkışı ona ayırır", "Bölge aynı kalır, geri kalanı kararır"],
+                    &[t("Yakınlaştır"), t("Vurgula")],
+                    &[t("Seçili bölgeyi büyütüp tüm çıkışı ona ayırır"), t("Bölge aynı kalır, geri kalanı kararır")],
                     secili,
                     true,
                     Some(tema::YUZEN),
@@ -1024,7 +1026,7 @@ impl Katman {
         let depo = &uyg.k.cizim;
         // genişlik: tutma 20 + 7 araç + 4 renk + 3 kalınlık + temizle + Bitti + 4 ayraç
         let olc = egui::Painter::new(vctx.clone(), egui::LayerId::background(), Rect::EVERYTHING);
-        let bitti_gen = olc.layout_no_wrap("Bitti".into(), tema::yazi(tema::GOVDE_PX), Color32::WHITE).size().x + 28.0;
+        let bitti_gen = olc.layout_no_wrap(t("Bitti").into(), tema::yazi(tema::GOVDE_PX), Color32::WHITE).size().x + 28.0;
         let gen = 4.0 + 20.0 + 8.0 * 36.0 + 7.0 * 28.0 + 4.0 * 13.0 + bitti_gen + 4.0 + 2.0 * 21.0;
         let konum = self.cubuk_konumu.filter(|k| alan.contains(*k)).unwrap_or(Pos2::new(alan.center().x - gen / 2.0, alan.top() + 24.0));
         let mut tasima = Vec2::ZERO;
@@ -1039,15 +1041,16 @@ impl Katman {
                     ui.set_height(44.0);
                     ui.horizontal_centered(|ui| {
                         ui.spacing_mut().item_spacing.x = 2.0;
-                        let t = bilesen::tutma_yeri(ui, 4.0);
-                        if t.dragged() {
-                            tasima += t.drag_delta();
+                        let tutma = bilesen::tutma_yeri(ui, 4.0);
+                        if tutma.dragged() {
+                            tasima += tutma.drag_delta();
                         }
                         for (i, ad) in cizim::TUR_ADLARI.iter().enumerate() {
+                            let ad = t(ad);
                             let komut = format!("kalem.tur:{}", i + 1);
                             let ip = match i {
-                                5 => ipucu(&format!("{ad}: İz bırakmaz, birkaç saniyede kaybolur"), &tus(uyg, &komut)),
-                                6 => ipucu(&format!("{ad}: Değdiği çizimi siler"), &tus(uyg, &komut)),
+                                5 => ipucu(&trf!("{}: İz bırakmaz, birkaç saniyede kaybolur", ad), &tus(uyg, &komut)),
+                                6 => ipucu(&trf!("{}: Değdiği çizimi siler", ad), &tus(uyg, &komut)),
                                 _ => ipucu(ad, &tus(uyg, &komut)),
                             };
                             if SimgeDugme::new(SIMGE[i]).secili(self.tur == i).goster(ui).on_hover_text(ip).clicked() {
@@ -1064,7 +1067,7 @@ impl Katman {
                                 ui.painter().circle_stroke(a.center(), 9.5, Stroke::new(1.5, tema::YAZI));
                             }
                             ui.painter().circle_filled(a.center(), 7.0, renk32(*r, 255));
-                            if c.on_hover_text(cizim::RENK_ADLARI[i]).clicked() {
+                            if c.on_hover_text(t(cizim::RENK_ADLARI[i])).clicked() {
                                 self.renk = i;
                             }
                         }
@@ -1075,19 +1078,19 @@ impl Katman {
                             let secili = self.kalinlik == i;
                             bilesen::zemin(ui, a, 14.0, secili, false, &c, true);
                             ui.painter().circle_filled(a.center(), KALINLIK_CAPI[i] / 2.0, if secili { Color32::from_rgb(0xf4, 0xf4, 0xf5) } else { tema::SOLUK });
-                            if c.on_hover_text(*ad).clicked() {
+                            if c.on_hover_text(t(ad)).clicked() {
                                 self.kalinlik = i;
                             }
                         }
                         cubuk_ayraci(ui);
-                        if SimgeDugme::new("temizle").goster(ui).on_hover_text(ipucu("Tüm çizimleri temizle", &tus(uyg, "kalem.temizle"))).clicked() {
+                        if SimgeDugme::new("temizle").goster(ui).on_hover_text(ipucu(t("Tüm çizimleri temizle"), &tus(uyg, "kalem.temizle"))).clicked() {
                             let m = Self::temizle(uyg);
                             if !m.is_empty() {
                                 self.bildirimler.push(m);
                             }
                         }
                         cubuk_ayraci(ui);
-                        if bitti_dugmesi(ui).on_hover_text(ipucu("Kalemi kapat", "Esc")).clicked() {
+                        if bitti_dugmesi(ui).on_hover_text(ipucu(t("Kalemi kapat"), t("Esc"))).clicked() {
                             kapat = true;
                         }
                     });
@@ -1099,7 +1102,7 @@ impl Katman {
         let _ = depo;
         if kapat {
             self.kapat(uyg);
-            self.bildirimler.push("Kalem kapandı".into());
+            self.bildirimler.push(t("Kalem kapandı").into());
         }
     }
 
@@ -1277,7 +1280,7 @@ fn cubuk_ayraci(ui: &mut egui::Ui) {
 
 /// Kalem barındaki "Bitti" (36 px yüksek, yuvarlak, 13 px yazı).
 fn bitti_dugmesi(ui: &mut egui::Ui) -> egui::Response {
-    let g = ui.painter().layout_no_wrap("Bitti".into(), tema::yazi(tema::GOVDE_PX), Color32::WHITE);
+    let g = ui.painter().layout_no_wrap(t("Bitti").into(), tema::yazi(tema::GOVDE_PX), Color32::WHITE);
     let (r, c) = ui.allocate_exact_size(Vec2::new(g.size().x + 28.0, 36.0), egui::Sense::click());
     let c = c.on_hover_cursor(CursorIcon::PointingHand);
     bilesen::zemin(ui, r, 18.0, false, false, &c, true);

@@ -4,6 +4,8 @@
 
 use eframe::egui::{self, Align2, Color32, CornerRadius, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2};
 
+use rizeon::dil::t;
+
 use super::simge;
 use super::tema::{self, beyaz};
 
@@ -383,7 +385,7 @@ pub fn secim_grubu(ui: &mut Ui, secenekler: &[&str], ipuclari: &[&str], secili: 
 pub fn tutma_yeri(ui: &mut Ui, dikey_bosluk: f32) -> Response {
     let (r, resp) = ui.allocate_exact_size(Vec2::new(20.0, 20.0 + dikey_bosluk), Sense::click_and_drag());
     let suruklenen = resp.dragged();
-    let resp = resp.on_hover_cursor(if suruklenen { egui::CursorIcon::Grabbing } else { egui::CursorIcon::Grab }).on_hover_text("Taşı");
+    let resp = resp.on_hover_cursor(if suruklenen { egui::CursorIcon::Grabbing } else { egui::CursorIcon::Grab }).on_hover_text(t("Taşı"));
     let x0 = r.left() + (r.width() - 9.0) / 2.0;
     let y0 = r.top() + (r.height() - 15.0) / 2.0;
     for satir in 0..3 {
@@ -437,10 +439,10 @@ pub fn kayit_grubu(ui: &mut Ui, saniye: u64, duraklatildi: bool, dugme_boyu: f32
         }
         d.goster(&mut alt).on_hover_text(ad).clicked()
     };
-    let (ds, da) = if duraklatildi { ("oynat", "Kayda devam et") } else { ("duraklat", "Kaydı duraklat") };
+    let (ds, da) = if duraklatildi { ("oynat", t("Kayda devam et")) } else { ("duraklat", t("Kaydı duraklat")) };
     sonuc.duraklat = dugme(ui, x, ds, ipucu(da, tus_duraklat));
     if bitir {
-        sonuc.bitir = dugme(ui, x + dugme_boyu + 2.0, "bitir", ipucu("Kaydı bitir", tus_bitir));
+        sonuc.bitir = dugme(ui, x + dugme_boyu + 2.0, "bitir", ipucu(t("Kaydı bitir"), tus_bitir));
     }
     sonuc
 }

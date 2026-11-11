@@ -1,6 +1,9 @@
 //! Global kısayollar (Python core/hotkeys.py). Windows'un RegisterHotKey'i kullanılır: klavye kancası yok
 //! (antivirüsler sevmez, tuşları oyundan çalabilir). Kayıt yapan iş parçacığının kendi mesaj döngüsü var.
 
+use crate::dil::t;
+use crate::trf;
+
 pub const MOD_ALT: u32 = 0x1;
 pub const MOD_CONTROL: u32 = 0x2;
 pub const MOD_SHIFT: u32 = 0x4;
@@ -42,11 +45,11 @@ fn ozel_tus(k: &str) -> Option<u32> {
 pub fn tus_coz(metin: &str) -> Result<(u32, u32), GecersizTus> {
     let temiz = metin.replace(' ', "");
     if temiz.is_empty() {
-        return Err(GecersizTus("Boş tuş".into()));
+        return Err(GecersizTus(t("Boş tuş").into()));
     }
     let parcalar: Vec<&str> = temiz.split('+').collect();
     if parcalar.iter().any(|p| p.is_empty()) {
-        return Err(GecersizTus(format!("Geçersiz tuş: {metin}")));
+        return Err(GecersizTus(trf!("Geçersiz tuş: {}", metin)));
     }
     let mut m = 0;
     for p in &parcalar[..parcalar.len() - 1] {
@@ -55,7 +58,7 @@ pub fn tus_coz(metin: &str) -> Result<(u32, u32), GecersizTus> {
             "alt" => MOD_ALT,
             "shift" => MOD_SHIFT,
             "win" => MOD_WIN,
-            _ => return Err(GecersizTus(format!("Bilinmeyen değiştirici: {p}"))),
+            _ => return Err(GecersizTus(trf!("Bilinmeyen değiştirici: {}", p))),
         };
     }
     let tus = parcalar[parcalar.len() - 1];
@@ -66,7 +69,7 @@ pub fn tus_coz(metin: &str) -> Result<(u32, u32), GecersizTus> {
     }
     if let Some(n) = k.strip_prefix('f').and_then(|n| n.parse::<u32>().ok()).filter(|n| (1..=24).contains(n)) {
         if n == 12 && m == 0 {
-            return Err(GecersizTus("F12 tek başına kullanılamaz (Windows'a ayrılmış); Ctrl/Alt/Shift ile birlikte kullan".into()));
+            return Err(GecersizTus(t("F12 tek başına kullanılamaz (Windows'a ayrılmış); Ctrl/Alt/Shift ile birlikte kullan").into()));
         }
         return Ok((m, 0x70 + n - 1));
     }
@@ -76,7 +79,7 @@ pub fn tus_coz(metin: &str) -> Result<(u32, u32), GecersizTus> {
     if let Some(v) = ozel_tus(&k) {
         return Ok((m, v));
     }
-    Err(GecersizTus(format!("Bilinmeyen tuş: {tus}")))
+    Err(GecersizTus(trf!("Bilinmeyen tuş: {}", tus)))
 }
 
 /// Bildirimlerde göstermek için: "ctrl+1" -> "Ctrl+1"

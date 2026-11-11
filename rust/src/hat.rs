@@ -8,6 +8,7 @@
 //! Arayüz bu iş parçacığını asla beklemez; `son_kare()` ile en son kareyi alır.
 //! Sanal kamera arka planda hep açık (2.0.0); sürücü yoksa birkaç saniyede bir yeniden denenir.
 
+use crate::trf;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -177,7 +178,7 @@ impl Ic {
                 });
             }
             Err(e) => {
-                let yok = e.contains("bulunamadı");
+                let yok = e.contains("bulunamadı") || e.contains("not found");
                 if self.k.depo.al().sanal_kamera != if yok { "yok" } else { "hata" } {
                     log::warn!("Sanal kamera açılamadı: {e}");
                 }
@@ -402,7 +403,7 @@ impl Ic {
                 self.k.depo.guncelle(|d| {
                     d.cikis_acik = false;
                     d.sanal_kamera = "koptu".into();
-                    d.son_hata = format!("Sanal kamera koptu: {e}");
+                    d.son_hata = trf!("Sanal kamera koptu: {}", e);
                 });
             }
         }

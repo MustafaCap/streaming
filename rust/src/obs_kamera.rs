@@ -10,6 +10,8 @@
 //!     40 u64 interval (100 ns) | 48 u32 reserved[8]
 //!   Üç kare yuvası (32 bayta hizalı): [u64 zaman + 24 bayt boşluk][NV12]
 
+use crate::dil::t;
+
 pub const BELLEK_ADI: &str = "OBSVirtualCamVideo";
 pub const SURUCU_CLSID: &str = "{A3FCE0F5-3493-419F-958A-ABA1250EC20B}";
 pub const BASLIK_BOYUTU: usize = 96;
@@ -51,7 +53,7 @@ impl KareKuyrugu {
     /// `adres` en az `bellek_duzeni(w, h).1` bayt yazılabilir bellek göstermeli ve kuyruk yaşadıkça geçerli kalmalı.
     pub unsafe fn yeni(adres: *mut u8, w: u32, h: u32, fps: f64) -> Result<Self, String> {
         if w % 2 != 0 || h % 2 != 0 {
-            return Err("Genişlik ve yükseklik çift sayı olmalı".into());
+            return Err(t("Genişlik ve yükseklik çift sayı olmalı").into());
         }
         let (ofsetler, _, kare_boyutu) = bellek_duzeni(w, h);
         std::ptr::write_bytes(adres, 0, BASLIK_BOYUTU);
@@ -106,7 +108,7 @@ impl ObsSanalKamera {
     #[cfg(windows)]
     pub fn ac(w: u32, h: u32, fps: f64) -> Result<Self, String> {
         if !crate::win::clsid_kayitli(SURUCU_CLSID) {
-            return Err("OBS Virtual Camera sürücüsü bulunamadı. OBS Studio'yu kur, bir kez 'Sanal Kamerayı Başlat'a bas ve kapat.".into());
+            return Err(t("OBS Virtual Camera sürücüsü bulunamadı. OBS Studio'yu kur, bir kez 'Sanal Kamerayı Başlat'a bas ve kapat.").into());
         }
         let (_, boyut, _) = bellek_duzeni(w, h);
         let bellek = crate::win::PaylasilanBellek::olustur(BELLEK_ADI, boyut)?;
@@ -116,7 +118,7 @@ impl ObsSanalKamera {
 
     #[cfg(not(windows))]
     pub fn ac(_w: u32, _h: u32, _fps: f64) -> Result<Self, String> {
-        Err("Sanal kamera sadece Windows'ta çalışır".into())
+        Err(t("Sanal kamera sadece Windows'ta çalışır").into())
     }
 
     pub fn gonder(&mut self, kare: &crate::kare::Kare) -> Result<(), String> {

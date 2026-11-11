@@ -3,6 +3,8 @@
 //! Her mod mikrofon ve sistem/oyun sesi için bir yüzde çiftidir. Sürgü elle değişince hiçbir mod
 //! seçili görünmez ve "<son mod>'e kaydet" bağlantısı çıkar; basılırsa yeni değerler o moda yazılır.
 
+use crate::dil::t;
+use crate::trf;
 use serde_json::{json, Value};
 
 use crate::ayarlar::Ayarlar;
@@ -11,25 +13,25 @@ pub const MODLAR: [&str; 3] = ["sesim", "dengeli", "oyun"];
 
 pub fn etiket(ad: &str) -> &'static str {
     match ad {
-        "sesim" => "Sesim",
-        "oyun" => "Oyun",
-        _ => "Dengeli",
+        "sesim" => t("Sesim"),
+        "oyun" => t("Oyun"),
+        _ => t("Dengeli"),
     }
 }
 
 pub fn kaydet_etiketi(ad: &str) -> &'static str {
     match ad {
-        "sesim" => "Sesim'e kaydet",
-        "oyun" => "Oyun'a kaydet",
-        _ => "Dengeli'ye kaydet",
+        "sesim" => t("Sesim'e kaydet"),
+        "oyun" => t("Oyun'a kaydet"),
+        _ => t("Dengeli'ye kaydet"),
     }
 }
 
 pub fn ipucu(ad: &str) -> &'static str {
     match ad {
-        "sesim" => "Sesin önde, oyun/sistem sesi kısık",
-        "oyun" => "Oyun sesi önde",
-        _ => "İkisi aynı seviyede",
+        "sesim" => t("Sesin önde, oyun/sistem sesi kısık"),
+        "oyun" => t("Oyun sesi önde"),
+        _ => t("İkisi aynı seviyede"),
     }
 }
 
@@ -106,10 +108,10 @@ pub fn haric_metni(a: &Ayarlar) -> String {
     let mod_ = a.al("audio.system_mode").and_then(Value::as_str).unwrap_or("auto").to_string();
     let dahil = a.metin("audio.include_app");
     if mod_ == "app" && !dahil.is_empty() {
-        return format!("Sadece {}", dahil.trim_end_matches(".exe"));
+        return trf!("Sadece {}", dahil.trim_end_matches(".exe"));
     }
     if mod_ == "all" {
-        return "Tüm sesler".into();
+        return t("Tüm sesler").into();
     }
     let mut adlar: Vec<String> = Vec::new();
     for x in a.al("audio.exclude_apps").and_then(Value::as_array).cloned().unwrap_or_default() {
@@ -121,9 +123,9 @@ pub fn haric_metni(a: &Ayarlar) -> String {
         }
     }
     match adlar.len() {
-        0 => "Tüm sesler".into(),
-        1 | 2 => format!("{} hariç", adlar.join(" ve ")),
-        n => format!("{}, {} +{} hariç", adlar[0], adlar[1], n - 2),
+        0 => t("Tüm sesler").into(),
+        1 | 2 => trf!("{} hariç", adlar.join(t(" ve "))),
+        n => trf!("{}, {} +{} hariç", adlar[0], adlar[1], n - 2),
     }
 }
 

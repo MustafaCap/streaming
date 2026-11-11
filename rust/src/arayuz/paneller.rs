@@ -6,7 +6,9 @@ use std::sync::Arc;
 use eframe::egui::{self, Align2, Pos2, Rect, Sense, Ui, Vec2};
 use serde_json::{json, Map, Value};
 
+use rizeon::dil::t;
 use rizeon::durum::Durum;
+use rizeon::trf;
 use rizeon::sahne::{self, Kaynak, EKLENEBILIR};
 use rizeon::ses_modlari;
 use rizeon::uygulama::{Komut, Uygulama};
@@ -58,7 +60,7 @@ impl SahnelerPaneli {
     pub fn goster(&mut self, ui: &mut Ui, uyg: &Arc<Uygulama>, tus: &dyn Fn(&str) -> String) {
         bilesen::panel(12.0).show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
-            if panel_basligi(ui, "Sahneler", "Sahne ekle") {
+            if panel_basligi(ui, t("Sahneler"), t("Sahne ekle")) {
                 if let Some(n) = uyg.k.sahneler.ekle() {
                     uyg.komut(Komut::Sahne(n));
                     uyg.sahneleri_kaydet();
@@ -96,27 +98,27 @@ impl SahnelerPaneli {
                 ui.painter().text(
                     Pos2::new(r.left() + 10.0, r.center().y),
                     Align2::LEFT_CENTER,
-                    &s.ad,
+                    t(&s.ad),
                     tema::yazi(tema::GOVDE_PX),
                     if i == aktif { tema::BEYAZ } else { tema::DUGME },
                 );
-                let t = if i < 9 { tus(&format!("sahne.sec:{}", i + 1)) } else { String::new() };
-                if !t.is_empty() {
-                    ui.painter().text(Pos2::new(r.right() - 10.0, r.center().y), Align2::RIGHT_CENTER, &t, tema::yazi(tema::EN_KUCUK_PX), tema::SOLUK);
+                let ts = if i < 9 { tus(&format!("sahne.sec:{}", i + 1)) } else { String::new() };
+                if !ts.is_empty() {
+                    ui.painter().text(Pos2::new(r.right() - 10.0, r.center().y), Align2::RIGHT_CENTER, &ts, tema::yazi(tema::EN_KUCUK_PX), tema::SOLUK);
                 }
-                let resp = if t.is_empty() { resp } else { resp.on_hover_text(&t) };
+                let resp = if ts.is_empty() { resp } else { resp.on_hover_text(&ts) };
                 if resp.double_clicked() {
-                    self.duzenlenen = Some((i, s.ad.clone(), true));
+                    self.duzenlenen = Some((i, t(&s.ad).to_string(), true));
                 } else if resp.clicked() {
                     uyg.komut(Komut::Sahne(i));
                 }
                 let n = sahneler.len();
                 egui::Popup::context_menu(&resp).frame(bilesen::menu_cercevesi()).show(|ui| {
                     ui.set_min_width(180.0);
-                    if bilesen::menu_satiri(ui, "Yeniden adlandır", true).clicked() {
-                        self.duzenlenen = Some((i, s.ad.clone(), true));
+                    if bilesen::menu_satiri(ui, t("Yeniden adlandır"), true).clicked() {
+                        self.duzenlenen = Some((i, t(&s.ad).to_string(), true));
                     }
-                    if bilesen::menu_satiri(ui, "Sil", n > 1).clicked() {
+                    if bilesen::menu_satiri(ui, t("Sil"), n > 1).clicked() {
                         sil = Some(i);
                     }
                 });
@@ -143,8 +145,8 @@ pub fn kaynak_bilgisi(k: &Kaynak, bekleme_gorseli: &str) -> String {
     let a = &k.ayar;
     let sayi = |ad: &str, v: i64| a.get(ad).and_then(Value::as_i64).unwrap_or(v);
     match k.tur.as_str() {
-        "ekran" if k.ana() => "Göster'deki görüntü".into(),
-        "ekran" => format!("Monitör {}", sayi("monitor", 0) + 1),
+        "ekran" if k.ana() => t("Göster'deki görüntü").into(),
+        "ekran" => trf!("Monitör {}", sayi("monitor", 0) + 1),
         "pencere" => k.metin("title").chars().take(40).collect(),
         "bolge" => {
             if let Some(p) = a.get("pixels").and_then(Value::as_array).filter(|p| p.len() == 2) {
@@ -152,20 +154,20 @@ pub fn kaynak_bilgisi(k: &Kaynak, bekleme_gorseli: &str) -> String {
             } else {
                 let r: Vec<f64> = a.get("rect").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
                 let (w, h) = (r.get(2).copied().unwrap_or(1.0), r.get(3).copied().unwrap_or(1.0));
-                format!("%{} × %{}", (w * 100.0).round(), (h * 100.0).round())
+                format!("{} × {}", rizeon::dil::yuzde((w * 100.0).round()), rizeon::dil::yuzde((h * 100.0).round()))
             }
         }
-        "kamera" if k.ana() => format!("Webcam · {}", if k.tam() { "tam ekran" } else { "köşede" }),
-        "kamera" => format!("Cihaz {}", sayi("device", 1) + 1),
+        "kamera" if k.ana() => trf!("Webcam · {}", if k.tam() { t("tam ekran") } else { t("köşede") }),
+        "kamera" => trf!("Cihaz {}", sayi("device", 1) + 1),
         "gorsel" | "video" => std::path::Path::new(&k.metin("path")).file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(),
         "metin" => k.metin("text").chars().take(40).collect(),
-        "kalem" => "Saydam".into(),
-        "imlec" => "Halka".into(),
+        "kalem" => t("Saydam").into(),
+        "imlec" => t("Halka").into(),
         "bekleme" => {
             if bekleme_gorseli.is_empty() {
-                "Yazı".into()
+                t("Yazı").into()
             } else if rizeon::yollar::video_mu(bekleme_gorseli) {
-                "Video".into()
+                t("Video").into()
             } else {
                 std::path::Path::new(bekleme_gorseli).file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
             }
@@ -179,7 +181,7 @@ impl KaynaklarPaneli {
         let sahne = uyg.k.sahneler.aktif();
         let k = Kaynak::yeni(tur, &sahne::yeni_kaynak_adi(&sahne, tur), ayar);
         if !uyg.k.sahneler.kaynak_ekle(k) {
-            return Some(Istek::Diyalog(Diyalog::bilgi("Kaynaklar", "Bir sahnede en çok 20 kaynak olabilir.")));
+            return Some(Istek::Diyalog(Diyalog::bilgi(t("Kaynaklar"), t("Bir sahnede en çok 20 kaynak olabilir."))));
         }
         uyg.sahneleri_kaydet();
         None
@@ -204,14 +206,14 @@ impl KaynaklarPaneli {
             }
             "gorsel" => {
                 #[cfg(windows)]
-                if let Some(y) = rizeon::win::dosya_sec("Görsel seç", &[("Görseller", "*.png;*.jpg;*.jpeg;*.bmp;*.webp")]) {
+                if let Some(y) = rizeon::win::dosya_sec(t("Görsel seç"), &[(t("Görseller"), "*.png;*.jpg;*.jpeg;*.bmp;*.webp")]) {
                     return Self::ekle(uyg, "gorsel", ayar(json!({"path": y.to_string_lossy()})));
                 }
                 None
             }
             "video" => {
                 #[cfg(windows)]
-                if let Some(y) = rizeon::win::dosya_sec("Video seç", &[("Videolar", "*.mp4;*.webm;*.avi;*.mov;*.mkv;*.gif;*.wmv;*.m4v")]) {
+                if let Some(y) = rizeon::win::dosya_sec(t("Video seç"), &[(t("Videolar"), "*.mp4;*.webm;*.avi;*.mov;*.mkv;*.gif;*.wmv;*.m4v")]) {
                     match rizeon::yollar::video_kopyala(&y) {
                         Ok(y) => return Self::ekle(uyg, "video", ayar(json!({"path": y.to_string_lossy()}))),
                         Err(e) => log::warn!("Video kopyalanamadı: {e}"),
@@ -219,7 +221,7 @@ impl KaynaklarPaneli {
                 }
                 None
             }
-            "metin" => Some(Istek::Diyalog(Diyalog::girdi("Metin", "Görünecek yazı (ör. adın):", "", Amac::YeniMetin))),
+            "metin" => Some(Istek::Diyalog(Diyalog::girdi(t("Metin"), t("Görünecek yazı (ör. adın):"), "", Amac::YeniMetin))),
             _ => None,
         }
     }
@@ -231,9 +233,9 @@ impl KaynaklarPaneli {
             let mut ekle_r = None;
             ui.horizontal(|ui| {
                 ui.set_height(28.0);
-                bilesen::etiket(ui, "Kaynaklar", tema::KUCUK_PX, tema::YAZI2);
+                bilesen::etiket(ui, t("Kaynaklar"), tema::KUCUK_PX, tema::YAZI2);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ekle_r = Some(SimgeDugme::new("arti").boyut(28.0, 14.0).goster(ui).on_hover_text("Kaynak ekle"));
+                    ekle_r = Some(SimgeDugme::new("arti").boyut(28.0, 14.0).goster(ui).on_hover_text(t("Kaynak ekle")));
                 });
             });
             ui.add_space(4.0);
@@ -241,7 +243,7 @@ impl KaynaklarPaneli {
             egui::Popup::menu(&ekle_r).frame(bilesen::menu_cercevesi()).align(egui::RectAlign::BOTTOM_START).show(|ui| {
                 ui.set_min_width(240.0);
                 for (tur, ad, aciklama) in EKLENEBILIR {
-                    if bilesen::menu_ogesi(ui, ad, aciklama, false).clicked() {
+                    if bilesen::menu_ogesi(ui, t(ad), t(aciklama), false).clicked() {
                         istek = self.kaynak_ekle(uyg, tur);
                     }
                 }
@@ -257,7 +259,7 @@ impl KaynaklarPaneli {
                         ui.set_min_width(240.0);
                         if alt == "ekran" {
                             for (i, m) in rizeon::yakalama::monitorler().iter().enumerate() {
-                                if bilesen::menu_ogesi(ui, &format!("Ekran {}", i + 1), &format!("Tüm ekran · {}×{}", m.w, m.h), false).clicked() {
+                                if bilesen::menu_ogesi(ui, &trf!("Ekran {}", i + 1), &trf!("Tüm ekran · {}×{}", m.w, m.h), false).clicked() {
                                     istek = Self::ekle(uyg, "ekran", json!({"monitor": i}).as_object().cloned().unwrap());
                                     self.alt_menu = None;
                                 }
@@ -268,7 +270,7 @@ impl KaynaklarPaneli {
                                 if n == ana {
                                     continue;
                                 }
-                                if bilesen::menu_ogesi(ui, &format!("Cihaz {}", n + 1), "İkinci webcam, telefon ya da yakalama kartı", false).clicked() {
+                                if bilesen::menu_ogesi(ui, &trf!("Cihaz {}", n + 1), t("İkinci webcam, telefon ya da yakalama kartı"), false).clicked() {
                                     istek = Self::ekle(uyg, "kamera", json!({"device": n, "yer": "kose"}).as_object().cloned().unwrap());
                                     self.alt_menu = None;
                                 }
@@ -290,9 +292,9 @@ impl KaynaklarPaneli {
                 satir_zemini(ui, r, false, uzerinde);
                 let ad_renk = if k.gorunur { tema::YAZI } else { tema::SOLUK };
                 if bilgi.is_empty() {
-                    ui.painter().text(Pos2::new(r.left() + 10.0, r.center().y), Align2::LEFT_CENTER, &k.ad, tema::yazi(tema::GOVDE_PX), ad_renk);
+                    ui.painter().text(Pos2::new(r.left() + 10.0, r.center().y), Align2::LEFT_CENTER, t(&k.ad), tema::yazi(tema::GOVDE_PX), ad_renk);
                 } else {
-                    ui.painter().text(Pos2::new(r.left() + 10.0, r.center().y - 9.0), Align2::LEFT_CENTER, &k.ad, tema::yazi(tema::GOVDE_PX), ad_renk);
+                    ui.painter().text(Pos2::new(r.left() + 10.0, r.center().y - 9.0), Align2::LEFT_CENTER, t(&k.ad), tema::yazi(tema::GOVDE_PX), ad_renk);
                     ui.painter().text(Pos2::new(r.left() + 10.0, r.center().y + 10.0), Align2::LEFT_CENTER, &bilgi, tema::yazi(tema::EN_KUCUK_PX), tema::SOLUK);
                 }
                 // göz ve × (× sadece üzerine gelince)
@@ -300,15 +302,15 @@ impl KaynaklarPaneli {
                 let goz_r = kaldir_r.translate(Vec2::new(-30.0, 0.0));
                 let mut goz_ui = ui.new_child(egui::UiBuilder::new().max_rect(goz_r).id_salt(("goz", &k.kimlik)));
                 let goz = SimgeDugme::new(if k.gorunur { "goz" } else { "goz_kapali" }).boyut(28.0, 14.0).renk(tema::YAZI2).goster(&mut goz_ui).on_hover_text(if k.gorunur {
-                    format!("{}: görünür, gizle", k.ad)
+                    trf!("{}: görünür, gizle", t(&k.ad))
                 } else {
-                    format!("{}: gizli, göster", k.ad)
+                    trf!("{}: gizli, göster", t(&k.ad))
                 });
                 if goz.clicked() && uyg.k.sahneler.kaynak_degistir(&k.kimlik, |x| x.gorunur = !x.gorunur) {
                     uyg.sahneleri_kaydet();
                 }
                 let mut kaldir_ui = ui.new_child(egui::UiBuilder::new().max_rect(kaldir_r).id_salt(("kaldir", &k.kimlik)));
-                let kaldir = SimgeDugme::new("kapat").boyut(28.0, 14.0).renk(tema::YAZI2).gizli(!uzerinde).goster(&mut kaldir_ui).on_hover_text(format!("{} kaynağını kaldır", k.ad));
+                let kaldir = SimgeDugme::new("kapat").boyut(28.0, 14.0).renk(tema::YAZI2).gizli(!uzerinde).goster(&mut kaldir_ui).on_hover_text(trf!("{} kaynağını kaldır", t(&k.ad)));
                 if kaldir.clicked() && uyg.k.sahneler.kaynak_sil(&k.kimlik) {
                     uyg.sahneleri_kaydet();
                 }
@@ -318,39 +320,39 @@ impl KaynaklarPaneli {
                 egui::Popup::context_menu(&resp).frame(bilesen::menu_cercevesi()).show(|ui| {
                     ui.set_min_width(200.0);
                     let mut degisti = false;
-                    if bilesen::menu_satiri(ui, "Öne al", i > 0).clicked() {
+                    if bilesen::menu_satiri(ui, t("Öne al"), i > 0).clicked() {
                         degisti |= uyg.k.sahneler.kaynak_tasi(&k.kimlik, -1);
                     }
-                    if bilesen::menu_satiri(ui, "Arkaya al", i + 1 < n).clicked() {
+                    if bilesen::menu_satiri(ui, t("Arkaya al"), i + 1 < n).clicked() {
                         degisti |= uyg.k.sahneler.kaynak_tasi(&k.kimlik, 1);
                     }
                     bilesen::menu_ayraci(ui);
-                    if bilesen::menu_satiri(ui, "Yeniden adlandır", true).clicked() {
-                        istek = Some(Istek::Diyalog(Diyalog::girdi("Yeniden adlandır", "Kaynak adı:", &k.ad, Amac::KaynakAdi(k.kimlik.clone()))));
+                    if bilesen::menu_satiri(ui, t("Yeniden adlandır"), true).clicked() {
+                        istek = Some(Istek::Diyalog(Diyalog::girdi(t("Yeniden adlandır"), t("Kaynak adı:"), t(&k.ad), Amac::KaynakAdi(k.kimlik.clone()))));
                     }
-                    if k.tur == "metin" && bilesen::menu_satiri(ui, "Yazıyı düzenle…", true).clicked() {
+                    if k.tur == "metin" && bilesen::menu_satiri(ui, t("Yazıyı düzenle…"), true).clicked() {
                         istek = self.duzenle(uyg, k);
                     }
                     if k.tur == "bekleme" {
-                        if bilesen::menu_satiri(ui, "Resim ya da kısa video seç…", true).clicked() {
+                        if bilesen::menu_satiri(ui, t("Resim ya da kısa video seç…"), true).clicked() {
                             bekleme_sec(uyg);
                         }
-                        if bilesen::menu_satiri(ui, "Sadece yazı kullan", !bekleme.is_empty()).clicked() {
+                        if bilesen::menu_satiri(ui, t("Sadece yazı kullan"), !bekleme.is_empty()).clicked() {
                             bekleme_uygula(uyg, "");
                         }
-                        if bilesen::menu_satiri(ui, "Bekleme yazısını değiştir…", true).clicked() {
+                        if bilesen::menu_satiri(ui, t("Bekleme yazısını değiştir…"), true).clicked() {
                             let m = uyg.k.ayar.lock().unwrap().bekleme_metni.clone();
-                            istek = Some(Istek::Diyalog(Diyalog::girdi("Bekleme ekranı", "Yazı:", &m, Amac::BeklemeYazisi)));
+                            istek = Some(Istek::Diyalog(Diyalog::girdi(t("Bekleme ekranı"), t("Yazı:"), &m, Amac::BeklemeYazisi)));
                         }
                     }
-                    if k.tur == "kamera" && !k.ana() && bilesen::menu_satiri(ui, if k.tam() { "Köşede" } else { "Tam ekran" }, true).clicked() {
+                    if k.tur == "kamera" && !k.ana() && bilesen::menu_satiri(ui, if k.tam() { t("Köşede") } else { t("Tam ekran") }, true).clicked() {
                         let tam = k.tam();
                         degisti |= uyg.k.sahneler.kaynak_degistir(&k.kimlik, |x| {
                             x.ayar.insert("yer".into(), if tam { "kose" } else { "tam" }.into());
                         });
                     }
                     bilesen::menu_ayraci(ui);
-                    if bilesen::menu_satiri(ui, "Kaldır", true).clicked() {
+                    if bilesen::menu_satiri(ui, t("Kaldır"), true).clicked() {
                         degisti |= uyg.k.sahneler.kaynak_sil(&k.kimlik);
                     }
                     if degisti {
@@ -362,7 +364,7 @@ impl KaynaklarPaneli {
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     ui.add_space(10.0);
-                    bilesen::etiket(ui, "Bu sahnede kaynak yok", tema::EN_KUCUK_PX, tema::SOLUK);
+                    bilesen::etiket(ui, t("Bu sahnede kaynak yok"), tema::EN_KUCUK_PX, tema::SOLUK);
                 });
                 ui.add_space(8.0);
             }
@@ -372,7 +374,7 @@ impl KaynaklarPaneli {
 
     fn duzenle(&mut self, uyg: &Arc<Uygulama>, k: &Kaynak) -> Option<Istek> {
         match k.tur.as_str() {
-            "metin" => Some(Istek::Diyalog(Diyalog::girdi("Metin", "Görünecek yazı:", &k.metin("text"), Amac::KaynakMetni(k.kimlik.clone())))),
+            "metin" => Some(Istek::Diyalog(Diyalog::girdi(t("Metin"), t("Görünecek yazı:"), &k.metin("text"), Amac::KaynakMetni(k.kimlik.clone())))),
             "bekleme" => {
                 bekleme_sec(uyg);
                 None
@@ -385,8 +387,8 @@ impl KaynaklarPaneli {
 fn bekleme_sec(uyg: &Arc<Uygulama>) {
     #[cfg(windows)]
     if let Some(y) = rizeon::win::dosya_sec(
-        "Bekleme ekranı: resim ya da kısa video",
-        &[("Resim ya da video", "*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.mp4;*.webm;*.avi;*.mov;*.mkv;*.gif;*.wmv;*.m4v")],
+        t("Bekleme ekranı: resim ya da kısa video"),
+        &[(t("Resim ya da video"), "*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.mp4;*.webm;*.avi;*.mov;*.mkv;*.gif;*.wmv;*.m4v")],
     ) {
         bekleme_uygula(uyg, &y.to_string_lossy());
     }
@@ -452,7 +454,7 @@ impl MikserPaneli {
                 ui.add(egui::Label::new(egui::RichText::new(bilgi).font(tema::yazi(tema::EN_KUCUK_PX)).color(tema::SOLUK)).wrap());
                 if duzenle {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        duzenle_basildi = bilesen::baglanti(ui, "Düzenle", tema::EN_KUCUK_PX, tema::YAZI2, true).on_hover_text("Hangi uygulamaların sesi alınmasın").clicked();
+                        duzenle_basildi = bilesen::baglanti(ui, t("Düzenle"), tema::EN_KUCUK_PX, tema::YAZI2, true).on_hover_text(t("Hangi uygulamaların sesi alınmasın")).clicked();
                     });
                 }
             });
@@ -475,14 +477,14 @@ impl MikserPaneli {
             (ses_modlari::haric_metni(&a), ses_modlari::modlar(&a), ses_modlari::son_mod(&a))
         };
         let mik_bilgi = if d.mikrofon == "yok" {
-            if d.ses_hatasi.is_empty() { "Mikrofon bulunamadı".to_string() } else { d.ses_hatasi.clone() }
+            if d.ses_hatasi.is_empty() { t("Mikrofon bulunamadı").to_string() } else { d.ses_hatasi.clone() }
         } else if d.bas_konus {
-            if d.konusuyor { "Konuşuyor".into() } else { "Bas-konuş: konuşmak için tuşu basılı tut".into() }
+            if d.konusuyor { t("Konuşuyor").into() } else { t("Bas-konuş: konuşmak için tuşu basılı tut").into() }
         } else {
             String::new()
         };
         let sis_bilgi = if d.sistem_sesi == "yok" {
-            if d.ses_hatasi.is_empty() { "Sistem sesi alınamıyor".to_string() } else { d.ses_hatasi.clone() }
+            if d.ses_hatasi.is_empty() { t("Sistem sesi alınamıyor").to_string() } else { d.ses_hatasi.clone() }
         } else {
             haric
         };
@@ -490,9 +492,9 @@ impl MikserPaneli {
         bilesen::panel(14.0).show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.spacing_mut().item_spacing.y = 18.0;
-            bilesen::etiket(ui, "Ses mikseri", tema::KUCUK_PX, tema::YAZI2);
+            bilesen::etiket(ui, t("Ses mikseri"), tema::KUCUK_PX, tema::YAZI2);
             ui.vertical(|ui| {
-                let (degisti, birakti, _) = Self::kanal(ui, "Mikrofon", &mut mik, &mik_bilgi, false, self.cizgi[0]);
+                let (degisti, birakti, _) = Self::kanal(ui, t("Mikrofon"), &mut mik, &mik_bilgi, false, self.cizgi[0]);
                 if degisti {
                     if let Some(k) = uyg.mikser.lock().unwrap().kanal("mikrofon") {
                         k.kazanc_ayarla(mik as f32 / 100.0);
@@ -501,7 +503,7 @@ impl MikserPaneli {
                 kaydet |= birakti;
             });
             ui.vertical(|ui| {
-                let (degisti, birakti, duzenle) = Self::kanal(ui, "Sistem / oyun", &mut sis, &sis_bilgi, true, self.cizgi[1]);
+                let (degisti, birakti, duzenle) = Self::kanal(ui, t("Sistem / oyun"), &mut sis, &sis_bilgi, true, self.cizgi[1]);
                 if degisti {
                     if let Some(k) = uyg.mikser.lock().unwrap().kanal("sistem") {
                         k.kazanc_ayarla(sis as f32 / 100.0);
@@ -517,11 +519,11 @@ impl MikserPaneli {
                 let eslesen = ses_modlari::eslesen(mik, sis, &tum);
                 ui.spacing_mut().interact_size.y = 0.0;
                 ui.horizontal(|ui| {
-                    bilesen::etiket(ui, "Önde olan", tema::KUCUK_PX, tema::YAZI2);
+                    bilesen::etiket(ui, t("Önde olan"), tema::KUCUK_PX, tema::YAZI2);
                     if eslesen.is_none() {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             let r = bilesen::baglanti(ui, ses_modlari::kaydet_etiketi(son), tema::KUCUK_PX, tema::YAZI, true)
-                                .on_hover_text(format!("Şimdiki seviyeler {} modunun yeni değeri olsun", ses_modlari::etiket(son)));
+                                .on_hover_text(trf!("Şimdiki seviyeler {} modunun yeni değeri olsun", ses_modlari::etiket(son)));
                             if r.clicked() {
                                 ses_modlari::kaydet(&mut uyg.ayarlar.lock().unwrap(), son, mik, sis);
                                 kaydet = true;
@@ -585,28 +587,28 @@ impl AnahtarPaneli {
                 let mut alt = ui.new_child(egui::UiBuilder::new().max_rect(ar).id_salt(("anahtar", baslik)));
                 bilesen::anahtar(&mut alt, deger, etkin).on_hover_text(aciklama).changed()
             };
-            if satir(ui, "Gürültü azaltma", if gurultu_var { "Klavye ve fan sesini bastırır" } else { "Bu kurulumda yok (rnnoise)" }, &mut gurultu, gurultu_var) {
+            if satir(ui, t("Gürültü azaltma"), if gurultu_var { t("Klavye ve fan sesini bastırır") } else { t("Bu kurulumda yok (rnnoise)") }, &mut gurultu, gurultu_var) {
                 #[cfg(windows)]
                 uyg.ses.gurultu_ayarla(gurultu);
                 uyg.ayarla("audio.noise_suppression", gurultu.into());
             }
-            if satir(ui, "Otomatik kısma", "Konuşunca oyun sesi kısılır", &mut kisma, true) {
+            if satir(ui, t("Otomatik kısma"), t("Konuşunca oyun sesi kısılır"), &mut kisma, true) {
                 uyg.mikser.lock().unwrap().kisma_acik = kisma;
                 uyg.ayarla("audio.ducking", kisma.into());
             }
-            if satir(ui, "Bas-konuş", "Tuşa basılıyken mikrofon açık", &mut ptt, true) {
+            if satir(ui, t("Bas-konuş"), t("Tuşa basılıyken mikrofon açık"), &mut ptt, true) {
                 let tus = uyg.ayarlar.lock().unwrap().metin("hotkeys.bas_konus");
                 if ptt && tus.is_empty() {
-                    uyg.bildir("Önce bas-konuş tuşunu seç", None, false);
+                    uyg.bildir(t("Önce bas-konuş tuşunu seç"), None, false);
                     istek = Some(Istek::AyarlarAc("kisayollar"));
                 } else {
                     uyg.ayarla("audio.ptt", ptt.into());
                     if let Err(e) = uyg.bas_konusu_uygula() {
-                        uyg.bildir(&format!("Bas-konuş tuşu geçersiz: {e}"), None, false);
+                        uyg.bildir(&trf!("Bas-konuş tuşu geçersiz: {}", e), None, false);
                     }
                 }
             }
-            if satir(ui, "Kamera arka planı", "Arkadaki odayı bulanıklaştırır", &mut bulanik, true) {
+            if satir(ui, t("Kamera arka planı"), t("Arkadaki odayı bulanıklaştırır"), &mut bulanik, true) {
                 uyg.ayarla("camera.blur", bulanik.into());
                 uyg.k.ayar.lock().unwrap().kamera_bulanik = bulanik;
             }

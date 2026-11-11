@@ -2,6 +2,11 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 3.2.0 — 2026-11-11
+
+- **İngilizce arayüz.** Windows dili Türkçe ise uygulama Türkçe, değilse İngilizce açılır. Ayarlar > Genel > "Dil · Language" satırından elle de seçilebilir (yeniden açınca geçerli olur). Menüler, ipuçları, bildirimler, yardım ve Hakkında penceresi, kurulum programı da iki dilde.
+- Varsayılan sahne ve kaynak adları, bekleme yazısı ("Be right back") seçilen dilde görünür.
+
 ## 3.1.0 — 2026-11-11
 
 - **Toplantı modu:** Toplantı uygulamaları sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu bu ekran paylaşımında karşı tarafa da görünür.

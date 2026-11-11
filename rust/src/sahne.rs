@@ -4,6 +4,8 @@
 //! Sahneler settings.json'daki "scenes" listesinde durur; 1.7.0'ın sabit sahneleri
 //! ({"screen": true, "camera": "corner"}) okunurken kaynaklara çevrilir. Sahne değişince yumuşak geçiş.
 
+use crate::dil::t;
+use crate::trf;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -19,17 +21,17 @@ const KENAR: [u8; 3] = [38, 38, 43];
 
 pub fn tur_adi(tur: &str) -> &'static str {
     match tur {
-        "ekran" => "Ekran",
-        "pencere" => "Uygulama penceresi",
-        "bolge" => "Ekran bölgesi",
-        "kamera" => "Kamera",
-        "gorsel" => "Görsel",
-        "video" => "Video",
-        "metin" => "Metin",
-        "bekleme" => "Bekleme ekranı",
-        "kalem" => "Kalem katmanı",
-        "imlec" => "İmleç vurgusu",
-        _ => "Kaynak",
+        "ekran" => t("Ekran"),
+        "pencere" => t("Uygulama penceresi"),
+        "bolge" => t("Ekran bölgesi"),
+        "kamera" => t("Kamera"),
+        "gorsel" => t("Görsel"),
+        "video" => t("Video"),
+        "metin" => t("Metin"),
+        "bekleme" => t("Bekleme ekranı"),
+        "kalem" => t("Kalem katmanı"),
+        "imlec" => t("İmleç vurgusu"),
+        _ => t("Kaynak"),
     }
 }
 
@@ -118,10 +120,10 @@ fn bayraklardan(ekran: bool, kamera: Option<&str>, bekleme: bool, imlec: bool) -
     }
     if let Some(k @ ("corner" | "full")) = kamera {
         let yer = if k == "corner" { "kose" } else { "tam" };
-        l.push(Kaynak::yeni("kamera", "Webcam", ayar(&[("ana", true.into()), ("yer", yer.into())])));
+        l.push(Kaynak::yeni("kamera", t("Webcam"), ayar(&[("ana", true.into()), ("yer", yer.into())])));
     }
     if ekran {
-        l.push(Kaynak::yeni("ekran", "Ekran", ayar(&[("ana", true.into())])));
+        l.push(Kaynak::yeni("ekran", t("Ekran"), ayar(&[("ana", true.into())])));
         l.push(Kaynak::yeni("kalem", "", Map::new()));
         let mut i = Kaynak::yeni("imlec", "", Map::new());
         i.gorunur = imlec;
@@ -170,7 +172,7 @@ impl Sahne {
     }
 
     pub fn sozlukten(s: &Map<String, Value>, imlec: bool) -> Sahne {
-        let ad = s.get("name").and_then(Value::as_str).unwrap_or("Sahne").to_string();
+        let ad = s.get("name").and_then(Value::as_str).unwrap_or(t("Sahne")).to_string();
         if let Some(l) = s.get("sources").and_then(Value::as_array) {
             let mut k: Vec<Kaynak> = l.iter().filter_map(Value::as_object).filter_map(Kaynak::sozlukten).collect();
             k.truncate(KAYNAK_SINIRI);
@@ -197,7 +199,7 @@ pub fn sahneleri_oku(liste: Option<&Value>, imlec: bool) -> Vec<Sahne> {
 }
 
 pub fn yeni_sahne_adi(sahneler: &[Sahne]) -> String {
-    (1..).map(|n| format!("Yeni sahne {n}")).find(|a| !sahneler.iter().any(|s| &s.ad == a)).unwrap()
+    (1..).map(|n| trf!("Yeni sahne {}", n)).find(|a| !sahneler.iter().any(|s| &s.ad == a)).unwrap()
 }
 
 /// Kaynaklar panelindeki + menüsü: (tür, ad, açıklama).
@@ -269,7 +271,7 @@ pub fn kamera_kutusu_ciz(tuval: &mut Kare, kamera: Option<&Kare>, yer: &KameraYe
     let (x, y, w, h) = yer.dikdortgen(tuval.w, tuval.h);
     match kamera {
         Some(k) => kare::yapistir(tuval, &kare::kirp_doldur(k, w, h), x as i32, y as i32),
-        None => kare::yapistir(tuval, &yazi::bilgi_karesi(w, h, "Kamera yok", Some((h / 7).max(12))), x as i32, y as i32),
+        None => kare::yapistir(tuval, &yazi::bilgi_karesi(w, h, t("Kamera yok"), Some((h / 7).max(12))), x as i32, y as i32),
     }
     kare::cerceve(tuval, x as f32 - 1.0, y as f32 - 1.0, w as f32 + 1.0, h as f32 + 1.0, 2.0, KENAR);
 }
@@ -314,52 +316,52 @@ pub fn sahne_karesi(sahne: &Sahne, w: u32, h: u32, g: &SahneGirdisi) -> KareRef 
         Paylasilan(KareRef),
         Ozel(Kare),
     }
-    let mut t = Tuval::Yok;
-    fn yazilabilir(t: &mut Tuval, w: u32, h: u32) -> &mut Kare {
-        let yeni = match std::mem::replace(t, Tuval::Yok) {
+    let mut tv = Tuval::Yok;
+    fn yazilabilir(tv: &mut Tuval, w: u32, h: u32) -> &mut Kare {
+        let yeni = match std::mem::replace(tv, Tuval::Yok) {
             Tuval::Yok => Kare::siyah(w, h),
             Tuval::Paylasilan(k) => k.kopya(),
             Tuval::Ozel(k) => k,
         };
-        *t = Tuval::Ozel(yeni);
-        match t {
+        *tv = Tuval::Ozel(yeni);
+        match tv {
             Tuval::Ozel(k) => k,
             _ => unreachable!(),
         }
     }
     for k in sahne.kaynaklar.iter().rev().filter(|k| k.gorunur) {
         match k.tur.as_str() {
-            "bekleme" => t = Tuval::Paylasilan((g.bekleme)()),
+            "bekleme" => tv = Tuval::Paylasilan((g.bekleme)()),
             "ekran" if k.ana() => {
-                t = Tuval::Paylasilan(g.ekran.clone().unwrap_or_else(|| yazi::bilgi_karesi(w, h, "Ekran yakalanamıyor", None)))
+                tv = Tuval::Paylasilan(g.ekran.clone().unwrap_or_else(|| yazi::bilgi_karesi(w, h, t("Ekran yakalanamıyor"), None)))
             }
             "ekran" | "pencere" | "bolge" | "video" => {
-                t = match g.ek.get(&k.kimlik) {
+                tv = match g.ek.get(&k.kimlik) {
                     Some(kare) if kare.boyut() == (w, h) => Tuval::Paylasilan(kare.clone()),
                     Some(kare) => Tuval::Ozel(kare::sigdir(kare, w, h)),
-                    None => Tuval::Paylasilan(yazi::bilgi_karesi(w, h, &format!("{}: görüntü yok", k.ad), None)),
+                    None => Tuval::Paylasilan(yazi::bilgi_karesi(w, h, &trf!("{}: görüntü yok", t(&k.ad)), None)),
                 }
             }
             "kamera" if k.ana() => {
                 if k.tam() {
-                    t = if !g.kamera_acik {
+                    tv = if !g.kamera_acik {
                         Tuval::Paylasilan((g.bekleme)())
                     } else if let Some(kam) = &g.kamera {
                         Tuval::Ozel(kare::kirp_doldur(kam, w, h))
                     } else {
-                        Tuval::Paylasilan(yazi::bilgi_karesi(w, h, "Kamera bağlı değil", None))
+                        Tuval::Paylasilan(yazi::bilgi_karesi(w, h, t("Kamera bağlı değil"), None))
                     };
                 } else if g.kamera_acik {
-                    kamera_kutusu_ciz(yazilabilir(&mut t, w, h), g.kamera.as_deref(), g.yer);
+                    kamera_kutusu_ciz(yazilabilir(&mut tv, w, h), g.kamera.as_deref(), g.yer);
                 }
             }
             "kamera" => {
                 if g.kamera_acik {
                     let kare = g.ek.get(&k.kimlik);
                     if k.tam() {
-                        t = match kare {
+                        tv = match kare {
                             Some(kam) => Tuval::Ozel(kare::kirp_doldur(kam, w, h)),
-                            None => Tuval::Paylasilan(yazi::bilgi_karesi(w, h, &format!("{} bağlı değil", k.ad), None)),
+                            None => Tuval::Paylasilan(yazi::bilgi_karesi(w, h, &trf!("{} bağlı değil", t(&k.ad)), None)),
                         };
                     } else {
                         let yer = KameraYerlesimi::ayarlardan(&serde_json::json!({
@@ -367,25 +369,25 @@ pub fn sahne_karesi(sahne: &Sahne, w: u32, h: u32, g: &SahneGirdisi) -> KareRef 
                             "size": k.ayar.get("size").cloned().unwrap_or(0.25.into()),
                             "position": k.ayar.get("position").cloned().unwrap_or(Value::Null),
                         }));
-                        kamera_kutusu_ciz(yazilabilir(&mut t, w, h), kare.map(|k| &**k), &yer);
+                        kamera_kutusu_ciz(yazilabilir(&mut tv, w, h), kare.map(|k| &**k), &yer);
                     }
                 }
             }
             "gorsel" => {
                 if let Some(resim) = g.ek.get(&k.kimlik) {
-                    ustune_koy(yazilabilir(&mut t, w, h), resim);
+                    ustune_koy(yazilabilir(&mut tv, w, h), resim);
                 }
             }
             "metin" => {
                 let m = k.metin("text");
                 if !m.trim().is_empty() {
-                    metin_bandi(yazilabilir(&mut t, w, h), &m);
+                    metin_bandi(yazilabilir(&mut tv, w, h), &m);
                 }
             }
             _ => {}
         }
     }
-    match t {
+    match tv {
         Tuval::Yok => Kare::siyah(w, h).arc(),
         Tuval::Paylasilan(k) => k,
         Tuval::Ozel(k) => k.arc(),

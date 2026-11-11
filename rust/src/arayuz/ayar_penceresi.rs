@@ -9,6 +9,8 @@ use std::sync::Arc;
 use eframe::egui::{self, Align2, Pos2, Rect, Sense, Stroke, Ui, Vec2};
 use serde_json::{json, Value};
 
+use rizeon::dil::t;
+use rizeon::trf;
 use rizeon::uygulama::Uygulama;
 
 use super::bilesen;
@@ -17,7 +19,7 @@ use super::tema::{self, beyaz};
 
 const KOSELER: [(&str, &str); 4] = [("bottom-right", "Sağ alt"), ("bottom-left", "Sol alt"), ("top-right", "Sağ üst"), ("top-left", "Sol üst")];
 const SES_MODLARI: [(&str, &str); 3] = [
-    ("auto", "Tüm ses (Zoom/Discord hariç, yankı yapmaz)"),
+    ("auto", "Tüm ses (toplantı uygulamaları hariç, yankı yapmaz)"),
     ("all", "Hoparlörden çıkan her şey"),
     ("app", "Sadece bir uygulama"),
 ];
@@ -58,35 +60,35 @@ const VARSAYILAN_KALEM_TUSLARI: [(&str, &str); 10] = [
 
 fn komut_adi(grup: &str, komut: &str) -> String {
     if grup == "pen_hotkeys" && komut == "kalem.temizle" {
-        return "Kalem: hepsini sil".into();
+        return t("Kalem: hepsini sil").into();
     }
     if let Some(n) = komut.strip_prefix("sahne.sec:") {
-        return format!("Sahne {n}");
+        return trf!("Sahne {}", n);
     }
     match komut {
-        "bolge.sec" => "Bölge seç / tam ekran",
-        "kalem.ac_kapat" => "Kalemi aç/kapat",
-        "ses.mikrofon" => "Mikrofon aç/kapat",
-        "ses.sistem" => "Bilgisayar sesi aç/kapat",
-        "kamera.ac_kapat" => "Kamera aç/kapat",
-        "anlik_kayit.kaydet" => "Son dakikaları kaydet (anlık tekrar)",
-        "ekran.goruntusu" => "Ekran görüntüsü al",
-        "kalem.temizle" => "Çizimleri sil",
-        "panik" => "Panik (bekleme ekranı)",
-        "kayit.ac_kapat" => "Yerel kaydı başlat/durdur",
-        "kayit.duraklat" => "Kaydı duraklat/devam et",
-        "kaynak.sec" => "Ne gösterilsin (tüm ekran / pencere)",
-        "toplanti.mod" => "Toplantı modu aç/kapat",
-        "bas_konus" => "Bas-konuş tuşu",
-        "kalem.tur:1" => "Kalem: kalem",
-        "kalem.tur:2" => "Kalem: fosforlu",
-        "kalem.tur:3" => "Kalem: ok",
-        "kalem.tur:4" => "Kalem: kare",
-        "kalem.tur:5" => "Kalem: yazı",
-        "kalem.tur:6" => "Kalem: lazer",
-        "kalem.tur:7" => "Kalem: silgi",
-        "kalem.geri_al" => "Kalem: geri al",
-        "kalem.kapat" => "Kalem: kapat",
+        "bolge.sec" => t("Bölge seç / tam ekran"),
+        "kalem.ac_kapat" => t("Kalemi aç/kapat"),
+        "ses.mikrofon" => t("Mikrofon aç/kapat"),
+        "ses.sistem" => t("Bilgisayar sesi aç/kapat"),
+        "kamera.ac_kapat" => t("Kamera aç/kapat"),
+        "anlik_kayit.kaydet" => t("Son dakikaları kaydet (anlık tekrar)"),
+        "ekran.goruntusu" => t("Ekran görüntüsü al"),
+        "kalem.temizle" => t("Çizimleri sil"),
+        "panik" => t("Panik (bekleme ekranı)"),
+        "kayit.ac_kapat" => t("Yerel kaydı başlat/durdur"),
+        "kayit.duraklat" => t("Kaydı duraklat/devam et"),
+        "kaynak.sec" => t("Ne gösterilsin (tüm ekran / pencere)"),
+        "toplanti.mod" => t("Toplantı modu aç/kapat"),
+        "bas_konus" => t("Bas-konuş tuşu"),
+        "kalem.tur:1" => t("Kalem: kalem"),
+        "kalem.tur:2" => t("Kalem: fosforlu"),
+        "kalem.tur:3" => t("Kalem: ok"),
+        "kalem.tur:4" => t("Kalem: kare"),
+        "kalem.tur:5" => t("Kalem: yazı"),
+        "kalem.tur:6" => t("Kalem: lazer"),
+        "kalem.tur:7" => t("Kalem: silgi"),
+        "kalem.geri_al" => t("Kalem: geri al"),
+        "kalem.kapat" => t("Kalem: kapat"),
         k => k,
     }
     .to_string()
@@ -321,10 +323,13 @@ impl AyarPenceresi {
         }
         self.odakla = true;
         self.taslak = uyg.ayarlar.lock().unwrap().veri.clone();
+        // varsayılan bekleme yazısı arayüz dilinde görünsün
+        let bekleme = al(&self.taslak, "standby_text").as_str().unwrap_or("").to_string();
+        koy(&mut self.taslak, "standby_text", t(&bekleme).into());
         self.eski = self.taslak.clone();
-        self.monitorler = rizeon::yakalama::monitorler().iter().enumerate().map(|(i, m)| format!("Monitör {}  ({}×{})", i + 1, m.w, m.h)).collect();
+        self.monitorler = rizeon::yakalama::monitorler().iter().enumerate().map(|(i, m)| trf!("Monitör {}  ({}×{})", i + 1, m.w, m.h)).collect();
         if self.monitorler.is_empty() {
-            self.monitorler.push("Monitör 1".into());
+            self.monitorler.push(t("Monitör 1").into());
         }
         #[cfg(windows)]
         {
@@ -404,34 +409,34 @@ impl AyarPenceresi {
     }
 
     fn genel(&mut self, ui: &mut Ui, uyg: &Arc<Uygulama>) {
-        let lw = etiket_genisligi(ui, &["Yakalanan ekran", "Bekleme ekranı yazısı", "Bekleme ekranı resmi/videosu", "Sahne geçiş süresi", "Kayıt klasörü", "Kayıt kodlayıcısı", "Anlık tekrar", "Ekran görüntüsü klasörü"]);
+        let lw = etiket_genisligi(ui, &[t("Yakalanan ekran"), t("Bekleme ekranı yazısı"), t("Bekleme ekranı resmi/videosu"), t("Sahne geçiş süresi"), t("Kayıt klasörü"), t("Kayıt kodlayıcısı"), t("Anlık tekrar"), t("Ekran görüntüsü klasörü"), "Dil · Language"]);
         let mut mon = (self.sayi("video.monitor", 0).max(0) as usize).min(self.monitorler.len() - 1);
         let monitorler = self.monitorler.clone();
-        satir(ui, "Yakalanan ekran", lw, |ui| {
+        satir(ui, t("Yakalanan ekran"), lw, |ui| {
             if secim(ui, &mut mon, &monitorler, ui.available_width()) {
                 koy(&mut self.taslak, "video.monitor", json!(mon));
             }
         });
-        self.onay_satiri(ui, lw, "video.show_cursor", true, "Fare imlecini yayında göster");
-        self.onay_satiri(ui, lw, "video.cursor_highlight", false, "İmlecin etrafında halka, tıklayınca dalga efekti");
-        self.alan_satiri(ui, lw, "Bekleme ekranı yazısı", "standby_text", "Birazdan döneceğim", "", &[]);
-        if self.alan_satiri(ui, lw, "Bekleme ekranı resmi/videosu", "standby_image", "", "İsteğe bağlı: resim (PNG/JPG) ya da kısa video (MP4/GIF)", &["Seç…"]).is_some() {
+        self.onay_satiri(ui, lw, "video.show_cursor", true, t("Fare imlecini yayında göster"));
+        self.onay_satiri(ui, lw, "video.cursor_highlight", false, t("İmlecin etrafında halka, tıklayınca dalga efekti"));
+        self.alan_satiri(ui, lw, t("Bekleme ekranı yazısı"), "standby_text", t("Birazdan döneceğim"), "", &[]);
+        if self.alan_satiri(ui, lw, t("Bekleme ekranı resmi/videosu"), "standby_image", "", t("İsteğe bağlı: resim (PNG/JPG) ya da kısa video (MP4/GIF)"), &[t("Seç…")]).is_some() {
             #[cfg(windows)]
-            if let Some(y) = rizeon::win::dosya_sec("Bekleme ekranı: resim ya da kısa video", &[("Resim ya da video", "*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.mp4;*.webm;*.avi;*.mov;*.mkv;*.gif;*.wmv;*.m4v")]) {
+            if let Some(y) = rizeon::win::dosya_sec(t("Bekleme ekranı: resim ya da kısa video"), &[(t("Resim ya da video"), "*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.mp4;*.webm;*.avi;*.mov;*.mkv;*.gif;*.wmv;*.m4v")]) {
                 koy(&mut self.taslak, "standby_image", y.to_string_lossy().into_owned().into());
             }
         }
         let mut gecis = self.sayi("transition_ms", 300);
-        satir(ui, "Sahne geçiş süresi", lw, |ui| {
+        satir(ui, t("Sahne geçiş süresi"), lw, |ui| {
             if sayi_kutusu(ui, &mut gecis, (0, 2000), 50, " ms", ui.available_width(), true) {
                 koy(&mut self.taslak, "transition_ms", gecis.into());
             }
         });
         let varsayilan = rizeon::yollar::varsayilan_kayit_klasoru().to_string_lossy().into_owned();
-        match self.alan_satiri(ui, lw, "Kayıt klasörü", "record.folder", "", &varsayilan, &["Seç…", "Aç"]) {
+        match self.alan_satiri(ui, lw, t("Kayıt klasörü"), "record.folder", "", &varsayilan, &[t("Seç…"), t("Aç")]) {
             Some(0) => {
                 #[cfg(windows)]
-                if let Some(y) = rizeon::win::klasor_sec("Kayıt klasörü", Some(std::path::Path::new(&self.metin("record.folder", "")))) {
+                if let Some(y) = rizeon::win::klasor_sec(t("Kayıt klasörü"), Some(std::path::Path::new(&self.metin("record.folder", "")))) {
                     koy(&mut self.taslak, "record.folder", y.to_string_lossy().into_owned().into());
                 }
             }
@@ -445,11 +450,11 @@ impl AyarPenceresi {
             }
             None => {}
         }
-        let mut kodlar: Vec<String> = vec!["Otomatik (ekran kartına göre)".into()];
+        let mut kodlar: Vec<String> = vec![t("Otomatik (ekran kartına göre)").into()];
         kodlar.extend(rizeon::ffmpeg::KODLAYICILAR.iter().map(|k| k.to_string()));
         let su_an = self.metin("record.encoder", "auto");
         let mut kod = rizeon::ffmpeg::KODLAYICILAR.iter().position(|k| *k == su_an).map(|i| i + 1).unwrap_or(0);
-        satir(ui, "Kayıt kodlayıcısı", lw, |ui| {
+        satir(ui, t("Kayıt kodlayıcısı"), lw, |ui| {
             if secim(ui, &mut kod, &kodlar, ui.available_width()) {
                 let v = if kod == 0 { "auto" } else { rizeon::ffmpeg::KODLAYICILAR[kod - 1] };
                 koy(&mut self.taslak, "record.encoder", v.into());
@@ -457,47 +462,59 @@ impl AyarPenceresi {
         });
         let mut tekrar = self.mantik("record.replay", true);
         let mut sure = self.sayi("record.replay_seconds", 15);
-        satir(ui, "Anlık tekrar", lw, |ui| {
-            if onay(ui, &mut tekrar, "Son dakikaları bellekte tut (diske yazmaz)") {
+        satir(ui, t("Anlık tekrar"), lw, |ui| {
+            if onay(ui, &mut tekrar, t("Son dakikaları bellekte tut (diske yazmaz)")) {
                 koy(&mut self.taslak, "record.replay", tekrar.into());
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if sayi_kutusu(ui, &mut sure, (15, 300), 15, " sn", 90.0, tekrar) {
+                if sayi_kutusu(ui, &mut sure, (15, 300), 15, t(" sn"), 90.0, tekrar) {
                     koy(&mut self.taslak, "record.replay_seconds", sure.into());
                 }
             });
         });
-        if self.alan_satiri(ui, lw, "Ekran görüntüsü klasörü", "screenshot.folder", "", "Kayıt klasörüyle aynı", &["Seç…"]).is_some() {
+        if self.alan_satiri(ui, lw, t("Ekran görüntüsü klasörü"), "screenshot.folder", "", t("Kayıt klasörüyle aynı"), &[t("Seç…")]).is_some() {
             #[cfg(windows)]
-            if let Some(y) = rizeon::win::klasor_sec("Ekran görüntüsü klasörü", Some(std::path::Path::new(&self.metin("screenshot.folder", "")))) {
+            if let Some(y) = rizeon::win::klasor_sec(t("Ekran görüntüsü klasörü"), Some(std::path::Path::new(&self.metin("screenshot.folder", "")))) {
                 koy(&mut self.taslak, "screenshot.folder", y.to_string_lossy().into_owned().into());
             }
         }
-        self.onay_satiri(ui, lw, "ui.toasts", true, "Kısayola basınca köşede bildirim göster");
-        self.onay_satiri(ui, lw, "ui.minimize_to_tray", true, "Pencereyi kapatınca sistem tepsisinde çalışmaya devam et");
+        self.onay_satiri(ui, lw, "ui.toasts", true, t("Kısayola basınca köşede bildirim göster"));
+        self.onay_satiri(ui, lw, "ui.minimize_to_tray", true, t("Pencereyi kapatınca sistem tepsisinde çalışmaya devam et"));
+        // Dil satırı iki dilde yazılır: yanlış dili seçen de geri bulabilsin.
+        let diller = vec![t("Otomatik (Windows diline göre)").to_string(), "Türkçe".to_string(), "English".to_string()];
+        let mut dil = match self.metin("ui.language", "auto").as_str() {
+            "tr" => 1,
+            "en" => 2,
+            _ => 0,
+        };
+        satir(ui, "Dil · Language", lw, |ui| {
+            if secim(ui, &mut dil, &diller, ui.available_width()) {
+                koy(&mut self.taslak, "ui.language", ["auto", "tr", "en"][dil].into());
+            }
+        });
         let _ = uyg;
     }
 
     fn kamera(&mut self, ui: &mut Ui) {
-        let lw = etiket_genisligi(ui, &["Kamera numarası (0 = ilk kamera)", "Köşe", "Köşedeki boyutu"]);
+        let lw = etiket_genisligi(ui, &[t("Kamera numarası (0 = ilk kamera)"), t("Köşe"), t("Köşedeki boyutu")]);
         let mut no = self.sayi("camera.device", 0);
-        satir(ui, "Kamera numarası (0 = ilk kamera)", lw, |ui| {
+        satir(ui, t("Kamera numarası (0 = ilk kamera)"), lw, |ui| {
             if sayi_kutusu(ui, &mut no, (0, 9), 1, "", ui.available_width(), true) {
                 koy(&mut self.taslak, "camera.device", no.into());
             }
         });
-        self.onay_satiri(ui, lw, "camera.mirror", false, "Ayna görüntüsü (sağ-sol çevir)");
-        let adlar: Vec<String> = KOSELER.iter().map(|(_, a)| a.to_string()).collect();
+        self.onay_satiri(ui, lw, "camera.mirror", false, t("Ayna görüntüsü (sağ-sol çevir)"));
+        let adlar: Vec<String> = KOSELER.iter().map(|(_, a)| t(a).to_string()).collect();
         let su_an = self.metin("camera.corner", "bottom-right");
         let mut k = KOSELER.iter().position(|(c, _)| *c == su_an).unwrap_or(0);
-        satir(ui, "Köşe", lw, |ui| {
+        satir(ui, t("Köşe"), lw, |ui| {
             if secim(ui, &mut k, &adlar, ui.available_width()) {
                 koy(&mut self.taslak, "camera.corner", KOSELER[k].0.into());
             }
         });
         let mut boy = (al(&self.taslak, "camera.size").as_f64().unwrap_or(0.25) * 100.0).round() as i32;
-        satir_yuk(ui, "Köşedeki boyutu", lw, 22.0, |ui| {
-            let et = format!("%{boy}");
+        satir_yuk(ui, t("Köşedeki boyutu"), lw, 22.0, |ui| {
+            let et = rizeon::dil::yuzde(boy);
             let ew = ui.painter().layout_no_wrap(et.clone(), tema::yazi(tema::GOVDE_PX), tema::YAZI).size().x;
             let mut su = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_size(ui.cursor().min, Vec2::new(ui.available_width() - ew - 8.0, 20.0))));
             let r = bilesen::surgu_aralik(&mut su, &mut boy, 10, 60);
@@ -507,42 +524,42 @@ impl AyarPenceresi {
                 koy(&mut self.taslak, "camera.size", json!(boy as f64 / 100.0));
             }
         });
-        self.onay_satiri(ui, lw, "camera.blur", false, "Arka planı bulanıklaştır");
+        self.onay_satiri(ui, lw, "camera.blur", false, t("Arka planı bulanıklaştır"));
     }
 
     fn ses(&mut self, ui: &mut Ui, uyg: &Arc<Uygulama>) {
-        let lw = etiket_genisligi(ui, &["Mikrofon", "Bilgisayar sesi", "Sadece bu uygulama", "Hariç tutulanlar", "Kısınca kalan ses"]);
-        let mut mikler = vec!["Windows varsayılanı".to_string()];
+        let lw = etiket_genisligi(ui, &[t("Mikrofon"), t("Bilgisayar sesi"), t("Sadece bu uygulama"), t("Hariç tutulanlar"), t("Kısınca kalan ses")]);
+        let mut mikler = vec![t("Windows varsayılanı").to_string()];
         mikler.extend(self.mikrofonlar.iter().cloned());
         let su_an = self.metin("audio.mic_device", "");
         let mut m = self.mikrofonlar.iter().position(|x| *x == su_an).map(|i| i + 1).unwrap_or(0);
-        satir(ui, "Mikrofon", lw, |ui| {
+        satir(ui, t("Mikrofon"), lw, |ui| {
             if secim(ui, &mut m, &mikler, ui.available_width()) {
                 let v = if m == 0 { String::new() } else { mikler[m].clone() };
                 koy(&mut self.taslak, "audio.mic_device", v.into());
             }
         });
-        let modlar: Vec<String> = SES_MODLARI.iter().map(|(_, a)| a.to_string()).collect();
+        let modlar: Vec<String> = SES_MODLARI.iter().map(|(_, a)| t(a).to_string()).collect();
         let su_an = self.metin("audio.system_mode", "auto");
         let mut sm = SES_MODLARI.iter().position(|(k, _)| *k == su_an).unwrap_or(0);
-        satir(ui, "Bilgisayar sesi", lw, |ui| {
+        satir(ui, t("Bilgisayar sesi"), lw, |ui| {
             if secim(ui, &mut sm, &modlar, ui.available_width()) {
                 koy(&mut self.taslak, "audio.system_mode", SES_MODLARI[sm].0.into());
             }
         });
-        self.alan_satiri(ui, lw, "Sadece bu uygulama", "audio.include_app", "", "ör. valorant.exe (Görev Yöneticisi > Ayrıntılar)", &[]);
+        self.alan_satiri(ui, lw, t("Sadece bu uygulama"), "audio.include_app", "", t("ör. valorant.exe (Görev Yöneticisi > Ayrıntılar)"), &[]);
         let mut haric = self.haric.clone();
-        satir(ui, "Hariç tutulanlar", lw, |ui| {
+        satir(ui, t("Hariç tutulanlar"), lw, |ui| {
             if alan(ui, &mut haric, "", ui.available_width()).changed() {
                 let l: Vec<Value> = haric.split(',').map(str::trim).filter(|s| !s.is_empty()).map(|s| json!(s)).collect();
                 koy(&mut self.taslak, "audio.exclude_apps", Value::Array(l));
             }
         });
         self.haric = haric;
-        self.onay_satiri(ui, lw, "audio.ducking", false, "Konuşunca bilgisayar sesini otomatik kıs");
+        self.onay_satiri(ui, lw, "audio.ducking", false, t("Konuşunca bilgisayar sesini otomatik kıs"));
         let mut sev = (al(&self.taslak, "audio.ducking_level").as_f64().unwrap_or(0.3) * 100.0).round() as i32;
-        satir_yuk(ui, "Kısınca kalan ses", lw, 22.0, |ui| {
-            let et = format!("%{sev}");
+        satir_yuk(ui, t("Kısınca kalan ses"), lw, 22.0, |ui| {
+            let et = rizeon::dil::yuzde(sev);
             let ew = ui.painter().layout_no_wrap(et.clone(), tema::yazi(tema::GOVDE_PX), tema::YAZI).size().x;
             let mut su = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_size(ui.cursor().min, Vec2::new(ui.available_width() - ew - 8.0, 20.0))));
             let r = bilesen::surgu_aralik(&mut su, &mut sev, 5, 80);
@@ -555,7 +572,7 @@ impl AyarPenceresi {
         ui.add(
             egui::Label::new(
                 egui::RichText::new(
-                    "Hariç tutulanlar listesinden çalışan ilk uygulamanın sesi gönderilmez; böylece toplantıdaki kişiler kendi seslerini yankı olarak duymaz. Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da msedge.exe'yi ekle.",
+                    t("Hariç tutulanlar listesinden çalışan ilk uygulamanın sesi gönderilmez; böylece toplantıdaki kişiler kendi seslerini yankı olarak duymaz. Meet tarayıcıda çalıştığı için yankı olursa kulaklık kullan ya da msedge.exe'yi ekle."),
                 )
                 .font(tema::yazi(tema::KUCUK_PX))
                 .color(tema::YAZI2),
@@ -563,14 +580,14 @@ impl AyarPenceresi {
             .wrap(),
         );
         satir(ui, "", lw, |ui| {
-            if bilesen::hap(ui, "Ses modlarını sıfırla", false, true).on_hover_text("Sesim, Dengeli ve Oyun modları ilk ayarlarına döner").clicked() {
+            if bilesen::hap(ui, t("Ses modlarını sıfırla"), false, true).on_hover_text(t("Sesim, Dengeli ve Oyun modları ilk ayarlarına döner")).clicked() {
                 let mut a = uyg.ayarlar.lock().unwrap();
                 rizeon::ses_modlari::varsayilana_don(&mut a);
                 a.kaydet();
                 if let Some(m) = a.al("audio.modes").cloned() {
                     koy(&mut self.taslak, "audio.modes", m);
                 }
-                self.mod_bilgisi = "Modlar ilk ayarlarına döndü".into();
+                self.mod_bilgisi = t("Modlar ilk ayarlarına döndü").into();
             }
             bilesen::etiket(ui, &self.mod_bilgisi, tema::KUCUK_PX, tema::YAZI2);
         });
@@ -587,7 +604,7 @@ impl AyarPenceresi {
             .tablo
             .iter()
             .map(|s| ui.painter().layout_no_wrap(s.tus.clone(), tema::yazi(tema::GOVDE_PX), tema::YAZI).size().x)
-            .fold(ui.painter().layout_no_wrap("Tuş".into(), tema::yazi(tema::GOVDE_PX), tema::YAZI).size().x, f32::max)
+            .fold(ui.painter().layout_no_wrap(t("Tuş").into(), tema::yazi(tema::GOVDE_PX), tema::YAZI).size().x, f32::max)
             + 12.0
             + 8.0;
         let ic = tr.shrink(1.0);
@@ -595,8 +612,8 @@ impl AyarPenceresi {
         let bas = Rect::from_min_size(ic.min, Vec2::new(ic.width(), 30.0));
         ui.painter().rect_filled(bas, egui::CornerRadius { nw: 5, ne: 5, sw: 0, se: 0 }, tema::ZEMIN);
         let ayir = ic.right() - 8.0 - tus_gen;
-        ui.painter().text(Pos2::new((ic.left() + ayir) / 2.0, bas.center().y), Align2::CENTER_CENTER, "İşlem", tema::yazi(tema::GOVDE_PX), tema::YAZI2);
-        ui.painter().text(Pos2::new(ayir + tus_gen / 2.0, bas.center().y), Align2::CENTER_CENTER, "Tuş", tema::yazi(tema::GOVDE_PX), tema::YAZI2);
+        ui.painter().text(Pos2::new((ic.left() + ayir) / 2.0, bas.center().y), Align2::CENTER_CENTER, t("İşlem"), tema::yazi(tema::GOVDE_PX), tema::YAZI2);
+        ui.painter().text(Pos2::new(ayir + tus_gen / 2.0, bas.center().y), Align2::CENTER_CENTER, t("Tuş"), tema::yazi(tema::GOVDE_PX), tema::YAZI2);
         let govde = Rect::from_min_max(Pos2::new(ic.left(), bas.bottom()), ic.max);
         let mut gu = ui.new_child(egui::UiBuilder::new().max_rect(govde));
         let basarisiz = self.basarisiz.clone();
@@ -619,7 +636,7 @@ impl AyarPenceresi {
                     let mut hu = ui.new_child(egui::UiBuilder::new().max_rect(hucre));
                     let te = hu.add(
                         egui::TextEdit::singleline(&mut s.tus)
-                            .hint_text("Tuş yaz ya da fare yan tuşuna bas")
+                            .hint_text(t("Tuş yaz ya da fare yan tuşuna bas"))
                             .font(tema::yazi(tema::GOVDE_PX))
                             .desired_width(hucre.width() - 8.0)
                             .min_size(hucre.size())
@@ -668,7 +685,7 @@ impl AyarPenceresi {
                         ui.painter().rect_filled(hucre, 0.0, beyaz(tema::A_UZERINE));
                     }
                     ui.painter().text(Pos2::new(hucre.left() + 4.0, hucre.center().y), Align2::LEFT_CENTER, &s.tus, tema::yazi(tema::GOVDE_PX), tema::YAZI);
-                    let resp = if uyari { resp.on_hover_text("Bu tuş alınamadı: başka bir program kullanıyor") } else { resp };
+                    let resp = if uyari { resp.on_hover_text(t("Bu tuş alınamadı: başka bir program kullanıyor")) } else { resp };
                     if resp.double_clicked() {
                         self.duzenlenen = Some((i, true));
                     }
@@ -679,7 +696,7 @@ impl AyarPenceresi {
         ui.add(
             egui::Label::new(
                 egui::RichText::new(
-                    "Örnek: Ctrl+Shift+M, Ctrl+1, F8, Alt+M, Del. Fare tuşu da olur: hücreye çift tıkla, farenin orta ya da yan tuşuna bas (Fare3, Fare4, Fare5; Ctrl/Alt/Shift ile de). Fare tıkı açık uygulamaya da gider. Boş bırakırsan o kısayol kapanır. Kalem tuşları sadece kalem açıkken çalışır. ⚠ işaretli tuşları başka bir program kullanıyor; başka bir tuş seç.",
+                    t("Örnek: Ctrl+Shift+M, Ctrl+1, F8, Alt+M, Del. Fare tuşu da olur: hücreye çift tıkla, farenin orta ya da yan tuşuna bas (Fare3, Fare4, Fare5; Ctrl/Alt/Shift ile de). Fare tıkı açık uygulamaya da gider. Boş bırakırsan o kısayol kapanır. Kalem tuşları sadece kalem açıkken çalışır. ⚠ işaretli tuşları başka bir program kullanıyor; başka bir tuş seç."),
                 )
                 .font(tema::yazi(tema::KUCUK_PX))
                 .color(tema::YAZI2),
@@ -687,7 +704,7 @@ impl AyarPenceresi {
             .wrap(),
         );
         ui.add_space(6.0);
-        if bilesen::hap(ui, "Varsayılanlara dön", false, true).clicked() {
+        if bilesen::hap(ui, t("Varsayılanlara dön"), false, true).clicked() {
             let mut genel: Vec<(String, String)> = VARSAYILAN_KISAYOLLAR.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
             genel.push(("bas_konus".into(), String::new()));
             self.tabloyu_doldur(genel, VARSAYILAN_KALEM_TUSLARI.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect());
@@ -709,7 +726,7 @@ impl AyarPenceresi {
                 }
                 tus = rizeon::kisayol::tus_metni(&tus);
                 if let Some(onceki) = kullanilan.insert((s.grup, tus.clone()), s.komut.clone()) {
-                    hatalar.push(format!("{tus} iki kez kullanılmış ({})", komut_adi(s.grup, &onceki)));
+                    hatalar.push(trf!("{} iki kez kullanılmış ({})", tus, komut_adi(s.grup, &onceki)));
                 }
             }
             let g = if s.grup == "hotkeys" { &mut gruplar.0 } else { &mut gruplar.1 };
@@ -726,30 +743,31 @@ impl AyarPenceresi {
         let (genel, kalem) = match self.kisayollari_oku() {
             Ok(g) => g,
             Err(h) => {
-                self.hata = format!("Kısayollarda sorun var:\n{}", h.join("\n"));
+                self.hata = trf!("Kısayollarda sorun var:\n{}", h.join("\n"));
                 return false;
             }
         };
         koy(&mut self.taslak, "hotkeys", Value::Object(genel));
         koy(&mut self.taslak, "pen_hotkeys", Value::Object(kalem));
-        let t = &mut self.taslak;
-        if al(t, "standby_text").as_str().unwrap_or("").trim().is_empty() {
-            koy(t, "standby_text", "Birazdan döneceğim".into());
+        let tk = &mut self.taslak;
+        if al(tk, "standby_text").as_str().unwrap_or("").trim().is_empty() {
+            koy(tk, "standby_text", t("Birazdan döneceğim").into());
         }
         // elle yazılan video yolu da veri klasörüne kopyalansın
-        let gorsel = al(t, "standby_image").as_str().unwrap_or("").trim().to_string();
+        let gorsel = al(tk, "standby_image").as_str().unwrap_or("").trim().to_string();
         if gorsel != al(&self.eski, "standby_image").as_str().unwrap_or("") && rizeon::yollar::video_mu(&gorsel) {
             match rizeon::yollar::video_kopyala(std::path::Path::new(&gorsel)) {
-                Ok(y) => koy(t, "standby_image", y.to_string_lossy().into_owned().into()),
+                Ok(y) => koy(tk, "standby_image", y.to_string_lossy().into_owned().into()),
                 Err(e) => log::warn!("Bekleme videosu kopyalanamadı: {e}"),
             }
         }
         // köşe seçilince sürükleyerek verilen yer unutulur
-        if al(t, "camera.corner") != al(&self.eski, "camera.corner") {
-            koy(t, "camera.position", Value::Null);
+        if al(tk, "camera.corner") != al(&self.eski, "camera.corner") {
+            koy(tk, "camera.position", Value::Null);
         }
-        let yeniden = al(t, "video.monitor").as_i64().unwrap_or(0) != al(&self.eski, "video.monitor").as_i64().unwrap_or(0)
-            || al(t, "camera.device").as_i64().unwrap_or(0) != al(&self.eski, "camera.device").as_i64().unwrap_or(0);
+        let dil_degisti = al(tk, "ui.language").as_str().unwrap_or("auto") != al(&self.eski, "ui.language").as_str().unwrap_or("auto");
+        let yeniden = al(tk, "video.monitor").as_i64().unwrap_or(0) != al(&self.eski, "video.monitor").as_i64().unwrap_or(0)
+            || al(tk, "camera.device").as_i64().unwrap_or(0) != al(&self.eski, "camera.device").as_i64().unwrap_or(0);
         {
             let mut a = uyg.ayarlar.lock().unwrap();
             a.veri = std::mem::take(&mut self.taslak);
@@ -757,7 +775,15 @@ impl AyarPenceresi {
         }
         uyg.ayarlari_uygula();
         if yeniden {
-            self.bilgi = Some("Monitör ve kamera değişikliği uygulamayı yeniden açınca geçerli olur.".into());
+            self.bilgi = Some(t("Monitör ve kamera değişikliği uygulamayı yeniden açınca geçerli olur.").into());
+        }
+        if dil_degisti {
+            // iki dilde: kullanıcı yeni dili seçti ama arayüz henüz eski dilde
+            let m = "Dil, uygulamayı yeniden açınca değişir.\nThe language changes after you restart RizeOn.";
+            self.bilgi = Some(match self.bilgi.take() {
+                Some(b) => format!("{b}\n\n{m}"),
+                None => m.into(),
+            });
         }
         true
     }
@@ -765,7 +791,7 @@ impl AyarPenceresi {
     fn sekme_cubugu(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
-            for (s, ad) in [(Sekme::Genel, "Genel"), (Sekme::Kamera, "Kamera"), (Sekme::Ses, "Ses"), (Sekme::Kisayollar, "Kısayollar")] {
+            for (s, ad) in [(Sekme::Genel, t("Genel")), (Sekme::Kamera, t("Kamera")), (Sekme::Ses, t("Ses")), (Sekme::Kisayollar, t("Kısayollar"))] {
                 let g = ui.painter().layout_no_wrap(ad.to_string(), tema::yazi(tema::GOVDE_PX), tema::YAZI);
                 let (r, resp) = ui.allocate_exact_size(Vec2::new(g.size().x + 28.0, 32.0), Sense::click());
                 let secili = self.sekme == s;
@@ -791,12 +817,12 @@ impl AyarPenceresi {
             self.gizlendi = false;
             return false;
         }
-        let vp = egui::ViewportBuilder::default().with_title("Ayarlar").with_inner_size([640.0, 560.0]).with_min_inner_size([520.0, 420.0]);
+        let vp = egui::ViewportBuilder::default().with_title(t("Ayarlar")).with_inner_size([640.0, 560.0]).with_min_inner_size([520.0, 420.0]);
         let mut kaydet = false;
         let mut kapat = false;
         crate::arayuz::pencereler::anlik(ctx, egui::ViewportId::from_hash_of("ayarlar"), vp, |ui, _| {
             // ayarlar karşı tarafa görünmesin, ana pencerenin arkasında kalmasın
-            crate::arayuz::pencereler::diyalog_hazirla("Ayarlar", &mut self.gizlendi);
+            crate::arayuz::pencereler::diyalog_hazirla(t("Ayarlar"), &mut self.gizlendi);
             if std::mem::take(&mut self.odakla) {
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Focus);
             }
@@ -833,13 +859,13 @@ impl AyarPenceresi {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.spacing_mut().item_spacing.x = 6.0;
-                            if bilesen::hap(ui, "Hakkında", false, true).clicked() {
+                            if bilesen::hap(ui, t("Hakkında"), false, true).clicked() {
                                 *hakkinda = true;
                             }
-                            if bilesen::hap(ui, "Vazgeç", false, true).clicked() {
+                            if bilesen::hap(ui, t("Vazgeç"), false, true).clicked() {
                                 kapat = true;
                             }
-                            if bilesen::hap(ui, "Kaydet", false, true).clicked() {
+                            if bilesen::hap(ui, t("Kaydet"), false, true).clicked() {
                                 kaydet = true;
                             }
                         });

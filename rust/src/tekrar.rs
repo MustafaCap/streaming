@@ -17,7 +17,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::ffmpeg::{self, SES_HIZI, SES_KANALI};
+use crate::dil::t;
 use crate::kare::KareRef;
+use crate::trf;
 
 pub const VARSAYILAN_SURE: u32 = 15;
 pub const EN_KISA: u32 = 15;
@@ -32,9 +34,29 @@ pub fn sureyi_sinirla(sn: i64) -> u32 {
 pub fn sure_etiketi(sn: i64) -> String {
     let sn = sureyi_sinirla(sn);
     if sn % 60 == 0 {
-        format!("Son {} dk", sn / 60)
+        trf!("Son {} dk", sn / 60)
     } else {
-        format!("Son {sn} sn")
+        trf!("Son {} sn", sn)
+    }
+}
+
+/// "Son 15 sn'yi kaydet" / "Son 2 dk'yı kaydet" (İngilizce: "Save last 15 s").
+pub fn kaydet_etiketi(sn: i64) -> String {
+    let sn = sureyi_sinirla(sn);
+    if sn % 60 == 0 {
+        trf!("Son {} dk'yı kaydet", sn / 60)
+    } else {
+        trf!("Son {} sn'yi kaydet", sn)
+    }
+}
+
+/// "Son 15 sn kaydedildi"
+pub fn kaydedildi_etiketi(sn: i64) -> String {
+    let sn = sureyi_sinirla(sn);
+    if sn % 60 == 0 {
+        trf!("Son {} dk kaydedildi", sn / 60)
+    } else {
+        trf!("Son {} sn kaydedildi", sn)
     }
 }
 
@@ -290,7 +312,7 @@ impl AnlikTekrar {
             Err(m)
         };
         let Some(ff) = self.ffmpeg.clone().or_else(ffmpeg::ffmpeg_bul) else {
-            return hata("FFmpeg bulunamadı".into());
+            return hata(t("FFmpeg bulunamadı").into());
         };
         let tercih = self.kodlayici_tercihi.lock().unwrap().clone();
         let kod = ffmpeg::kodlayici_sec(&ff, &tercih);
@@ -308,7 +330,7 @@ impl AnlikTekrar {
             .stderr(Stdio::piped());
         let mut surec = match c.spawn() {
             Ok(s) => s,
-            Err(e) => return hata(format!("FFmpeg başlatılamadı: {e}")),
+            Err(e) => return hata(trf!("FFmpeg başlatılamadı: {}", e)),
         };
         // FFmpeg'in hata çıktısının son satırları: kapanırsa nedeni log'a yazılır
         let cikti: Arc<Mutex<std::collections::VecDeque<String>>> = Default::default();
@@ -339,7 +361,7 @@ impl AnlikTekrar {
                 while let Ok(Some(k)) = rx.recv() {
                     if let Err(e) = stdin.write_all(ffmpeg::kare_baytlari(&k, &bicim)) {
                         if o1.acik.load(Ordering::Relaxed) {
-                            let m = format!("Anlık tekrar durdu: {e}");
+                            let m = trf!("Anlık tekrar durdu: {}", e);
                             log::warn!("{m}");
                             *o1.son_hata.lock().unwrap() = m;
                         }
@@ -368,9 +390,9 @@ impl AnlikTekrar {
                                 std::thread::sleep(Duration::from_millis(200)); // hata çıktısı okunsun
                                 let neden = cikti.lock().unwrap().iter().cloned().collect::<Vec<_>>().join(" | ");
                                 let m = if neden.is_empty() {
-                                    "Anlık tekrar durdu: FFmpeg kapandı".to_string()
+                                    t("Anlık tekrar durdu: FFmpeg kapandı").to_string()
                                 } else {
-                                    format!("Anlık tekrar durdu: FFmpeg kapandı ({neden})")
+                                    trf!("Anlık tekrar durdu: FFmpeg kapandı ({})", neden)
                                 };
                                 log::warn!("{m}");
                                 *o2.son_hata.lock().unwrap() = m;
@@ -468,16 +490,16 @@ impl AnlikTekrar {
             Err(m.to_string())
         };
         if !self.acik() {
-            return hata("Anlık tekrar kapalı");
+            return hata(t("Anlık tekrar kapalı"));
         }
         if self.ortak.kaydediliyor.load(Ordering::SeqCst) {
-            return hata("Önceki tekrar hâlâ kaydediliyor");
+            return hata(t("Önceki tekrar hâlâ kaydediliyor"));
         }
         let (baslik, parcalar, sesler, baslangic) = {
             let b = self.ortak.bellek.lock().unwrap();
             if b.parcalar.is_empty() {
                 drop(b);
-                return hata("Henüz kaydedilecek görüntü yok");
+                return hata(t("Henüz kaydedilecek görüntü yok"));
             }
             let simdi = Instant::now();
             let sure = Duration::from_secs(self.sure_sn() as u64);
@@ -491,7 +513,7 @@ impl AnlikTekrar {
             let sesler: Vec<(Instant, Vec<u8>)> = b.sesler.iter().filter(|(t, _)| *t >= baslangic).cloned().collect();
             (b.baslik.clone(), parcalar, sesler, baslangic)
         };
-        let Some(ff) = self.ffmpeg.clone().or_else(ffmpeg::ffmpeg_bul) else { return hata("FFmpeg bulunamadı") };
+        let Some(ff) = self.ffmpeg.clone().or_else(ffmpeg::ffmpeg_bul) else { return hata(t("FFmpeg bulunamadı")) };
         self.ortak.kaydediliyor.store(true, Ordering::SeqCst);
         let ortak = self.ortak.clone();
         std::thread::Builder::new()
@@ -547,7 +569,7 @@ fn birlestir(ff: &Path, video: &Path, ses: Option<&Path>, hedef: &Path) -> Resul
         let _ = std::fs::remove_file(hedef);
         let h = hata.trim();
         let h = &h[h.len().saturating_sub(300)..];
-        return Err(if h.is_empty() { "FFmpeg hata verdi".into() } else { h.to_string() });
+        return Err(if h.is_empty() { t("FFmpeg hata verdi").into() } else { h.to_string() });
     }
     Ok(())
 }
@@ -590,7 +612,7 @@ fn kaydet_isle(
             log::info!("Anlık tekrar kaydedildi: {}", hedef.display());
             (Some(hedef), String::new())
         }
-        Ok(()) => (None, "Dosya oluşmadı".into()),
+        Ok(()) => (None, t("Dosya oluşmadı").into()),
         Err(e) => {
             log::warn!("Anlık tekrar kaydedilemedi: {e}");
             (None, e)
