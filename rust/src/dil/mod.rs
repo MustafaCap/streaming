@@ -180,7 +180,8 @@ mod testler {
             if f.ends_with("dil/en.rs") || f.ends_with("dil/mod.rs") {
                 continue;
             }
-            let m = std::fs::read_to_string(&f).unwrap();
+            // Windows checkout CRLF olabilir; derleyici "\\" + CRLF satır devamını da tanır
+            let m = std::fs::read_to_string(&f).unwrap().replace("\r\n", "\n");
             for kalip in ["t(", "trf!("] {
                 let mut bas = 0;
                 while let Some(k) = m[bas..].find(kalip) {
