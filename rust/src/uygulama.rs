@@ -52,6 +52,8 @@ pub enum Komut {
     /// "Nasıl düzeltilir?" (sanal çıkış sorunu)
     Yardim,
     KayitKlasoru,
+    /// Toplantı modu: kalem ve vurgu ekran paylaşımına (tüm ekran) görünsün
+    ToplantiModu,
 }
 
 impl Komut {
@@ -80,6 +82,7 @@ impl Komut {
             "kalem.kapat" => Komut::KalemKapat,
             "kayit.klasor" => Komut::KayitKlasoru,
             "pencere.mini" => Komut::MiniBar,
+            "toplanti.mod" => Komut::ToplantiModu,
             _ => return None,
         })
     }
@@ -169,6 +172,7 @@ impl Uygulama {
         depo.guncelle(|d| {
             d.mikrofon_sessiz = a.mantik("audio.mic_muted", false);
             d.sistem_sessiz = a.mantik("audio.system_muted", false);
+            d.toplanti_modu = a.mantik("ui.meeting_mode", false);
         });
         let mikser = Arc::new(Mutex::new(mikser));
         let sahneler = Arc::new(SahneYoneticisi::yeni(
@@ -648,6 +652,7 @@ impl Uygulama {
                     Err(e) => format!("Ekran görüntüsü kaydedilemedi: {e}"),
                 }
             }
+            Komut::ToplantiModu => self.toplanti_modu_degistir(),
             Komut::Bolge
             | Komut::KalemTur(_)
             | Komut::KalemRenk(_)
@@ -659,6 +664,26 @@ impl Uygulama {
                 self.uyandir_arayuz();
                 String::new()
             }
+        }
+    }
+}
+
+impl Uygulama {
+    /// Toplantı modu açık mı (kalem ve vurgu katmanı ekran paylaşımına görünür)
+    pub fn toplanti_acik(&self) -> bool {
+        self.depo.al().toplanti_modu
+    }
+
+    fn toplanti_modu_degistir(self: &Arc<Self>) -> String {
+        let acik = !self.toplanti_acik();
+        self.depo.guncelle(|d| d.toplanti_modu = acik);
+        self.ayarla("ui.meeting_mode", Value::Bool(acik));
+        // açık katman yeni değeri bir sonraki çiziminde uygular
+        self.uyandir_arayuz();
+        if acik {
+            "Toplantı modu açık · tüm ekranı paylaşınca kalem ve vurgu da görünür".into()
+        } else {
+            "Toplantı modu kapandı · kalem ve vurgu sadece RizeOn çıkışında".into()
         }
     }
 }
@@ -695,6 +720,7 @@ mod testler {
         assert_eq!(Komut::coz("sahne.sec:0"), None);
         assert_eq!(Komut::coz("ses.mikrofon"), Some(Komut::Mikrofon));
         assert_eq!(Komut::coz("bilinmeyen"), None);
+        assert_eq!(Komut::coz("toplanti.mod"), Some(Komut::ToplantiModu));
     }
 
     #[test]

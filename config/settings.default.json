@@ -14,7 +14,8 @@
     "toasts": true,
     "minimize_to_tray": true,
     "dnd_reminder": true,
-    "advanced": true
+    "advanced": true,
+    "meeting_mode": false
   },
   "camera": {
     "enabled": true,
@@ -117,6 +118,7 @@
     "kayit.ac_kapat": "Ctrl+Shift+R",
     "kayit.duraklat": "Ctrl+Shift+K",
     "kaynak.sec": "",
+    "toplanti.mod": "",
     "bas_konus": ""
   },
   "pen_hotkeys": {

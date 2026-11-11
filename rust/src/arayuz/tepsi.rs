@@ -1,7 +1,7 @@
 //! Sistem tepsisi (Python ui/tray.py karşılığı): pencere kapatılınca uygulama saatin yanında
 //! çalışmaya devam eder.
 //!
-//! Menü: Ana pencereyi göster · Mini bar · mikrofon/sistem sesi/kamera · Sahne ▸ · Kaydı başlat ·
+//! Menü: Ana pencereyi göster · Mini bar · Toplantı modu · mikrofon/sistem sesi/kamera · Sahne ▸ · Kaydı başlat ·
 //! Son 15 sn'yi kaydet · Kayıt klasörü · Sanal çıkışı duraklat · (sorun varsa: sorun satırı) ·
 //! Hakkında · Çıkış.
 
@@ -19,6 +19,7 @@ pub struct Tepsi {
     mik: CheckMenuItem,
     sistem: CheckMenuItem,
     kamera: CheckMenuItem,
+    toplanti: CheckMenuItem,
     sahne: Submenu,
     sahne_ogeleri: Vec<CheckMenuItem>,
     sahne_imzasi: Vec<String>,
@@ -44,6 +45,7 @@ impl Tepsi {
         let onay = |id: &str, ad: &str| CheckMenuItem::with_id(MenuId::new(id), ad, true, false, None);
         let goster = oge("ana", "Ana pencereyi göster");
         let mini = oge("mini", "Mini bar");
+        let toplanti = onay("toplanti.mod", "Toplantı modu (tüm ekran paylaşımı)");
         let mik = onay("ses.mikrofon", "Mikrofon");
         let sistem = onay("ses.sistem", "Sistem sesi");
         let kamera = onay("kamera.ac_kapat", "Kamera");
@@ -59,6 +61,7 @@ impl Tepsi {
         menu.append_items(&[
             &goster,
             &mini,
+            &toplanti,
             &PredefinedMenuItem::separator(),
             &mik,
             &sistem,
@@ -131,6 +134,7 @@ impl Tepsi {
             mik,
             sistem,
             kamera,
+            toplanti,
             sahne,
             sahne_ogeleri: Vec::new(),
             sahne_imzasi: Vec::new(),
@@ -161,6 +165,7 @@ impl Tepsi {
         self.kamera.set_checked(acik);
         self.kamera.set_enabled(sahnede);
         self.kamera.set_text(if sahnede { format!("Kamera: {}", if acik { "açık" } else { "kapalı" }) } else { "Kamera: bu sahnede yok".into() });
+        self.toplanti.set_checked(d.toplanti_modu);
         self.kayit.set_text(if d.kayit == "açık" { "Kaydı bitir" } else { "Kaydı başlat" });
         let etiket = rizeon::tekrar::sure_etiketi(uyg.tekrar.sure_sn() as i64);
         self.tekrar.set_text(if etiket.ends_with("dk") { format!("{etiket}'yı kaydet") } else { format!("{etiket}'yi kaydet") });
@@ -173,7 +178,7 @@ impl Tepsi {
         if sorun != self.sorun_var {
             self.sorun_var = sorun;
             if sorun {
-                let _ = self.menu.insert(&self.sorun, 13);
+                let _ = self.menu.insert(&self.sorun, 14);
             } else {
                 let _ = self.menu.remove(&self.sorun);
             }

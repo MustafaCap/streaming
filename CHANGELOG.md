@@ -2,6 +2,14 @@
 
 Her sürüm [Releases](https://github.com/MustafaCap/streaming/releases) sayfasında `v<sürüm>` adıyla kalıcı olarak durur (1.5.0'dan itibaren). `uygulama` sürümü her zaman en son paketi gösterir.
 
+## 3.1.0 — 2026-11-11
+
+- **Toplantı modu:** Toplantı uygulamaları sanal kameraya düşük çözünürlük ayırdığı için ekran, kalem ve yazılar toplantıda bulanık görünüyordu. Artık toplantıda **Ekranı paylaş > Tüm ekran** seçilir; ekran kendi çözünürlüğünde, net gider. Yeni "Toplantı modu" anahtarı (ana pencerenin üstünde ve tepsi menüsünde) açıkken kalem çizimleri, yazılar ve bölge vurgusu bu ekran paylaşımında karşı tarafa da görünür.
+  - Çizimler ve vurgu "Bitti"ye bastıktan sonra da ekranda kalır (tıklamaları engellemez); silmek için Ctrl+Shift+X.
+  - Bölgeyi büyütme (Yakınlaştır) ekran paylaşımında çalışmaz, çünkü toplantı uygulaması gerçek ekranı gösterir; vurgulama ve kalem çalışır. Kalem barı da karşı tarafa görünür.
+  - Yüzün istersen aynı anda sanal kameradan gitmeye devam eder.
+  - Ayarlar > Kısayollar'dan kısayol atanabilir.
+
 ## 2.0.6 — 2026-11-03
 
 - **İşlemci teşhisi:** uygulama 30 saniyede bir log dosyasına (`%APPDATA%\RizeOn\logs\uygulama.log`) işlemcinin nereye gittiğini yazar: video hattı, ses, webcam, anlık tekrar, FFmpeg ayrı ayrı, Görev Yöneticisi gibi tüm çekirdeklere oranla. Satır "CPU dağılımı" ile başlar. Hiçbir yere gönderilmez.
